@@ -80,7 +80,7 @@ function readCookie(header: string | undefined, name: string): string | undefine
 function loginPage(error = ""): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">
-<title>Sign in · Chisti &amp; Co.</title><link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
+<title>Sign in · Chisti &amp; Co.</title><link rel="icon" type="image/svg+xml" href="/brand/favicon.svg"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b7cc2"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Chisti &amp; Co."><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
   :root{color-scheme:light dark;--bg:#eef4f9;--card:#fff;--ink:#14212b;--muted:#5c6b77;--line:#d9e3ea;--brand:#0b7cc2;--err:#a1281f}
   @media (prefers-color-scheme:dark){:root{--bg:#0d1720;--card:#16222c;--ink:#eef3f7;--muted:#9aaab6;--line:#2a3945;--brand:#4aa8e6;--err:#ff8a80}}
@@ -102,7 +102,9 @@ function loginPage(error = ""): string {
   <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
   ${error ? `<div class="err" role="alert">${error}</div>` : ""}
   <button type="submit">Sign in</button>
-</form></div></body></html>`;
+</form></div>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>
+</body></html>`;
 }
 
 app.post("/login", async (c) => {
@@ -131,7 +133,9 @@ app.get("/logout", (c) => {
 
 app.use("*", async (c, next) => {
   // The health check and the brand images on the sign-in page are public.
-  if (c.req.path === "/api/health" || c.req.path.startsWith("/brand/") || c.req.path === "/favicon.svg") return next();
+  // So are the app manifest and service worker, which phones fetch before sign-in.
+  const PUBLIC = ["/api/health", "/manifest.webmanifest", "/sw.js"];
+  if (PUBLIC.includes(c.req.path) || c.req.path.startsWith("/brand/")) return next();
   if (c.env.ALLOW_NO_AUTH === "true") return next();
   const password = c.env.APP_PASSWORD;
   if (!password) {
