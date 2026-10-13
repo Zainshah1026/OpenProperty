@@ -110,12 +110,48 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   res.end(Buffer.from(await response.arrayBuffer()));
 }
 
-createServer((req, res) => {
-  handle(req, res).catch((err) => {
-    console.error(err);
-    res.statusCode = 500;
-    res.end("Internal error");
+// ── Seed on start ──────────────────────────────────────────────────
+// On hosts without a persistent disk (Render's free plan) the database file is
+// lost whenever the instance restarts or sleeps. If SEED_FILE points at an
+// import payload (e.g. a Render secret file) and the database is empty, load
+// it on boot so the portfolio is always there. Edits made in the app since the
+// last restart are still lost on such hosts — use a disk to keep them.
+
+async function seedIfEmpty() {
+  const file = process.env.SEED_FILE;
+  if (!file) return;
+  let payload: string;
+  try {
+    payload = readFileSync(file, "utf8");
+  } catch {
+    console.log(`No seed file at ${file}; starting with the existing database.`);
+    return;
+  }
+  const row = sqlite.prepare("SELECT COUNT(*) AS n FROM properties").get() as { n: number };
+  if (Number(row.n) > 0) return;
+  const res = await app.fetch(
+    new Request("http://localhost/api/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+    }),
+    { ...env, ALLOW_NO_AUTH: "true" },
+  );
+  console.log(`Seeded database from ${file}: ${res.status} ${await res.text()}`);
+}
+
+function listen() {
+  createServer((req, res) => {
+    handle(req, res).catch((err) => {
+      console.error(err);
+      res.statusCode = 500;
+      res.end("Internal error");
+    });
+  }).listen(PORT, () => {
+    console.log(`Portfolio app listening on :${PORT} (database: ${DB_PATH})`);
   });
-}).listen(PORT, () => {
-  console.log(`Portfolio app listening on :${PORT} (database: ${DB_PATH})`);
-});
+}
+
+seedIfEmpty()
+  .catch((err) => console.error("Seeding failed", err))
+  .finally(listen);

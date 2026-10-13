@@ -52,8 +52,12 @@ you can skip the prompt with `ALLOW_NO_AUTH=true`.
 2. Enter an `APP_PASSWORD` when prompted.
 3. Wait for the first deploy, then open the URL and log in.
 
-The disk needs a paid instance (Starter or above). On Render's free plan the
-disk is wiped on every deploy, so the data would not survive.
+The disk needs a paid instance (Starter or above). On Render's free plan there
+is no disk: the database is rebuilt whenever the app restarts or wakes from
+sleep. To keep the portfolio there anyway, add the import payload as a
+**secret file** named `portfolio.json` and set `SEED_FILE=/etc/secrets/portfolio.json`
+(and `DATABASE_PATH=./data/portfolio.db`) — the app loads it on every start.
+Changes made in the app since the last restart are lost on the free plan.
 
 Manual setup instead of the Blueprint: a Node web service with build command
 `npx --yes pnpm@10 install --frozen-lockfile && npx --yes pnpm@10 run build`,
