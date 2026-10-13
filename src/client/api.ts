@@ -11,6 +11,10 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   } catch {
     /* empty body */
   }
+  if (r.status === 401) {
+    // The session ran out: reload so the server shows the sign-in page.
+    window.location.reload();
+  }
   if (!r.ok) {
     const msg = (data as { error?: string } | null)?.error || `${r.status} ${r.statusText}`;
     throw new Error(msg);

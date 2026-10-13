@@ -28,9 +28,15 @@ const app = new Hono<Env>();
 
 // ── Login ──────────────────────────────────────────────────────────
 // The portfolio holds tenant names, rents and arrears, so every request —
-// the pages as well as the API — sits behind a browser login. It fails
-// closed: with no APP_PASSWORD set, nothing is served (except on a dev
-// machine that opts out with ALLOW_NO_AUTH=true).
+// the pages as well as the API — sits behind a login. A normal sign-in page
+// (not the browser's Basic-auth pop-up, which in-app browsers such as
+// WhatsApp's never show) sets a signed session cookie for 30 days. A Basic
+// Authorization header is still accepted for scripts. It fails closed: with
+// no APP_PASSWORD set nothing is served (except on a dev machine that opts out
+// with ALLOW_NO_AUTH=true).
+
+const SESSION_COOKIE = "pf_session";
+const SESSION_DAYS = 30;
 
 function safeEqual(a: string, b: string): boolean {
   const enc = new TextEncoder();
@@ -42,27 +48,106 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+const b64url = (buf: ArrayBuffer) =>
+  btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+/** HMAC-SHA256 keyed by the password, so changing it signs everyone out. */
+async function sign(secret: string, data: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(`portfolio-session:${secret}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return b64url(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data)));
+}
+
+async function makeSession(secret: string): Promise<string> {
+  const expires = String(Date.now() + SESSION_DAYS * 86_400_000);
+  return `${expires}.${await sign(secret, expires)}`;
+}
+
+async function validSession(secret: string, token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  const [expires, sig] = token.split(".");
+  if (!expires || !sig || Number(expires) < Date.now()) return false;
+  return safeEqual(sig, await sign(secret, expires));
+}
+
+function readCookie(header: string | undefined, name: string): string | undefined {
+  for (const part of (header ?? "").split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return decodeURIComponent(v.join("="));
+  }
+  return undefined;
+}
+
+function loginPage(error = ""): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">
+<title>Sign in · Portfolio</title>
+<style>
+  :root{color-scheme:light dark;--bg:#f6f6f4;--card:#fff;--ink:#1b1b1a;--muted:#6b6b66;--line:#e2e2dd;--brand:#1f5f45;--err:#a1281f}
+  @media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#f1f1ee;--muted:#a3a39c;--line:#33332f;--brand:#5fbf8f;--err:#ff8a80}}
+  *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
+  form{width:100%;max-width:360px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px}
+  h1{font-size:20px;margin:0 0 4px}p{margin:0 0 20px;color:var(--muted);font-size:14px}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
+  input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font-size:16px}
+  input:focus{outline:2px solid var(--brand);outline-offset:1px}
+  button{margin-top:22px;width:100%;padding:12px;border:0;border-radius:8px;background:var(--brand);color:#fff;font-size:16px;font-weight:600;cursor:pointer}
+  .err{color:var(--err);font-size:14px;margin:12px 0 0}
+</style></head><body>
+<form method="post" action="/login">
+  <h1>Portfolio</h1><p>Sign in to see the dashboard.</p>
+  <label for="u">Username</label><input id="u" name="username" autocomplete="username" autocapitalize="none" required>
+  <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
+  ${error ? `<div class="err" role="alert">${error}</div>` : ""}
+  <button type="submit">Sign in</button>
+</form></body></html>`;
+}
+
+app.post("/login", async (c) => {
+  const password = c.env.APP_PASSWORD;
+  if (!password) return c.text("Login is not set up yet: add an APP_PASSWORD setting.", 503);
+  const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
+  const user = String(form.username ?? "").trim();
+  const pass = String(form.password ?? "");
+  if (safeEqual(user.toLowerCase(), (c.env.APP_USERNAME || "admin").toLowerCase()) && safeEqual(pass, password)) {
+    const token = await makeSession(password);
+    const secure = new URL(c.req.url).protocol === "https:" || c.req.header("x-forwarded-proto") === "https";
+    c.header(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure ? "; Secure" : ""}`,
+    );
+    return c.redirect("/", 303);
+  }
+  await new Promise((r) => setTimeout(r, 1000)); // slow down guessing
+  return c.html(loginPage("That username and password don't match."), 401);
+});
+
+app.get("/logout", (c) => {
+  c.header("Set-Cookie", `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  return c.redirect("/", 303);
+});
+
 app.use("*", async (c, next) => {
   if (c.req.path === "/api/health") return next();
   if (c.env.ALLOW_NO_AUTH === "true") return next();
   const password = c.env.APP_PASSWORD;
   if (!password) {
-    return c.text("Login is not set up yet: add an APP_PASSWORD secret to this Worker.", 503);
+    return c.text("Login is not set up yet: add an APP_PASSWORD setting.", 503);
   }
-  const expectedUser = c.env.APP_USERNAME || "admin";
+  if (await validSession(password, readCookie(c.req.header("Cookie"), SESSION_COOKIE))) return next();
   const header = c.req.header("Authorization") ?? "";
   if (header.startsWith("Basic ")) {
     try {
       const decoded = atob(header.slice(6));
       const sep = decoded.indexOf(":");
-      const user = decoded.slice(0, sep);
-      const pass = decoded.slice(sep + 1);
-      if (sep > -1 && safeEqual(user, expectedUser) && safeEqual(pass, password)) return next();
+      if (sep > -1 && safeEqual(decoded.slice(0, sep), c.env.APP_USERNAME || "admin") && safeEqual(decoded.slice(sep + 1), password)) {
+        return next();
+      }
     } catch {
-      /* malformed header: fall through to the prompt */
+      /* malformed header: treat as signed out */
     }
   }
-  return c.text("Login required", 401, { "WWW-Authenticate": 'Basic realm="Portfolio", charset="UTF-8"' });
+  if (c.req.path.startsWith("/api/")) return c.json({ error: "Signed out. Reload the page to sign in." }, 401);
+  return c.html(loginPage(), 401);
 });
 
 app.use("/api/*", async (c, next) => {

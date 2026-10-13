@@ -45,6 +45,7 @@ const GROWTH: AppNavItem[] = [
 ];
 const ADMIN: AppNavItem[] = [
   { id: "settings", label: "Settings", href: "/settings", icon: "settings" },
+  { id: "logout", label: "Sign out", href: "/logout", icon: "log-out" },
 ];
 
 /** A record page keeps its collection's row lit. */
@@ -82,7 +83,11 @@ export function App() {
             icon="home"
             groups={groups}
             active={activeFor(route)}
-            onNavigate={(item) => navigate(item.href ?? "/dashboard")}
+            onNavigate={(item) => {
+              // Signing out is a server round trip, not a client-side route.
+              if (item.href === "/logout") window.location.href = "/logout";
+              else navigate(item.href ?? "/dashboard");
+            }}
           />
         </div>
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
