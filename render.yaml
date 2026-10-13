@@ -21,6 +21,15 @@ services:
         value: admin
       - key: APP_PASSWORD
         sync: false
+      # Optional Google Sheet sync — see README
+      - key: SHEET_PUB_URL
+        sync: false
+      - key: SHEET_PROPERTIES_GID
+        sync: false
+      - key: SHEET_COMPLIANCE_GID
+        sync: false
+      - key: SHEET_SALES_GID
+        sync: false
     disk:
       name: data
       mountPath: /var/data

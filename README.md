@@ -65,6 +65,29 @@ start command `node --disable-warning=ExperimentalWarning dist-server/node.js`,
 a disk at `/var/data`, and env vars `DATABASE_PATH=/var/data/portfolio.db`,
 `NODE_VERSION=22.20.0`, `APP_PASSWORD`.
 
+## Keep it in sync with a Google Sheet
+
+The easiest way to run it: keep editing the spreadsheet, and the dashboard
+follows. In Google Sheets choose **File → Share → Publish to web → Entire
+document → Comma-separated values (.csv) → Publish**, then set:
+
+| Variable | Value |
+|---|---|
+| `SHEET_PUB_URL` | the published link (`https://docs.google.com/spreadsheets/d/e/…/pub?output=csv`) |
+| `SHEET_PROPERTIES_GID` | the `gid=` number in the Properties tab's URL |
+| `SHEET_COMPLIANCE_GID` | the Compliance tab's `gid` |
+| `SHEET_SALES_GID` | the Sales tab's `gid` |
+| `SYNC_MINUTES` | optional, default 5 |
+
+The app reads the sheet on start, every few minutes, and when you press
+**Sync now**. Properties are matched by Ref (or address), so their leases and
+work orders are kept; homes deleted from the sheet are deleted here. Edits made
+in the app to synced fields are replaced by the sheet at the next sync.
+
+A published link is unlisted, but anyone who has it can read the sheet. Keep it
+in Render's environment settings only, and unpublish the sheet (same menu) if
+it ever leaks.
+
 ## Import your spreadsheet
 
 Download each tab as CSV (File → Download → Comma-separated values) and put

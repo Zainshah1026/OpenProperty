@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PropertyDialog } from "./property-dialog";
 import { PageShell } from "@/components/page-shell";
+import { SyncBanner } from "@/components/sync-banner";
 
 const ALL = "__all";
 
@@ -60,6 +61,7 @@ export function PropertiesList({ navigate }: { navigate: (to: string) => void })
         </Button>
       }
     >
+      <SyncBanner />
       {properties.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
           <Building2 className="size-8 text-faint" aria-hidden />

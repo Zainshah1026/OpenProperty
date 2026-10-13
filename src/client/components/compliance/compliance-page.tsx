@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PropertyDialog } from "@/components/properties/property-dialog";
 import { PageShell } from "@/components/page-shell";
+import { SyncBanner } from "@/components/sync-banner";
 import type { Property } from "@/types";
 
 type View = "attention" | "all" | CertState;
@@ -48,6 +49,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
       title="Compliance"
       meta={`${counts.expired} expired · ${counts.due_soon} due within 60 days · ${counts.missing} with no dates recorded`}
     >
+      <SyncBanner />
       <Tabs value={view} onValueChange={(v) => setView(v as View)}>
         <TabsList>
           <TabsTrigger value="attention">Needs action ({counts.expired + counts.due_soon + counts.missing})</TabsTrigger>

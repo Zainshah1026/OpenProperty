@@ -8,10 +8,12 @@ import type { PortfolioGroup, PortfolioSummary } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
+import { SyncBanner } from "@/components/sync-banner";
 
 export function DashboardPage({ navigate }: { navigate: (to: string) => void }) {
   const { settings, setError } = useApp();
   const [s, setS] = useState<PortfolioSummary | null>(null);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,7 +21,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
       .then((d) => { if (!cancelled) setS(d); })
       .catch((err) => { if (!cancelled) setError((err as Error).message); });
     return () => { cancelled = true; };
-  }, [setError]);
+  }, [setError, version]);
 
   const money = (n: number) => formatMoney(n, settings.currency);
 
@@ -30,6 +32,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
   if (s.properties === 0) {
     return (
       <PageShell title="Dashboard">
+        <SyncBanner onSynced={() => setVersion((v) => v + 1)} />
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
           <Building2 className="size-8 text-faint" aria-hidden />
           <p className="font-medium">No properties yet</p>
@@ -51,6 +54,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
       title="Dashboard"
       meta={`${s.properties} properties · ${s.occupied} let · rents per calendar month`}
     >
+      <SyncBanner onSynced={() => setVersion((v) => v + 1)} />
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi
           label="Rent in"

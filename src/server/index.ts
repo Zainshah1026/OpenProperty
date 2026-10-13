@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { initDB, query, get, run } from "./db";
+import { runSync, syncStatus } from "./sync";
 
 type Env = {
   Bindings: {
@@ -13,6 +14,11 @@ type Env = {
     APP_USERNAME?: string;
     /** Set to "true" in .dev.vars to skip the login prompt on your own machine. */
     ALLOW_NO_AUTH?: string;
+    /** Google Sheet sync (see src/server/sync.ts). */
+    SHEET_PUB_URL?: string;
+    SHEET_PROPERTIES_GID?: string;
+    SHEET_COMPLIANCE_GID?: string;
+    SHEET_SALES_GID?: string;
   };
 };
 
@@ -1183,6 +1189,18 @@ app.post("/api/import", async (c) => {
   for (const l of leads) await insert("sales_leads", { ...l, status: l.status ?? "new" });
 
   return c.json({ ok: true, properties: properties.length, leads: leads.length });
+});
+
+// ── Google Sheet sync ──────────────────────────────────────────────
+
+app.get("/api/sync", (c) => c.json(syncStatus(c.env)));
+
+app.post("/api/sync", async (c) => {
+  try {
+    return c.json(await runSync(c.env));
+  } catch (err) {
+    return c.json({ ...syncStatus(c.env), error: (err as Error).message }, 502);
+  }
 });
 
 // ── Health ─────────────────────────────────────────────────────────

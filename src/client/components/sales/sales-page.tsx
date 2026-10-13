@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/page-shell";
+import { SyncBanner } from "@/components/sync-banner";
 import type { LeadStatus, NewSalesLead, SalesLead } from "@/types";
 
 const ALL = "__all";
@@ -66,6 +67,7 @@ export function SalesPage() {
       meta={`${leads.length} leads · ${active} active`}
       actions={<Button onClick={() => setEditing(null)}><Plus className="h-4 w-4" /> New lead</Button>}
     >
+      <SyncBanner onSynced={load} />
       {loading ? (
         <div className="py-16 text-center text-muted-foreground">Loading leads…</div>
       ) : leads.length === 0 ? (

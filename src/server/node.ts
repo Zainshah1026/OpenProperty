@@ -11,6 +11,7 @@ import { DatabaseSync } from "node:sqlite";
 import schema from "./schema.sql?raw";
 import app from "./index";
 import { setAdapter } from "./db";
+import { runSync, syncEnabled } from "./sync";
 
 const PORT = Number(process.env.PORT || 8787);
 const DB_PATH = resolve(process.env.DATABASE_PATH || "./data/portfolio.db");
@@ -83,6 +84,10 @@ const env = {
   APP_PASSWORD: process.env.APP_PASSWORD,
   APP_USERNAME: process.env.APP_USERNAME,
   ALLOW_NO_AUTH: process.env.ALLOW_NO_AUTH,
+  SHEET_PUB_URL: process.env.SHEET_PUB_URL,
+  SHEET_PROPERTIES_GID: process.env.SHEET_PROPERTIES_GID,
+  SHEET_COMPLIANCE_GID: process.env.SHEET_COMPLIANCE_GID,
+  SHEET_SALES_GID: process.env.SHEET_SALES_GID,
 };
 
 // ── HTTP bridge ────────────────────────────────────────────────────
@@ -152,6 +157,26 @@ function listen() {
   });
 }
 
-seedIfEmpty()
-  .catch((err) => console.error("Seeding failed", err))
-  .finally(listen);
+// With a Google Sheet linked, read it on start and then every SYNC_MINUTES.
+const SYNC_MINUTES = Math.max(1, Number(process.env.SYNC_MINUTES || 5));
+
+async function syncOnce(when: string) {
+  try {
+    const s = await runSync(env);
+    console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.leads} leads`);
+  } catch (err) {
+    console.error(`Sheet sync (${when}) failed: ${(err as Error).message}`);
+  }
+}
+
+async function start() {
+  if (syncEnabled(env)) {
+    await syncOnce("start");
+    setInterval(() => syncOnce("scheduled"), SYNC_MINUTES * 60_000).unref();
+  } else {
+    await seedIfEmpty().catch((err) => console.error("Seeding failed", err));
+  }
+  listen();
+}
+
+start();
