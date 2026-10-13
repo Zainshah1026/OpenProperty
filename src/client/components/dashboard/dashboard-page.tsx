@@ -145,7 +145,39 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
           </div>
         </Card>
       </section>
+      {s.leasehold && (
+        <Card className="p-5">
+          <CardTitle
+            title="Ground rent & service charge"
+            sub="Yearly totals across all homes: what we pay freeholders and what we collect on the freeholds we own"
+            action={{ label: "Freeholds", onClick: () => navigate("/properties?section=freehold") }}
+          />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <LeaseStat label="Ground rent paid" value={money(s.leasehold.ground_rent_paid)} />
+            <LeaseStat label="Service charge paid" value={money(s.leasehold.service_charge_paid)} />
+            <LeaseStat label="Ground rent received" value={money(s.leasehold.ground_rent_received)} />
+            <LeaseStat label="Service charge received" value={money(s.leasehold.service_charge_received)} />
+            <LeaseStat
+              label="Net per year"
+              value={money(s.leasehold.ground_rent_received + s.leasehold.service_charge_received - s.leasehold.ground_rent_paid - s.leasehold.service_charge_paid)}
+              strong
+            />
+          </div>
+          {!(s.leasehold.ground_rent_paid || s.leasehold.service_charge_paid || s.leasehold.ground_rent_received || s.leasehold.service_charge_received) && (
+            <p className="mt-3 text-xs text-muted-foreground">No amounts yet. Fill in the four Ground Rent / Service Charge columns on the Properties and Rent to Rent tabs of the sheet.</p>
+          )}
+        </Card>
+      )}
     </PageShell>
+  );
+}
+
+function LeaseStat({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div>
+      <div className="stat-label">{label}</div>
+      <div className={cn("mt-1 tabular-nums", strong ? "text-lg font-semibold" : "text-base font-medium")}>{value}</div>
+    </div>
   );
 }
 

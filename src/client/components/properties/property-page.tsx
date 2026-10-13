@@ -13,7 +13,7 @@ import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, certState, dealLabel, netProfit,
-  occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
+  hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
 } from "@/lib/portfolio";
 
 
@@ -152,6 +152,8 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
             tone={property.arrears_amount > 0 ? "warn" : "default"}
           />
         </section>
+
+        <LeaseholdCard property={property} currency={app.settings.currency} />
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="p-5 lg:col-span-2">
@@ -362,5 +364,47 @@ function RoomsSection({ rooms, property, currency }: { rooms: Room[]; property: 
         </Card>
       )}
     </section>
+  );
+}
+
+/** Ground rent and service charge: what we pay a freeholder, and what we collect as freeholder. */
+function LeaseholdCard({ property: p, currency }: { property: Property; currency: string }) {
+  const show = hasLeaseholdFigures(p) || isFreehold(p.tenure) || p.type === "flat" || p.type === "maisonette";
+  if (!show) return null;
+  const m = (n: number) => formatMoney(n, currency);
+  const line = (label: string, yearly: number) => (
+    <div className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right tabular-nums">
+        {yearly ? <><span className="font-medium">{m(yearly)}</span><span className="text-xs text-muted-foreground"> /yr · {m(yearly / 12)} /mo</span></> : <span className="text-muted-foreground">—</span>}
+      </dd>
+    </div>
+  );
+  const net = leaseholdNet(p);
+  return (
+    <Card className="p-5">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold">Ground rent &amp; service charge</h2>
+        {hasLeaseholdFigures(p) ? (
+          <span className={cn("text-sm font-semibold tabular-nums", net < 0 ? "text-destructive" : "text-success")}>
+            {net < 0 ? "−" : "+"}{m(Math.abs(net))} /mo net
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Add yearly amounts on the sheet</span>
+        )}
+      </div>
+      <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+        <dl>
+          <div className="section-label pb-1">We pay</div>
+          {line("Ground rent", p.ground_rent_paid)}
+          {line("Service charge", p.service_charge_paid)}
+        </dl>
+        <dl>
+          <div className="section-label pb-1 pt-3 sm:pt-0">We receive{isFreehold(p.tenure) ? " (as freeholder)" : ""}</div>
+          {line("Ground rent", p.ground_rent_received)}
+          {line("Service charge", p.service_charge_received)}
+        </dl>
+      </div>
+    </Card>
   );
 }

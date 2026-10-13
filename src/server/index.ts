@@ -251,6 +251,10 @@ const PropertyInput = z.object({
   rent_in: z.number().min(0).optional(),
   rent_out: z.number().min(0).optional(),
   other_costs: z.number().min(0).optional(),
+  ground_rent_paid: z.number().min(0).optional(),
+  service_charge_paid: z.number().min(0).optional(),
+  ground_rent_received: z.number().min(0).optional(),
+  service_charge_received: z.number().min(0).optional(),
   rent_in_day: dayOfMonth,
   payment_out_day: dayOfMonth,
   rent_status: z.enum(RENT_STATUS).optional().nullable(),
@@ -267,7 +271,7 @@ const PropertyInput = z.object({
 
 const PROPERTY_SELECT = `
   SELECT p.*,
-    (p.rent_in - p.rent_out - p.other_costs) as net_profit,
+    (p.rent_in - p.rent_out - p.other_costs + (p.ground_rent_received + p.service_charge_received - p.ground_rent_paid - p.service_charge_paid) / 12.0) as net_profit,
     (SELECT COUNT(*) FROM rooms r WHERE r.property_id = p.id) as room_count,
     (SELECT COUNT(*) FROM rooms r WHERE r.property_id = p.id AND r.tenant_name IS NOT NULL AND COALESCE(r.rent_status, '') != 'empty') as rooms_let,
     (SELECT COALESCE(SUM(r.rent), 0) FROM rooms r WHERE r.property_id = p.id) as rooms_rent,
@@ -1188,11 +1192,13 @@ app.get("/api/portfolio/summary", async (c) => {
     rent_status: string | null; months_arrears: number; arrears_amount: number;
     gas_expiry: string | null; epc_expiry: string | null; eicr_expiry: string | null;
     licence_expiry: string | null; insurance_expiry: string | null; tenant_label: string | null;
+    ground_rent_paid: number; service_charge_paid: number; ground_rent_received: number; service_charge_received: number;
   };
   const rows = await query<Row>(
     `SELECT id, ref, name, address, owner, deal_type, section, occupancy, rent_in, rent_out, other_costs,
             rent_in_day, payment_out_day, rent_status, months_arrears, arrears_amount,
-            gas_expiry, epc_expiry, eicr_expiry, licence_expiry, insurance_expiry, tenant_label
+            gas_expiry, epc_expiry, eicr_expiry, licence_expiry, insurance_expiry, tenant_label,
+            ground_rent_paid, service_charge_paid, ground_rent_received, service_charge_received
      FROM properties`,
   ).catch(() => [] as Row[]);
 
@@ -1201,6 +1207,9 @@ app.get("/api/portfolio/summary", async (c) => {
   const certs = ["gas_expiry", "epc_expiry", "eicr_expiry", "licence_expiry", "insurance_expiry"] as const;
 
   const sum = (xs: Row[], f: (r: Row) => number) => xs.reduce((a, r) => a + (Number(f(r)) || 0), 0);
+  /** Ground rent and service charge, received minus paid, as a monthly figure. */
+  const leaseNet = (r: Row) =>
+    ((r.ground_rent_received || 0) + (r.service_charge_received || 0) - (r.ground_rent_paid || 0) - (r.service_charge_paid || 0)) / 12;
   const group = (key: (r: Row) => string) => {
     const m = new Map<string, Row[]>();
     for (const r of rows) {
@@ -1214,7 +1223,7 @@ app.get("/api/portfolio/summary", async (c) => {
         rent_in: sum(xs, (r) => r.rent_in),
         rent_out: sum(xs, (r) => r.rent_out),
         costs: sum(xs, (r) => r.other_costs),
-        net: sum(xs, (r) => r.rent_in - r.rent_out - r.other_costs),
+        net: sum(xs, (r) => r.rent_in - r.rent_out - r.other_costs + leaseNet(r)),
         arrears: sum(xs, (r) => r.arrears_amount),
       }))
       .sort((a, b) => b.rent_in - a.rent_in);
@@ -1254,8 +1263,14 @@ app.get("/api/portfolio/summary", async (c) => {
     rent_in: sum(rows, (r) => r.rent_in),
     rent_out: sum(rows, (r) => r.rent_out),
     other_costs: sum(rows, (r) => r.other_costs),
-    net: sum(rows, (r) => r.rent_in - r.rent_out - r.other_costs),
-    costs_missing: rows.filter((r) => r.deal_type !== "ground_rent" && !r.rent_out && !r.other_costs).length,
+    net: sum(rows, (r) => r.rent_in - r.rent_out - r.other_costs + leaseNet(r)),
+    leasehold: {
+      ground_rent_paid: sum(rows, (r) => r.ground_rent_paid),
+      service_charge_paid: sum(rows, (r) => r.service_charge_paid),
+      ground_rent_received: sum(rows, (r) => r.ground_rent_received),
+      service_charge_received: sum(rows, (r) => r.service_charge_received),
+    },
+    costs_missing: rows.filter((r) => r.deal_type !== "ground_rent" && !r.rent_out && !r.other_costs && !r.ground_rent_paid && !r.service_charge_paid).length,
     arrears_total: sum(rows, (r) => r.arrears_amount),
     arrears_count: arrears.length,
     compliance: { expired, due_soon: dueSoon, missing },

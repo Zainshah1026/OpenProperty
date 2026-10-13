@@ -26,6 +26,10 @@ export interface Property {
   rent_in: number;
   rent_out: number;
   other_costs: number;
+  ground_rent_paid: number;
+  service_charge_paid: number;
+  ground_rent_received: number;
+  service_charge_received: number;
   rent_in_day: number | null;
   payment_out_day: number | null;
   rent_status: RentStatus | null;
@@ -257,6 +261,7 @@ export interface PortfolioSummary {
   other_costs: number;
   net: number;
   costs_missing: number;
+  leasehold?: { ground_rent_paid: number; service_charge_paid: number; ground_rent_received: number; service_charge_received: number };
   arrears_total: number;
   arrears_count: number;
   compliance: { expired: number; due_soon: number; missing: number };

@@ -112,6 +112,16 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
           {counts.freehold === 0 && " No homes are marked yet."}
         </p>
       )}
+      {section === "freehold" && properties.length > 0 && (() => {
+        const gr = properties.reduce((t, p) => t + (p.ground_rent_received || 0), 0);
+        const sc = properties.reduce((t, p) => t + (p.service_charge_received || 0), 0);
+        return (
+          <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-md bg-muted px-3 py-2 text-sm">
+            <span>Ground rent received: <b className="tabular-nums">{money(gr)}</b> /yr</span>
+            <span>Service charge received: <b className="tabular-nums">{money(sc)}</b> /yr</span>
+          </div>
+        );
+      })()}
       {properties.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
           <Building2 className="size-8 text-faint" aria-hidden />
@@ -161,7 +171,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                 <tbody className="divide-y">
                   {rows.map((p) => {
                     const net = netProfit(p);
-                    const costsKnown = p.rent_out > 0 || p.other_costs > 0 || p.deal_type === "ground_rent";
+                    const costsKnown = p.rent_out > 0 || p.other_costs > 0 || p.deal_type === "ground_rent" || p.ground_rent_paid > 0 || p.service_charge_paid > 0;
                     return (
                       <tr key={p.id} className="cursor-pointer transition-colors duration-150 hover:bg-muted" onClick={() => navigate(`/properties/${p.id}`)}>
                         <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{p.ref || "—"}</td>
@@ -176,7 +186,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                         <td className="px-3 py-2.5"><Badge variant={occupancyTone(p.occupancy)}>{occupancyLabel(p.occupancy)}</Badge></td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{money(p.rent_in)}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {costsKnown ? money(p.rent_out + p.other_costs) : <span className="text-warning" title="No costs entered">—</span>}
+                          {costsKnown ? money(p.rent_out + p.other_costs + (p.ground_rent_paid + p.service_charge_paid) / 12) : <span className="text-warning" title="No costs entered">—</span>}
                         </td>
                         <td className={cn("px-3 py-2.5 text-right font-medium tabular-nums", costsKnown && net < 0 && "text-destructive")}>
                           {costsKnown ? money(net) : "—"}

@@ -21,7 +21,7 @@ interface Props {
 type Form = Record<string, string>;
 
 const TEXT = ["ref", "name", "address", "city", "state", "zip", "owner", "tenant_label", "notes"] as const;
-const NUM = ["rent_in", "rent_out", "other_costs", "months_arrears", "arrears_amount"] as const;
+const NUM = ["rent_in", "rent_out", "other_costs", "months_arrears", "arrears_amount", "ground_rent_paid", "service_charge_paid", "ground_rent_received", "service_charge_received"] as const;
 const INT = ["bedrooms", "rent_in_day", "payment_out_day", "year_built"] as const;
 const DATES = CERTIFICATES.map((c) => c.key);
 
@@ -149,6 +149,15 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props)
                 <Field label="Rent status"><Choice value={f.rent_status} onChange={set("rent_status")} options={RENT_STATUS} /></Field>
                 <Field label="Months behind"><Input inputMode="decimal" {...bind("months_arrears")} /></Field>
                 <Field label="Arrears (£)"><Input inputMode="decimal" {...bind("arrears_amount")} /></Field>
+              </div>
+            </Section>
+
+            <Section title="Ground rent & service charge (per year)">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Ground rent we pay (£)"><Input inputMode="decimal" {...bind("ground_rent_paid")} /></Field>
+                <Field label="Service charge we pay (£)"><Input inputMode="decimal" {...bind("service_charge_paid")} /></Field>
+                <Field label="Ground rent we receive (£)"><Input inputMode="decimal" {...bind("ground_rent_received")} /></Field>
+                <Field label="Service charge we receive (£)"><Input inputMode="decimal" {...bind("service_charge_received")} /></Field>
               </div>
             </Section>
 

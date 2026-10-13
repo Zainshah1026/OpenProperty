@@ -120,8 +120,18 @@ export const CERT_LABEL: Record<CertState, string> = {
   missing: "No dates",
 };
 
+/** Ground rent and service charge received minus paid, per month (the sheet holds yearly figures). */
+export function leaseholdNet(p: Property): number {
+  return ((p.ground_rent_received || 0) + (p.service_charge_received || 0) - (p.ground_rent_paid || 0) - (p.service_charge_paid || 0)) / 12;
+}
+
+export function hasLeaseholdFigures(p: Property): boolean {
+  return !!(p.ground_rent_paid || p.service_charge_paid || p.ground_rent_received || p.service_charge_received);
+}
+
+/** Monthly net: rent in, less rent / mortgage and costs, plus ground rent and service charge received less paid. */
 export function netProfit(p: Property): number {
-  return (p.rent_in || 0) - (p.rent_out || 0) - (p.other_costs || 0);
+  return (p.rent_in || 0) - (p.rent_out || 0) - (p.other_costs || 0) + leaseholdNet(p);
 }
 
 export function ordinal(n: number | null | undefined): string {

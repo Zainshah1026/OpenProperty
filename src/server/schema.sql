@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS properties (
   rent_in REAL NOT NULL DEFAULT 0,             -- monthly rent received
   rent_out REAL NOT NULL DEFAULT 0,            -- monthly rent or mortgage paid out
   other_costs REAL NOT NULL DEFAULT 0,         -- council tax, utilities, insurance, licences (monthly)
+  ground_rent_paid REAL NOT NULL DEFAULT 0,    -- per year, to the freeholder
+  service_charge_paid REAL NOT NULL DEFAULT 0, -- per year, to the freeholder / managing agent
+  ground_rent_received REAL NOT NULL DEFAULT 0,    -- per year, from leaseholders (freeholds we own)
+  service_charge_received REAL NOT NULL DEFAULT 0, -- per year, from leaseholders
   rent_in_day INTEGER,                         -- day of month rent arrives (1–31)
   payment_out_day INTEGER,                     -- day of month the rent / mortgage leaves (1–31)
   rent_status TEXT,                            -- 'on_time' | 'in_arrears' | 'in_advance' | 'ground_rent'
