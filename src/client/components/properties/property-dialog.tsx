@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Property, PropertyType } from "@/types";
+import { CERTIFICATES, DEAL_TYPES, OCCUPANCY, PROPERTY_TYPES, RENT_STATUS } from "@/lib/portfolio";
+import type { DealType, NewProperty, Occupancy, Property, PropertyType, RentStatus } from "@/types";
 
 interface Props {
   open: boolean;
@@ -16,61 +17,61 @@ interface Props {
   onSaved?: (p: Property) => void;
 }
 
-const TYPES: { value: PropertyType; label: string }[] = [
-  { value: "single_family", label: "Single-family home" },
-  { value: "multi_family", label: "Multi-family / apartments" },
-  { value: "condo", label: "Condo" },
-  { value: "townhouse", label: "Townhouse" },
-  { value: "commercial", label: "Commercial" },
-];
+/** Every editable field as a string, the way the inputs hold it. */
+type Form = Record<string, string>;
 
-const COLORS = ["sky", "emerald", "amber", "rose", "violet", "fuchsia", "teal", "orange", "slate"];
+const TEXT = ["ref", "name", "address", "city", "state", "zip", "owner", "tenant_label", "notes"] as const;
+const NUM = ["rent_in", "rent_out", "other_costs", "months_arrears", "arrears_amount"] as const;
+const INT = ["bedrooms", "rent_in_day", "payment_out_day", "year_built"] as const;
+const DATES = CERTIFICATES.map((c) => c.key);
+
+function toForm(p?: Property): Form {
+  const f: Form = {};
+  for (const k of [...TEXT, ...NUM, ...INT, ...DATES]) {
+    const v = p ? (p as unknown as Record<string, unknown>)[k] : undefined;
+    f[k] = v === null || v === undefined || (typeof v === "number" && v === 0 && k !== "rent_in") ? "" : String(v);
+  }
+  f.type = p?.type ?? "flat";
+  f.deal_type = p?.deal_type ?? "owned";
+  f.occupancy = p?.occupancy ?? "occupied";
+  f.rent_status = p?.rent_status ?? "on_time";
+  f.hmo = p?.hmo ? "1" : "0";
+  return f;
+}
 
 export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props) {
   const app = useApp();
-  const [name, setName] = useState("");
+  const [f, setF] = useState<Form>(() => toForm(property));
   const [confirming, setConfirming] = useState(false);
-  const [type, setType] = useState<PropertyType>("single_family");
-  const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [stateName, setStateName] = useState("");
-  const [zip, setZip] = useState("");
-  const [yearBuilt, setYearBuilt] = useState("");
-  const [color, setColor] = useState("sky");
-  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    setName(property?.name ?? "");
-    setType((property?.type as PropertyType) ?? "single_family");
-    setAddress(property?.address ?? "");
-    setCity(property?.city ?? "");
-    setStateName(property?.state ?? "");
-    setZip(property?.zip ?? "");
-    setYearBuilt(property?.year_built ? String(property.year_built) : "");
-    setColor(property?.color ?? "sky");
-    setNotes(property?.notes ?? "");
+    if (open) setF(toForm(property));
   }, [open, property]);
 
+  const set = (k: string) => (v: string) => setF((prev) => ({ ...prev, [k]: v }));
+  const bind = (k: string) => ({ value: f[k] ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => set(k)(e.target.value) });
+
   async function save() {
-    if (!name.trim()) return;
+    const name = (f.name || f.address || "").trim();
+    if (!name) return;
     setSaving(true);
     try {
-      const payload = {
-        name: name.trim(),
-        type,
-        address: address.trim() || null,
-        city: city.trim() || null,
-        state: stateName.trim() || null,
-        zip: zip.trim() || null,
-        year_built: yearBuilt ? parseInt(yearBuilt, 10) : null,
-        color,
-        notes: notes.trim() || null,
-      };
-      const saved = property
-        ? await app.updateProperty(property.id, payload)
-        : await app.createProperty(payload);
+      const payload: NewProperty = { name };
+      const out = payload as unknown as Record<string, unknown>;
+      for (const k of TEXT) if (k !== "name") out[k] = f[k]?.trim() || null;
+      for (const k of NUM) out[k] = f[k] ? Math.max(0, parseFloat(f[k].replace(/[£,]/g, "")) || 0) : 0;
+      for (const k of INT) {
+        const n = parseInt(f[k], 10);
+        out[k] = Number.isFinite(n) ? n : null;
+      }
+      for (const k of DATES) out[k] = f[k] || null;
+      payload.type = f.type as PropertyType;
+      payload.deal_type = f.deal_type as DealType;
+      payload.occupancy = f.occupancy as Occupancy;
+      payload.rent_status = f.rent_status as RentStatus;
+      payload.hmo = f.hmo === "1" ? 1 : 0;
+      const saved = property ? await app.updateProperty(property.id, payload) : await app.createProperty(payload);
       onSaved?.(saved);
       onOpenChange(false);
     } catch (err) {
@@ -92,85 +93,86 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props)
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{property ? "Edit property" : "New property"}</DialogTitle>
-        </DialogHeader>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{property ? "Edit property" : "New property"}</DialogTitle>
+          </DialogHeader>
 
-        <div className="grid gap-3">
-          <div>
-            <Label htmlFor="prop-name">Name</Label>
-            <Input id="prop-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Oakwood Estate" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Type</Label>
-              <Select value={type} onValueChange={(v) => setType(v as PropertyType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Color</Label>
-              <Select value={color} onValueChange={setColor}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COLORS.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      <span className="flex items-center gap-2">
-                        <span className={`h-3 w-3 rounded-full bg-${c}-500`} />
-                        <span className="capitalize">{c}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="prop-addr">Address</Label>
-            <Input id="prop-addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St" />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label htmlFor="prop-city">City</Label>
-              <Input id="prop-city" value={city} onChange={(e) => setCity(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="prop-state">State</Label>
-              <Input id="prop-state" value={stateName} onChange={(e) => setStateName(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="prop-zip">Zip</Label>
-              <Input id="prop-zip" value={zip} onChange={(e) => setZip(e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="prop-year">Year built</Label>
-            <Input id="prop-year" type="number" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="prop-notes">Notes</Label>
-            <Textarea id="prop-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-          </div>
-        </div>
+          <div className="grid gap-5">
+            <Section title="The home">
+              <div className="grid grid-cols-4 gap-3">
+                <Field label="Ref" className="col-span-1"><Input {...bind("ref")} placeholder="27" /></Field>
+                <Field label="Name" className="col-span-3"><Input {...bind("name")} placeholder="34 Wordsworth Road" /></Field>
+              </div>
+              <Field label="Full address"><Input {...bind("address")} placeholder="34 Wordsworth Road, London" /></Field>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Town / area"><Input {...bind("city")} /></Field>
+                <Field label="County"><Input {...bind("state")} /></Field>
+                <Field label="Postcode"><Input {...bind("zip")} /></Field>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Type"><Choice value={f.type} onChange={set("type")} options={PROPERTY_TYPES} /></Field>
+                <Field label="Bedrooms"><Input type="number" min={0} {...bind("bedrooms")} /></Field>
+                <Field label="HMO"><Choice value={f.hmo} onChange={set("hmo")} options={[{ value: "0", label: "No" }, { value: "1", label: "Yes" }]} /></Field>
+              </div>
+            </Section>
 
-        <DialogFooter className="mt-2">
-          {property && (
-            <Button type="button" variant="destructive" className="sm:mr-auto" onClick={() => setConfirming(true)}>
-              Delete
+            <Section title="Ownership & letting">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Owner / company" hint="For rent to rent, the landlord you rent from"><Input {...bind("owner")} list="owner-options" /></Field>
+                <Field label="Deal type"><Choice value={f.deal_type} onChange={set("deal_type")} options={DEAL_TYPES} /></Field>
+              </div>
+              <datalist id="owner-options">
+                {[...new Set(app.properties.map((p) => p.owner).filter(Boolean))].map((o) => <option key={o} value={o ?? ""} />)}
+              </datalist>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Occupancy"><Choice value={f.occupancy} onChange={set("occupancy")} options={OCCUPANCY} /></Field>
+                <Field label="Tenant / agent"><Input {...bind("tenant_label")} /></Field>
+              </div>
+            </Section>
+
+            <Section title="Money (per month)">
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Rent in (£)"><Input inputMode="decimal" {...bind("rent_in")} /></Field>
+                <Field label="Rent / mortgage out (£)"><Input inputMode="decimal" {...bind("rent_out")} /></Field>
+                <Field label="Other costs (£)" hint="Council tax, utilities, insurance"><Input inputMode="decimal" {...bind("other_costs")} /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Rent arrives on day"><Input type="number" min={1} max={31} {...bind("rent_in_day")} /></Field>
+                <Field label="Payment out on day"><Input type="number" min={1} max={31} {...bind("payment_out_day")} /></Field>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Rent status"><Choice value={f.rent_status} onChange={set("rent_status")} options={RENT_STATUS} /></Field>
+                <Field label="Months behind"><Input inputMode="decimal" {...bind("months_arrears")} /></Field>
+                <Field label="Arrears (£)"><Input inputMode="decimal" {...bind("arrears_amount")} /></Field>
+              </div>
+            </Section>
+
+            <Section title="Compliance expiry dates">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {CERTIFICATES.map((c) => (
+                  <Field key={c.key} label={c.label}><Input type="date" {...bind(c.key)} /></Field>
+                ))}
+              </div>
+            </Section>
+
+            <Field label="Notes"><Textarea {...bind("notes")} rows={3} /></Field>
+          </div>
+
+          <DialogFooter className="mt-2">
+            {property && (
+              <Button type="button" variant="destructive" className="sm:mr-auto" onClick={() => setConfirming(true)}>
+                Delete
+              </Button>
+            )}
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" onClick={save} disabled={saving || !(f.name || f.address).trim()}>
+              {property ? "Save changes" : "Create property"}
             </Button>
-          )}
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="button" onClick={save} disabled={saving || !name.trim()}>
-            {property ? "Save changes" : "Create property"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {property ? (
         <ConfirmDelete
@@ -182,5 +184,35 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props)
         />
       ) : null}
     </>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="section-label mb-1">{title}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+function Field({ label, hint, className, children }: { label: string; hint?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={className}>
+      <Label className="mb-1 block">{label}</Label>
+      {children}
+      {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function Choice({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
   );
 }

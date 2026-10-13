@@ -9,10 +9,13 @@ export type Route =
   | { name: "leases" }
   | { name: "rent" }
   | { name: "maintenance" }
+  | { name: "compliance" }
+  | { name: "sales" }
   | { name: "settings" }
   | { name: "not-found" };
 
-function parse(path: string): Route {
+function parse(full: string): Route {
+  const path = full.split("?")[0];
   if (path === "/" || path === "/dashboard") return { name: "dashboard" };
   if (path === "/properties") return { name: "properties" };
   let m = path.match(/^\/properties\/(\d+)$/);
@@ -23,6 +26,8 @@ function parse(path: string): Route {
   if (path === "/leases") return { name: "leases" };
   if (path === "/rent") return { name: "rent" };
   if (path === "/maintenance") return { name: "maintenance" };
+  if (path === "/compliance") return { name: "compliance" };
+  if (path === "/sales") return { name: "sales" };
   if (path === "/settings") return { name: "settings" };
   return { name: "not-found" };
 }
@@ -31,7 +36,7 @@ export function useRouter() {
   const [path, setPath] = useState<string>(() => window.location.pathname);
 
   const navigate = useCallback((to: string) => {
-    if (to === window.location.pathname) return;
+    if (to === window.location.pathname + window.location.search) return;
     window.history.pushState(null, "", to);
     setPath(to);
   }, []);

@@ -8,20 +8,46 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Defaults live in the app (DEFAULT_SETTINGS in src/server/index.ts): a
 -- deploy applies DDL only, so a seed row here fails the whole build.
 
--- ── Properties (buildings) ───────────────────────────────────────
+-- ── Properties ───────────────────────────────────────────────────
+-- One row per home. Alongside the address it carries the portfolio view a UK
+-- landlord runs from a spreadsheet: who owns it, the deal type, rent in and
+-- out, arrears, and the five compliance certificates.
 CREATE TABLE IF NOT EXISTS properties (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  type TEXT NOT NULL DEFAULT 'single_family',  -- 'single_family' | 'multi_family' | 'condo' | 'townhouse' | 'commercial'
+  ref TEXT,                                    -- your own reference, e.g. '27'
+  name TEXT NOT NULL,                          -- short label, usually the first line of the address
+  type TEXT NOT NULL DEFAULT 'flat',           -- 'flat' | 'maisonette' | 'terraced' | 'semi_detached' | 'detached' | 'bungalow' | 'commercial' | 'other'
   address TEXT,
-  city TEXT,
-  state TEXT,
-  zip TEXT,
+  city TEXT,                                   -- town / area
+  state TEXT,                                  -- county
+  zip TEXT,                                    -- postcode
   year_built INTEGER,
+  owner TEXT,                                  -- owning company or person; for rent to rent, the landlord you rent from
+  deal_type TEXT NOT NULL DEFAULT 'owned',     -- 'owned' | 'joint_venture' | 'rent_to_rent' | 'ground_rent'
+  bedrooms INTEGER,
+  hmo INTEGER NOT NULL DEFAULT 0,              -- 1 if licensed / run as an HMO
+  occupancy TEXT NOT NULL DEFAULT 'occupied',  -- 'occupied' | 'part_occupied' | 'vacant' | 'eviction'
+  tenant_label TEXT,                           -- tenant or letting agent, as free text
+  rent_in REAL NOT NULL DEFAULT 0,             -- monthly rent received
+  rent_out REAL NOT NULL DEFAULT 0,            -- monthly rent or mortgage paid out
+  other_costs REAL NOT NULL DEFAULT 0,         -- council tax, utilities, insurance, licences (monthly)
+  rent_in_day INTEGER,                         -- day of month rent arrives (1–31)
+  payment_out_day INTEGER,                     -- day of month the rent / mortgage leaves (1–31)
+  rent_status TEXT,                            -- 'on_time' | 'in_arrears' | 'in_advance' | 'ground_rent'
+  months_arrears REAL NOT NULL DEFAULT 0,
+  arrears_amount REAL NOT NULL DEFAULT 0,
+  gas_expiry TEXT,                             -- 'YYYY-MM-DD'
+  epc_expiry TEXT,
+  eicr_expiry TEXT,
+  licence_expiry TEXT,
+  insurance_expiry TEXT,
   notes TEXT,
   color TEXT NOT NULL DEFAULT 'sky',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_properties_owner ON properties(owner);
+CREATE INDEX IF NOT EXISTS idx_properties_deal ON properties(deal_type);
 
 -- ── Units (rentable spaces inside a property) ────────────────────
 CREATE TABLE IF NOT EXISTS units (
@@ -107,7 +133,7 @@ CREATE TABLE IF NOT EXISTS payments (
   charge_id INTEGER NOT NULL REFERENCES rent_charges(id) ON DELETE CASCADE,
   paid_at TEXT NOT NULL DEFAULT (datetime('now')),
   amount REAL NOT NULL DEFAULT 0,
-  method TEXT NOT NULL DEFAULT 'cash',         -- 'cash' | 'check' | 'ach' | 'credit' | 'other'
+  method TEXT NOT NULL DEFAULT 'bank_transfer', -- 'bank_transfer' | 'standing_order' | 'cash' | 'card' | 'other'
   reference TEXT,                              -- check number, transaction ID, etc.
   notes TEXT
 );
@@ -118,7 +144,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_charge ON payments(charge_id);
 CREATE TABLE IF NOT EXISTS vendors (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  category TEXT NOT NULL DEFAULT 'general',    -- 'plumber' | 'electrician' | 'hvac' | 'handyman' | 'cleaning' | 'landscaping' | 'general'
+  category TEXT NOT NULL DEFAULT 'general',    -- 'plumber' | 'electrician' | 'hvac' (gas & heating) | 'handyman' | 'cleaning' | 'landscaping' | 'general'
   phone TEXT,
   email TEXT,
   notes TEXT,
@@ -165,6 +191,32 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
+
+-- ── Sales leads ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sales_leads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  landlord_name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  location TEXT,
+  address TEXT,
+  postcode TEXT,
+  property_type TEXT,
+  bedrooms INTEGER,
+  bathrooms INTEGER,
+  tenure TEXT,                                 -- 'Freehold' | 'Leasehold' | 'Share of Freehold'
+  asking_price REAL,
+  estimated_value REAL,
+  offer_amount REAL,
+  buyer_agent TEXT,
+  solicitor TEXT,
+  status TEXT NOT NULL DEFAULT 'new',          -- 'new' | 'contacted' | 'viewing' | 'offer_made' | 'under_offer' | 'completed' | 'withdrawn'
+  next_action TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_leads_status ON sales_leads(status);
 
 -- Demo data is seeded by the app on first read (ensureSeeded in
 -- src/server/index.ts), never here: this file is applied as DDL only.

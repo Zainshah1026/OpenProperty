@@ -26,7 +26,7 @@ const COLORS = ["sky", "emerald", "amber", "rose", "violet", "fuchsia", "teal", 
 const VENDOR_CATEGORIES: { value: VendorCategory; label: string }[] = [
   { value: "plumber", label: "Plumber" },
   { value: "electrician", label: "Electrician" },
-  { value: "hvac", label: "HVAC" },
+  { value: "hvac", label: "Gas & heating" },
   { value: "handyman", label: "Handyman" },
   { value: "cleaning", label: "Cleaning" },
   { value: "landscaping", label: "Landscaping" },
@@ -37,13 +37,13 @@ export function SettingsPage() {
   return (
     <PageShell
       title="Settings"
-      meta="Vendors and rent policy defaults"
+      meta="Contractors and rent policy defaults"
       width="max-w-5xl"
     >
 
         <Tabs defaultValue="vendors">
           <TabsList>
-            <TabsTrigger value="vendors">Vendors</TabsTrigger>
+            <TabsTrigger value="vendors">Contractors</TabsTrigger>
             <TabsTrigger value="policy">Rent policy</TabsTrigger>
           </TabsList>
 
@@ -69,15 +69,15 @@ function VendorsTab() {
     <Card>
       <div className="flex items-center justify-between border-b p-4">
         <div>
-          <h2 className="text-sm font-semibold">Vendors</h2>
-          <p className="text-xs text-muted-foreground">Plumbers, electricians, handymen, and other service providers.</p>
+          <h2 className="text-sm font-semibold">Contractors</h2>
+          <p className="text-xs text-muted-foreground">Plumbers, electricians, gas engineers and other contractors.</p>
         </div>
         <Button size="sm" onClick={() => { setEditing(undefined); setOpen(true); }}>
-          <Plus className="mr-1 h-4 w-4" /> Add vendor
+          <Plus className="mr-1 h-4 w-4" /> Add contractor
         </Button>
       </div>
       {app.vendors.length === 0 ? (
-        <div className="p-8 text-center text-sm text-muted-foreground">No vendors yet.</div>
+        <div className="p-8 text-center text-sm text-muted-foreground">No contractors yet.</div>
       ) : (
         <ul className="divide-y">
           {app.vendors.map((v) => {
@@ -173,7 +173,7 @@ function VendorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{vendor ? "Edit vendor" : "New vendor"}</DialogTitle>
+          <DialogTitle>{vendor ? "Edit contractor" : "New contractor"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
           <div>
@@ -273,7 +273,7 @@ function PolicyTab() {
         default_rent_due_day: Math.min(31, Math.max(1, parseInt(dueDay, 10) || 1)),
         late_fee_amount: parseFloat(lateFee) || 0,
         late_fee_grace_days: Math.max(0, parseInt(grace, 10) || 0),
-        currency: currency.trim().toUpperCase() || "USD",
+        currency: currency.trim().toUpperCase() || "GBP",
       });
     } catch (err) {
       app.setError((err as Error).message);
@@ -303,7 +303,7 @@ function PolicyTab() {
         </div>
         <div>
           <Label htmlFor="s-cur">Currency</Label>
-          <Input id="s-cur" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="USD" />
+          <Input id="s-cur" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="GBP" />
         </div>
       </div>
       <div className="mt-4">

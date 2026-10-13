@@ -5,3 +5,8 @@ dist
 .DS_Store
 *.log
 .dev.vars
+
+# Private portfolio exports and generated SQL — never commit these
+private/
+*.private.sql
+dist-server

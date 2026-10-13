@@ -189,7 +189,7 @@ export function WorkOrderDialog({ open, onOpenChange, workOrder, defaults, onSav
               </Select>
             </div>
             <div>
-              <Label>Vendor</Label>
+              <Label>Contractor</Label>
               <Select value={String(vendorId || "")} onValueChange={(v) => setVendorId(v ? Number(v) : "")}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>

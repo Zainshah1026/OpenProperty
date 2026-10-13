@@ -1,115 +1,124 @@
-<img src="readme-banner.png" alt="OpenProperty preview" width="100%" />
+# Portfolio — UK property management dashboard
 
-# OpenProperty
+A self-hosted dashboard for a UK rental portfolio, forked from
+[clawnify/OpenProperty](https://github.com/clawnify/OpenProperty) and reshaped
+around the way a landlord actually runs things from a spreadsheet: one row per
+home, several owning companies, mixed deal types, rent in and out, arrears and
+the compliance certificates.
 
-[![Deploy with Clawnify](https://app.clawnify.com/deploy-button.svg)](https://app.clawnify.com/deploy?repo=clawnify/OpenProperty)
+Everything is in pounds, UK dates and UK terms. Every page sits behind a login.
 
-Open-source **property management software** — a self-hosted, cloud-based alternative to TenantCloud, AppFolio, Buildium, and Propertyware for landlords, small property managers, and apartment / multi-family back-office teams.
+## What's in it
 
-Rental property management with everything you need to run a portfolio: properties and units, tenants and leases, rent collection and a ledger, maintenance work orders, and a vendor directory.
+**Dashboard** — rent in, money out, net profit and margin, total arrears, and
+compliance at a glance. A cashflow chart of rent arriving and rent/mortgage
+leaving by day of the month. Totals by owning company and by deal type, and a
+list of homes that need attention (vacant, eviction in process, in arrears).
 
-> Built on the [Clawnify](https://clawnify.com) template format. Deploy your own copy in minutes, customize freely, own the data.
+**Properties** — a sortable, filterable table of every home: ref, address,
+owner, deal type (owned / joint venture / rent to rent / ground rent), HMO,
+occupancy, tenant or agent, rent in, rent/mortgage out, other costs, net, rent
+status and arrears. Each home has its own page with its figures, certificates,
+units and work orders.
 
-## Features
+**Compliance** — gas safety, EPC, EICR, licence and insurance expiry dates for
+every home. Expired certificates turn red, anything due within 60 days amber,
+and homes with no dates recorded are listed so they can be filled in.
 
-### Dashboard
-- **At-a-glance KPIs** — occupancy rate, active leases, outstanding rent, open work orders
-- **This month's rent** — collected, outstanding, overdue at a glance
-- **Open work orders** + **upcoming lease expirations** — what to act on this week
+**Sales leads** — landlords selling, with contact details, the property,
+asking price, offer, buyer/agent, solicitor, status and next action.
 
-### Properties & units
-- Property cards with type, address, color tag, occupancy snapshot
-- Per-property page with summary tiles, unit grid, and the property's open work orders
-- Units track bedrooms, bathrooms, square footage, market rent, and status (vacant / occupied / turnover / unavailable)
-
-### Tenants
-- Searchable list showing each tenant's active unit and contact info
-- Detail page with active lease, contact, employer, income, emergency contact, lease history
-
-### Leases
-- One row per lease with tenant, property · unit, term, monthly rent, and status
-- Filters for active / upcoming / ended / all
-- Edit-in-dialog with start / end / rent / deposit / due day / late fee / status
-
-### Rent ledger
-- One charge per active lease per month, generated idempotently with one click
-- Period navigator (◀ / today / ▶) and totals: charged, collected, outstanding, overdue
-- Record payments by amount, method, date, and reference. Status auto-updates as payments roll in
-- Past payments visible per charge with one-click removal
-
-### Maintenance
-- Work orders with title, description, priority (urgent / high / normal / low), and status (open / assigned / in progress / completed / cancelled)
-- Tabs: open / unassigned / assigned / in progress / completed / all
-- Link work orders to a property, unit, and vendor; track scheduled date and cost
-
-### Vendors & policy
-- Vendor directory by category (plumber / electrician / HVAC / handyman / cleaning / landscaping / general)
-- Rent policy defaults: due day, late fee, grace days, currency
+**Also kept from OpenProperty** — tenants, leases, a monthly rent ledger with
+payments (bank transfer, standing order, cash, card), maintenance work orders,
+and a contractor directory.
 
 ## Stack
 
-- React 19 + Vite + TypeScript
-- Tailwind CSS v4 + shadcn/ui (Radix primitives)
-- Hono on Cloudflare Workers (D1-native — same code locally and in production)
-- `lucide-react` for icons
-- pushState URL routing
+- React 19 + Vite + TypeScript, Tailwind CSS v4 + shadcn/ui
+- Hono API — the same code runs on **Render / any Node 22 host** (SQLite via
+  the built-in `node:sqlite`) or on **Cloudflare Workers** (D1)
+
+## Login
+
+Set `APP_PASSWORD` (and optionally `APP_USERNAME`, default `admin`). The
+browser asks for them once. With no password set the app refuses to serve
+anything, so a forgotten variable never exposes the data. On your own machine
+you can skip the prompt with `ALLOW_NO_AUTH=true`.
+
+## Deploy on Render
+
+1. In Render, choose **New → Blueprint** and select this repository. It reads
+   `render.yaml`: one web service plus a 1 GB disk mounted at `/var/data`.
+2. Enter an `APP_PASSWORD` when prompted.
+3. Wait for the first deploy, then open the URL and log in.
+
+The disk needs a paid instance (Starter or above). On Render's free plan the
+disk is wiped on every deploy, so the data would not survive.
+
+Manual setup instead of the Blueprint: a Node web service with build command
+`npx --yes pnpm@10 install --frozen-lockfile && npx --yes pnpm@10 run build`,
+start command `node --disable-warning=ExperimentalWarning dist-server/node.js`,
+a disk at `/var/data`, and env vars `DATABASE_PATH=/var/data/portfolio.db`,
+`NODE_VERSION=22.20.0`, `APP_PASSWORD`.
+
+## Import your spreadsheet
+
+Download each tab as CSV (File → Download → Comma-separated values) and put
+them in `private/`, which git ignores. Then:
+
+```bash
+# Check what will be imported
+node scripts/import-sheet.mjs --properties private/Properties.csv \
+  --compliance private/Compliance.csv --sales private/Sales.csv --out private/payload.json
+
+# Load it into the live app (replaces existing properties and leads)
+APP_PASSWORD=... node scripts/import-sheet.mjs --properties private/Properties.csv \
+  --compliance private/Compliance.csv --sales private/Sales.csv \
+  --url https://your-app.onrender.com --replace
+```
+
+Column names are matched loosely (`Rent In`, `Monthly Gross Income`, `Deal
+Type`, `Occupancy`, `Rent Paid`, `Months in Arrears`…), so a slightly different
+sheet usually works as-is.
+
+**Never commit portfolio data.** This repository is public; tenant names,
+rents and lead contact details belong only in the deployed database.
 
 ## Develop
 
 ```bash
 pnpm install
-pnpm dev          # Vite at :5173, Wrangler at :8787 (D1 schema applied automatically)
-pnpm typecheck
-pnpm build
+pnpm build && ALLOW_NO_AUTH=true pnpm start   # Node server at :8787, data in ./data/
+# or, the Cloudflare way:
+cp .dev.vars.example .dev.vars && pnpm dev    # Vite at :5173, Wrangler at :8787
 ```
 
-The dev script applies `src/server/schema.sql` to the local D1 database, then runs Vite and Wrangler in parallel. The schema seeds 3 sample properties, 5 units, and 3 vendors so the app is usable on first boot.
+## Deploy on Cloudflare instead
 
-## Deploy
-
-If you have the Clawnify CLI installed:
-
-```bash
-clawnify deploy
-```
-
-Or wire it up to Cloudflare Workers + D1 directly using the bindings in `wrangler.toml` (binding `DB`, database name `open-property-db`).
+Create a D1 database, put its ID in `wrangler.toml`, apply
+`src/server/schema.sql` to it, add an `APP_PASSWORD` secret, then
+`pnpm deploy:cloudflare`.
 
 ## Project layout
 
 ```
 src/
   server/
-    index.ts        Hono routes for every entity
-    db.ts           D1 adapter (query / get / run)
-    schema.sql      Tables + seed data
+    index.ts        Hono routes, login, portfolio summary, import
+    node.ts         Node entry (Render): SQLite + static files
+    db.ts           One query / get / run API over D1 or SQLite
+    schema.sql      Tables
   client/
-    app.tsx         Shell + routing
     components/
-      dashboard/    Portfolio + month-at-a-glance
-      properties/   List, property detail, property + unit dialogs
-      tenants/      List, tenant detail, tenant dialog
-      leases/       Leases page + lease dialog
-      rent/         Rent ledger + payment dialog
-      maintenance/  Work orders board + work-order dialog
-      settings/     Vendors + rent policy defaults
-      ui/           Vendored shadcn primitives
-    hooks/          use-router, use-app-state
-    lib/utils.ts    cn helper, color palette, date / money / period helpers
+      dashboard/    Portfolio KPIs, cashflow, owners, deal types
+      properties/   Table, property page, property + unit dialogs
+      compliance/   Certificate tracker
+      sales/        Sales leads + lead dialog
+      tenants/ leases/ rent/ maintenance/ settings/
+    lib/portfolio.ts  UK labels, compliance rules, helpers
+scripts/
+  import-sheet.mjs  Spreadsheet CSV → app import
+render.yaml         Render Blueprint
 ```
 
-## What's intentionally not included
-
-To keep this template self-hostable with no third-party SaaS dependencies and no public-facing endpoints, these features are out of scope:
-
-- Listing syndication to external rental sites
-- Real credit / background screening (placeholder application records only)
-- 2-way SMS, email blasts, automated texting
-- Online card / ACH payment processing
-- Public tenant or owner portals
-
-These can all be layered on top once you fork the template.
-
-## License
-
-MIT
+Licensed MIT, like the original.

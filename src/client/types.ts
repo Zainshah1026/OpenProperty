@@ -1,9 +1,13 @@
 // ── Core entities ──────────────────────────────────────────────────
 
-export type PropertyType = "single_family" | "multi_family" | "condo" | "townhouse" | "commercial";
+export type PropertyType = "flat" | "maisonette" | "terraced" | "semi_detached" | "detached" | "bungalow" | "commercial" | "other";
+export type DealType = "owned" | "joint_venture" | "rent_to_rent" | "ground_rent";
+export type Occupancy = "occupied" | "part_occupied" | "vacant" | "eviction";
+export type RentStatus = "on_time" | "in_arrears" | "in_advance" | "ground_rent";
 
 export interface Property {
   id: number;
+  ref: string | null;
   name: string;
   type: PropertyType;
   address: string | null;
@@ -11,10 +15,30 @@ export interface Property {
   state: string | null;
   zip: string | null;
   year_built: number | null;
+  owner: string | null;
+  deal_type: DealType;
+  bedrooms: number | null;
+  hmo: number;
+  occupancy: Occupancy;
+  tenant_label: string | null;
+  rent_in: number;
+  rent_out: number;
+  other_costs: number;
+  rent_in_day: number | null;
+  payment_out_day: number | null;
+  rent_status: RentStatus | null;
+  months_arrears: number;
+  arrears_amount: number;
+  gas_expiry: string | null;
+  epc_expiry: string | null;
+  eicr_expiry: string | null;
+  licence_expiry: string | null;
+  insurance_expiry: string | null;
   notes: string | null;
   color: string;
   created_at: string;
-  // Joined
+  // Computed / joined
+  net_profit?: number;
   unit_count?: number;
   occupied_count?: number;
 }
@@ -110,7 +134,7 @@ export interface RentCharge {
   tenant_last_name?: string | null;
 }
 
-export type PaymentMethod = "cash" | "check" | "ach" | "credit" | "other";
+export type PaymentMethod = "bank_transfer" | "standing_order" | "cash" | "card" | "other";
 
 export interface Payment {
   id: number;
@@ -208,9 +232,66 @@ export interface DashboardSummary {
   }[];
 }
 
+export interface PortfolioGroup {
+  key: string;
+  count: number;
+  rent_in: number;
+  rent_out: number;
+  costs: number;
+  net: number;
+  arrears: number;
+}
+
+export interface PortfolioSummary {
+  properties: number;
+  occupied: number;
+  vacant: number;
+  eviction: number;
+  rent_in: number;
+  rent_out: number;
+  other_costs: number;
+  net: number;
+  costs_missing: number;
+  arrears_total: number;
+  arrears_count: number;
+  compliance: { expired: number; due_soon: number; missing: number };
+  by_owner: PortfolioGroup[];
+  by_deal: PortfolioGroup[];
+  cashflow_days: { day: number; money_in: number; money_out: number }[];
+  arrears: { id: number; ref: string | null; name: string; owner: string | null; tenant_label: string | null; months_arrears: number; arrears_amount: number }[];
+  attention: { id: number; ref: string | null; name: string; owner: string | null; occupancy: Occupancy }[];
+}
+
+export type LeadStatus = "new" | "contacted" | "viewing" | "offer_made" | "under_offer" | "completed" | "withdrawn";
+
+export interface SalesLead {
+  id: number;
+  landlord_name: string;
+  phone: string | null;
+  email: string | null;
+  location: string | null;
+  address: string | null;
+  postcode: string | null;
+  property_type: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  tenure: string | null;
+  asking_price: number | null;
+  estimated_value: number | null;
+  offer_amount: number | null;
+  buyer_agent: string | null;
+  solicitor: string | null;
+  status: LeadStatus;
+  next_action: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export type NewSalesLead = Partial<Omit<SalesLead, "id" | "created_at">> & { landlord_name: string };
+
 // ── Input types for mutations ──────────────────────────────────────
 
-export type NewProperty = Partial<Omit<Property, "id" | "created_at" | "unit_count" | "occupied_count">> & { name: string };
+export type NewProperty = Partial<Omit<Property, "id" | "created_at" | "unit_count" | "occupied_count" | "net_profit">> & { name: string };
 export type NewUnit = Partial<Omit<Unit, "id" | "created_at" | "property_name" | "property_color" | "property_address" | "property_city" | "active_lease_id" | "active_tenant_name">> & { property_id: number; name: string };
 export type NewTenant = Partial<Omit<Tenant, "id" | "created_at" | "active_unit_id" | "active_unit_name" | "active_property_name">> & { first_name: string; last_name: string };
 export type NewLease = Partial<Omit<Lease, "id" | "created_at" | "unit_name" | "property_id" | "property_name" | "property_color" | "tenant_first_name" | "tenant_last_name" | "tenant_email" | "tenant_phone">> & { unit_id: number; start_date: string; end_date: string };

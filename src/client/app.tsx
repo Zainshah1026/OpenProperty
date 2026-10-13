@@ -13,6 +13,8 @@ import { LeasesPage } from "./components/leases/leases-page";
 import { RentPage } from "./components/rent/rent-page";
 import { MaintenancePage } from "./components/maintenance/maintenance-page";
 import { SettingsPage } from "./components/settings/settings-page";
+import { CompliancePage } from "./components/compliance/compliance-page";
+import { SalesPage } from "./components/sales/sales-page";
 
 /**
  * The navigation, defined once.
@@ -34,8 +36,12 @@ const PORTFOLIO: AppNavItem[] = [
   { id: "leases", label: "Leases", href: "/leases", icon: "clipboard-list", color: "violet" },
 ];
 const OPERATIONS: AppNavItem[] = [
-  { id: "rent", label: "Rent", href: "/rent", icon: "dollar-sign", color: "amber" },
+  { id: "rent", label: "Rent ledger", href: "/rent", icon: "dollar-sign", color: "amber" },
+  { id: "compliance", label: "Compliance", href: "/compliance", icon: "shield-check", color: "rose" },
   { id: "maintenance", label: "Maintenance", href: "/maintenance", icon: "list-checks", color: "orange" },
+];
+const GROWTH: AppNavItem[] = [
+  { id: "sales", label: "Sales leads", href: "/sales", icon: "briefcase", color: "teal" },
 ];
 const ADMIN: AppNavItem[] = [
   { id: "settings", label: "Settings", href: "/settings", icon: "settings" },
@@ -60,6 +66,7 @@ export function App() {
   const groups = [
     { items: PORTFOLIO },
     { label: "Operations", items: OPERATIONS },
+    { label: "Sales", items: GROWTH },
     { label: "Admin", items: ADMIN },
   ];
 
@@ -71,7 +78,7 @@ export function App() {
             the flex-col above puts ABOVE the content rather than beside it. */}
         <div className="flex shrink-0">
           <AppNav
-            title="OpenProperty"
+            title="Portfolio"
             icon="home"
             groups={groups}
             active={activeFor(route)}
@@ -93,6 +100,8 @@ export function App() {
               {route.name === "leases" && <LeasesPage navigate={navigate} />}
               {route.name === "rent" && <RentPage />}
               {route.name === "maintenance" && <MaintenancePage />}
+              {route.name === "compliance" && <CompliancePage navigate={navigate} />}
+              {route.name === "sales" && <SalesPage />}
               {route.name === "settings" && <SettingsPage />}
               {route.name === "not-found" && (
                 <Placeholder title="Not found" message="That page doesn't exist." />

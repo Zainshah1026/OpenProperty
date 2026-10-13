@@ -19,10 +19,10 @@ interface Props {
 }
 
 const METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: "bank_transfer", label: "Bank transfer" },
+  { value: "standing_order", label: "Standing order" },
   { value: "cash", label: "Cash" },
-  { value: "check", label: "Check" },
-  { value: "ach", label: "ACH / bank transfer" },
-  { value: "credit", label: "Credit card" },
+  { value: "card", label: "Card" },
   { value: "other", label: "Other" },
 ];
 
@@ -31,7 +31,7 @@ export function PaymentDialog({ open, onOpenChange, charge, onSaved }: Props) {
   const [amount, setAmount] = useState("0");
   /** The payment awaiting confirmation — its id is the open state. */
   const [confirming, setConfirming] = useState<number | null>(null);
-  const [method, setMethod] = useState<PaymentMethod>("ach");
+  const [method, setMethod] = useState<PaymentMethod>("bank_transfer");
   const [paidAt, setPaidAt] = useState(toIsoDate(new Date()));
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -42,7 +42,7 @@ export function PaymentDialog({ open, onOpenChange, charge, onSaved }: Props) {
     if (!open || !charge) return;
     const remaining = Math.max(0, (charge.amount ?? 0) - (charge.amount_paid ?? 0));
     setAmount(String(remaining));
-    setMethod("ach");
+    setMethod("bank_transfer");
     setPaidAt(toIsoDate(new Date()));
     setReference("");
     setNotes("");

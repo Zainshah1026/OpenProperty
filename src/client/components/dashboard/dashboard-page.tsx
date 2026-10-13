@@ -1,342 +1,282 @@
-import { useEffect, useState } from "react";
-import {
-  Building2,
-  CheckCircle2,
-  CircleAlert,
-  ClipboardList,
-  Home,
-  Receipt,
-  Wrench,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Building2, CheckCircle2, PoundSterling, ShieldAlert, TrendingUp } from "lucide-react";
 import { useApp } from "@/context";
 import { api } from "@/api";
-import { cn, daysBetween, formatDate, formatMoney, toIsoDate } from "@/lib/utils";
-import type { DashboardSummary } from "@/types";
+import { cn, formatMoney } from "@/lib/utils";
+import { dealLabel, occupancyLabel, occupancyTone, ordinal } from "@/lib/portfolio";
+import type { PortfolioGroup, PortfolioSummary } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 
 export function DashboardPage({ navigate }: { navigate: (to: string) => void }) {
   const { settings, setError } = useApp();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [s, setS] = useState<PortfolioSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await api<DashboardSummary>("GET", "/api/dashboard/summary");
-        if (!cancelled) setSummary(data);
-      } catch (err) {
-        if (!cancelled) setError((err as Error).message);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    api<PortfolioSummary>("GET", "/api/portfolio/summary")
+      .then((d) => { if (!cancelled) setS(d); })
+      .catch((err) => { if (!cancelled) setError((err as Error).message); });
     return () => { cancelled = true; };
   }, [setError]);
 
-  if (loading || !summary) {
+  const money = (n: number) => formatMoney(n, settings.currency);
+
+  if (!s) {
+    return <div className="flex flex-1 items-center justify-center text-muted-foreground">Loading portfolio…</div>;
+  }
+
+  if (s.properties === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center text-muted-foreground">
-        Loading dashboard…
-      </div>
+      <PageShell title="Dashboard">
+        <div className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
+          <Building2 className="size-8 text-faint" aria-hidden />
+          <p className="font-medium">No properties yet</p>
+          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+            Add properties one by one, or import your portfolio spreadsheet (see the README).
+          </p>
+          <button type="button" onClick={() => navigate("/properties")} className="mt-2 text-sm font-medium text-primary hover:underline">
+            Go to properties
+          </button>
+        </div>
+      </PageShell>
     );
   }
+
+  const compliancePending = s.compliance.expired + s.compliance.due_soon;
 
   return (
     <PageShell
       title="Dashboard"
-      meta={`Snapshot of ${new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" })}`}
+      meta={`${s.properties} properties · ${s.occupied} let · rents per calendar month`}
     >
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Kpi
+          label="Rent in"
+          value={money(s.rent_in)}
+          sub={`${money(s.rent_out + s.other_costs)} out`}
+          icon={<PoundSterling className="h-4 w-4" />}
+        />
+        <Kpi
+          label="Net profit"
+          value={money(s.net)}
+          sub={s.costs_missing ? `${s.costs_missing} homes have no costs entered` : `${s.rent_in ? Math.round((s.net / s.rent_in) * 100) : 0}% margin`}
+          icon={<TrendingUp className="h-4 w-4" />}
+          tone={s.costs_missing ? "warn" : "default"}
+        />
+        <Kpi
+          label="Arrears"
+          value={money(s.arrears_total)}
+          sub={`${s.arrears_count} ${s.arrears_count === 1 ? "home" : "homes"} behind`}
+          icon={<AlertTriangle className="h-4 w-4" />}
+          tone={s.arrears_total > 0 ? "danger" : "default"}
+          onClick={() => navigate("/properties?status=in_arrears")}
+        />
+        <Kpi
+          label="Compliance"
+          value={compliancePending ? `${compliancePending} due` : s.compliance.missing ? `${s.compliance.missing} unknown` : "All clear"}
+          sub={`${s.compliance.expired} expired · ${s.compliance.missing} with no dates`}
+          icon={<ShieldAlert className="h-4 w-4" />}
+          tone={s.compliance.expired ? "danger" : s.compliance.due_soon || s.compliance.missing ? "warn" : "default"}
+          onClick={() => navigate("/compliance")}
+        />
+      </section>
 
-        <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <KpiCard
-            label="Occupancy"
-            value={`${summary.occupancy_rate}%`}
-            sub={`${summary.occupied} of ${summary.units} units`}
-            icon={<Home className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Active leases"
-            value={String(summary.active_leases)}
-            sub={summary.upcoming_move_outs ? `${summary.upcoming_move_outs} ending in 30 days` : "No upcoming move-outs"}
-            icon={<ClipboardList className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Outstanding rent"
-            value={formatMoney(summary.month_outstanding, settings.currency)}
-            sub={`${formatMoney(summary.month_collected, settings.currency)} collected this month`}
-            icon={<Receipt className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Open work orders"
-            value={String(summary.open_work_orders)}
-            sub={summary.urgent_work_orders ? `${summary.urgent_work_orders} urgent` : "Nothing urgent"}
-            icon={<Wrench className="h-4 w-4" />}
-            tone={summary.urgent_work_orders > 0 ? "warn" : "default"}
-          />
-        </section>
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="p-5 lg:col-span-2">
+          <CardTitle title="Cashflow through the month" sub="Rent arriving and rent / mortgage going out, by day of the month" />
+          <CashflowChart days={s.cashflow_days} money={money} />
+        </Card>
 
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Card className="p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Portfolio</h2>
-              <button
-                type="button"
-                onClick={() => navigate("/properties")}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                View all
-              </button>
-            </div>
-            <dl className="space-y-3 text-sm">
-              <Row label="Properties" value={summary.properties} icon={<Building2 className="h-4 w-4" />} />
-              <Row label="Total units" value={summary.units} />
-              <Row label="Occupied" value={summary.occupied} tone="positive" />
-              <Row label="Vacant" value={summary.vacant} tone={summary.vacant > 0 ? "warn" : "default"} />
-            </dl>
-          </Card>
+        <Card className="p-5">
+          <CardTitle title="Needs attention" action={{ label: "All properties", onClick: () => navigate("/properties") }} />
+          {s.attention.length === 0 && s.arrears.length === 0 ? (
+            <Empty title="Nothing outstanding" message="Every home is let and paying." />
+          ) : (
+            <ul className="divide-y">
+              {s.attention.map((a) => (
+                <li key={`a${a.id}`}>
+                  <button type="button" onClick={() => navigate(`/properties/${a.id}`)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:bg-muted">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{a.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{a.owner || "—"}</span>
+                    </span>
+                    <Badge variant={occupancyTone(a.occupancy)}>{occupancyLabel(a.occupancy)}</Badge>
+                  </button>
+                </li>
+              ))}
+              {s.arrears.slice(0, 8).map((a) => (
+                <li key={`r${a.id}`}>
+                  <button type="button" onClick={() => navigate(`/properties/${a.id}`)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:bg-muted">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{a.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {[a.tenant_label, a.months_arrears ? `${a.months_arrears} mo behind` : null].filter(Boolean).join(" · ") || a.owner}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-destructive">{money(a.arrears_amount)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </section>
 
-          <Card className="p-5 lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">This month's rent</h2>
-              <button
-                type="button"
-                onClick={() => navigate("/rent")}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                Open ledger
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <Stat
-                label="Collected"
-                value={formatMoney(summary.month_collected, settings.currency)}
-                tone="positive"
-              />
-              <Stat
-                label="Outstanding"
-                value={formatMoney(summary.month_outstanding, settings.currency)}
-                tone={summary.month_outstanding > 0 ? "warn" : "default"}
-              />
-              <Stat
-                label="Overdue"
-                value={formatMoney(summary.overdue_total, settings.currency)}
-                sub={summary.overdue_count ? `${summary.overdue_count} charge${summary.overdue_count === 1 ? "" : "s"}` : undefined}
-                tone={summary.overdue_total > 0 ? "danger" : "default"}
-              />
-            </div>
-          </Card>
-        </section>
-
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Open work orders</h2>
-              <button
-                type="button"
-                onClick={() => navigate("/maintenance")}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                View all
-              </button>
-            </div>
-            {summary.recent_work_orders.length === 0 ? (
-              <Empty icon={<CheckCircle2 className="h-5 w-5" />} title="All caught up" message="No open work orders right now." />
-            ) : (
-              <ul className="divide-y">
-                {summary.recent_work_orders.map((w) => (
-                  <li key={w.id} className="flex items-center justify-between gap-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{w.title}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[w.property_name, w.unit_name].filter(Boolean).join(" · ") || "Unassigned"}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <PriorityBadge priority={w.priority} />
-                      <StatusBadge status={w.status} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card className="p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Lease expirations</h2>
-              <button
-                type="button"
-                onClick={() => navigate("/leases")}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                View all
-              </button>
-            </div>
-            {summary.upcoming_expirations.length === 0 ? (
-              <Empty icon={<CheckCircle2 className="h-5 w-5" />} title="Nothing in the next 60 days" message="No lease expirations coming up." />
-            ) : (
-              <ul className="divide-y">
-                {summary.upcoming_expirations.map((l) => {
-                  const today = toIsoDate(new Date());
-                  const days = daysBetween(today, l.end_date);
-                  return (
-                    <li key={l.id} className="flex items-center justify-between gap-4 py-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {l.tenant_first_name || "—"} {l.tenant_last_name || ""}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {[l.property_name, l.unit_name].filter(Boolean).join(" · ")}
-                        </p>
-                      </div>
-                      <div className="text-right text-xs">
-                        <div className="font-medium text-foreground">{formatDate(l.end_date)}</div>
-                        <div className={cn(
-                          "text-muted-foreground",
-                          days <= 14 && "text-destructive font-medium",
-                        )}>
-                          {days < 0 ? "Already ended" : days === 0 ? "Today" : `in ${days} day${days === 1 ? "" : "s"}`}
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Card>
-        </section>
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <CardTitle title="By owner" sub="Monthly totals for each company" />
+          <GroupTable rows={s.by_owner} label={(k) => k} money={money} />
+        </Card>
+        <Card className="p-5">
+          <CardTitle title="By deal type" sub="Owned, joint venture, rent to rent, ground rent" />
+          <GroupTable rows={s.by_deal} label={dealLabel} money={money} />
+        </Card>
+      </section>
     </PageShell>
   );
 }
 
-function KpiCard({
-  label, value, sub, icon, tone = "default",
+function CardTitle({ title, sub, action }: { title: string; sub?: string; action?: { label: string; onClick: () => void } }) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      </div>
+      {action && (
+        <button type="button" onClick={action.onClick} className="shrink-0 text-xs font-medium text-primary hover:underline">
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Kpi({
+  label, value, sub, icon, tone = "default", onClick,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: React.ReactNode;
-  tone?: "default" | "warn";
+  tone?: "default" | "warn" | "danger";
+  onClick?: () => void;
 }) {
   return (
-    <Card className={cn("relative px-3 py-2.5", tone === "warn" && "bg-warning-tint")}>
-      <span
-        className={cn(
-          "absolute right-3 top-2.5 opacity-50",
-          tone === "warn" ? "text-warning" : "text-muted-foreground",
-        )}
-        aria-hidden
-      >
+    <Card
+      className={cn(
+        "relative px-3 py-2.5",
+        tone === "warn" && "bg-warning-tint",
+        tone === "danger" && "bg-destructive-tint",
+        onClick && "cursor-pointer transition-colors duration-150 hover:bg-muted",
+      )}
+      onClick={onClick}
+    >
+      <span className={cn("absolute right-3 top-2.5 opacity-60", tone === "warn" ? "text-warning" : tone === "danger" ? "text-destructive" : "text-muted-foreground")} aria-hidden>
         {icon}
       </span>
-      <div className={cn(
-        "data text-[1.375rem] font-semibold leading-tight tracking-[-0.01em]",
-        tone === "warn" && "text-warning",
-      )}>
+      <div className={cn("data text-[1.375rem] font-semibold leading-tight tracking-[-0.01em]", tone === "danger" && "text-destructive", tone === "warn" && "text-warning")}>
         {value}
       </div>
       <div className="section-label mt-0.5">{label}</div>
-      {/* Fixed height: toggling the comparison line must never shift the row. */}
       <div className="mt-1 h-4 truncate text-xs text-muted-foreground">{sub}</div>
     </Card>
   );
 }
 
-function Row({
-  label, value, icon, tone = "default",
-}: {
-  label: string;
-  value: string | number;
-  icon?: React.ReactNode;
-  tone?: "default" | "positive" | "warn" | "danger";
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <dt className="flex items-center gap-2 text-muted-foreground">
-        {icon}
-        {label}
-      </dt>
-      <dd className={cn(
-        "font-medium tabular-nums",
-        tone === "positive" && "text-success",
-        tone === "warn" && "text-warning",
-        tone === "danger" && "text-destructive",
-      )}>
-        {value}
-      </dd>
-    </div>
-  );
-}
+/**
+ * Money in above the line, money out below it, one bar pair per day. One
+ * axis, one scale; hover any day for the exact figures.
+ */
+function CashflowChart({ days, money }: { days: PortfolioSummary["cashflow_days"]; money: (n: number) => string }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const max = useMemo(() => Math.max(1, ...days.map((d) => Math.max(d.money_in, d.money_out))), [days]);
+  const H = 180; // total plot height in px; half above, half below the baseline
+  const half = H / 2;
+  const active = hover !== null ? days[hover] : null;
+  const totalIn = days.reduce((a, d) => a + d.money_in, 0);
+  const totalOut = days.reduce((a, d) => a + d.money_out, 0);
 
-function Stat({
-  label, value, sub, tone = "default",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "default" | "positive" | "warn" | "danger";
-}) {
   return (
     <div>
-      <div className="stat-label">{label}</div>
-      <div className={cn(
-        "mt-1 text-xl font-semibold tabular-nums",
-        tone === "positive" && "text-success",
-        tone === "warn" && "text-warning",
-        tone === "danger" && "text-destructive",
-      )}>
-        {value}
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-success-solid" aria-hidden />Rent in · {money(totalIn)}</span>
+        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-cat-slate-solid" aria-hidden />Rent / mortgage out · {money(totalOut)}</span>
+        <span className="ml-auto h-4 tabular-nums text-foreground">
+          {active ? `${ordinal(active.day)}: ${money(active.money_in)} in · ${money(active.money_out)} out` : "Hover a day for detail"}
+        </span>
       </div>
-      {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+      <div className="relative" style={{ height: H }} onMouseLeave={() => setHover(null)} role="img" aria-label="Rent in and out by day of month">
+        <div className="absolute inset-x-0 border-t border-border" style={{ top: half }} />
+        <div className="absolute inset-0 flex gap-[2px]">
+          {days.map((d, i) => (
+            <div
+              key={d.day}
+              className={cn("relative flex-1 cursor-default rounded-sm", hover === i && "bg-muted")}
+              onMouseEnter={() => setHover(i)}
+            >
+              {d.money_in > 0 && (
+                <div className="absolute inset-x-[15%] rounded-t-[4px] bg-success-solid" style={{ bottom: half, height: Math.max(2, (d.money_in / max) * (half - 4)) }} />
+              )}
+              {d.money_out > 0 && (
+                <div className="absolute inset-x-[15%] rounded-b-[4px] bg-cat-slate-solid" style={{ top: half, height: Math.max(2, (d.money_out / max) * (half - 4)) }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-1 flex gap-[2px] text-[10px] text-muted-foreground">
+        {days.map((d) => (
+          <span key={d.day} className="flex-1 text-center tabular-nums">{d.day === 1 || d.day % 5 === 0 ? d.day : ""}</span>
+        ))}
+      </div>
     </div>
   );
 }
 
-function Empty({
-  icon, title, message,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  message: string;
-}) {
+function GroupTable({ rows, label, money }: { rows: PortfolioGroup[]; label: (k: string) => string; money: (n: number) => string }) {
+  const max = Math.max(1, ...rows.map((r) => r.rent_in));
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-muted-foreground">
+            <th className="pb-2 font-medium">Name</th>
+            <th className="pb-2 text-right font-medium">Homes</th>
+            <th className="pb-2 pl-3 font-medium">Rent in</th>
+            <th className="pb-2 text-right font-medium">Net</th>
+            <th className="pb-2 text-right font-medium">Arrears</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <td className="max-w-[10rem] truncate py-2 pr-2 font-medium">{label(r.key)}</td>
+              <td className="py-2 text-right tabular-nums">{r.count}</td>
+              <td className="py-2 pl-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 min-w-[2px] rounded-r-[4px] bg-cat-teal-solid" style={{ width: `${(r.rent_in / max) * 70}%` }} aria-hidden />
+                  <span className="tabular-nums">{money(r.rent_in)}</span>
+                </div>
+              </td>
+              <td className="py-2 text-right tabular-nums">{money(r.net)}</td>
+              <td className={cn("py-2 text-right tabular-nums", r.arrears > 0 && "text-destructive")}>{r.arrears ? money(r.arrears) : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Empty({ title, message }: { title: string; message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-1 py-8 text-center">
-      <span className="text-muted-foreground">{icon}</span>
+      <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
       <p className="text-sm font-medium">{title}</p>
       <p className="text-xs text-muted-foreground">{message}</p>
     </div>
   );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const map: Record<string, string> = {
-    urgent: "bg-destructive-tint text-destructive",
-    high: "bg-warning-tint text-warning",
-    normal: "bg-info-tint text-info",
-    low: "bg-muted text-muted-foreground",
-  };
-  return (
-    <span className={cn(
-      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-      map[priority] ?? map.normal,
-    )}>
-      {priority === "urgent" && <CircleAlert className="h-3 w-3" />}
-      {priority}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    open: "secondary",
-    assigned: "default",
-    in_progress: "default",
-    completed: "outline",
-    cancelled: "outline",
-  };
-  return <Badge variant={(map[status] ?? "secondary") as never} className="capitalize">{status.replace("_", " ")}</Badge>;
 }

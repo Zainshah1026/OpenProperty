@@ -1,0 +1,27 @@
+# Render Blueprint: one web service with a persistent disk for the SQLite
+# database. New → Blueprint in the Render dashboard, pick this repo, and set
+# APP_PASSWORD when asked. A disk needs a paid instance (Starter or above):
+# on the free plan the disk is wiped on every deploy.
+services:
+  - type: web
+    name: portfolio
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npx --yes pnpm@10 install --frozen-lockfile && npx --yes pnpm@10 run build
+    startCommand: node --disable-warning=ExperimentalWarning dist-server/node.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22.20.0"
+      - key: DATABASE_PATH
+        value: /var/data/portfolio.db
+      - key: APP_USERNAME
+        value: admin
+      - key: APP_PASSWORD
+        sync: false
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

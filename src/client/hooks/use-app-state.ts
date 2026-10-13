@@ -14,6 +14,8 @@ import type {
   NewLease,
   NewWorkOrder,
   NewVendor,
+  SalesLead,
+  NewSalesLead,
 } from "../types";
 
 export interface AppSettings {
@@ -25,9 +27,9 @@ export interface AppSettings {
 
 const DEFAULT_SETTINGS: AppSettings = {
   default_rent_due_day: 1,
-  late_fee_amount: 50,
-  late_fee_grace_days: 5,
-  currency: "USD",
+  late_fee_amount: 0,
+  late_fee_grace_days: 14,
+  currency: "GBP",
 };
 
 function parseSettings(raw: Record<string, string>): AppSettings {
@@ -250,7 +252,30 @@ export function useAppState() {
     await api("DELETE", `/api/work-orders/${id}`);
   }, []);
 
+  // Sales leads ───────────────────────────────────────────────────
+
+  const listLeads = useCallback(async (): Promise<SalesLead[]> => {
+    const data = await api<{ leads: SalesLead[] }>("GET", "/api/sales-leads");
+    return data.leads;
+  }, []);
+
+  const createLead = useCallback(async (data: NewSalesLead) => {
+    const res = await api<{ lead: SalesLead }>("POST", "/api/sales-leads", data);
+    return res.lead;
+  }, []);
+
+  const updateLead = useCallback(async (id: number, patch: Partial<NewSalesLead>) => {
+    const res = await api<{ lead: SalesLead }>("PUT", `/api/sales-leads/${id}`, patch);
+    return res.lead;
+  }, []);
+
+  const deleteLead = useCallback(async (id: number) => {
+    await api("DELETE", `/api/sales-leads/${id}`);
+  }, []);
+
   return {
+    // sales leads
+    listLeads, createLead, updateLead, deleteLead,
     // data
     properties, vendors, settings,
     loading, error, setError,

@@ -11,14 +11,11 @@ import { UnitDialog } from "./unit-dialog";
 import { WorkOrderDialog } from "../maintenance/work-order-dialog";
 import type { Property, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
+import {
+  CERTIFICATES, CERT_LABEL, CERT_TONE, certState, dealLabel, netProfit,
+  occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone,
+} from "@/lib/portfolio";
 
-const TYPE_LABEL: Record<string, string> = {
-  single_family: "Single-family",
-  multi_family: "Multi-family",
-  condo: "Condo",
-  townhouse: "Townhouse",
-  commercial: "Commercial",
-};
 
 const STATUS_TONE: Record<string, string> = {
   vacant: "bg-warning-tint text-warning",
@@ -78,8 +75,6 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   }
 
   const palette = colorClasses(property.color);
-  const occupied = units.filter((u) => u.status === "occupied").length;
-  const totalRent = units.reduce((sum, u) => sum + (u.market_rent ?? 0), 0);
   const openWorkOrders = workOrders.filter((w) => w.status !== "completed" && w.status !== "cancelled");
 
   return (
@@ -105,13 +100,13 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
               <div className="flex items-center gap-2">
                 <h1 className="text-[1.375rem] font-semibold leading-tight tracking-[-0.01em]">{property.name}</h1>
                 <span className="rounded-full border bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {TYPE_LABEL[property.type] ?? property.type}
+                  {propertyTypeLabel(property.type)}
                 </span>
               </div>
               {(property.address || property.city) && (
                 <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
                   <MapPin className="h-3 w-3" />
-                  {[property.address, property.city, property.state, property.zip].filter(Boolean).join(", ")}
+                  {[property.address, property.zip].filter(Boolean).join(", ")}
                 </p>
               )}
             </div>
@@ -121,11 +116,65 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
           </Button>
         </header>
 
+        <div className="flex flex-wrap items-center gap-2">
+          {property.ref && <span className="chip">Ref {property.ref}</span>}
+          <span className="chip">{dealLabel(property.deal_type)}</span>
+          {property.owner && <span className="chip">{property.owner}</span>}
+          {property.bedrooms ? <span className="chip">{property.bedrooms} bed</span> : null}
+          {property.hmo ? <span className="chip">HMO</span> : null}
+          <Badge variant={occupancyTone(property.occupancy)}>{occupancyLabel(property.occupancy)}</Badge>
+          {property.rent_status && (
+            <Badge variant={rentStatusTone(property.rent_status)}>{rentStatusLabel(property.rent_status)}</Badge>
+          )}
+        </div>
+
         <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <SummaryCard label="Units" value={String(units.length)} />
-          <SummaryCard label="Occupied" value={`${occupied}/${units.length}`} />
-          <SummaryCard label="Market rent" value={formatMoney(totalRent, app.settings.currency)} />
-          <SummaryCard label="Open work orders" value={String(openWorkOrders.length)} tone={openWorkOrders.length > 0 ? "warn" : "default"} />
+          <SummaryCard label="Rent in" value={formatMoney(property.rent_in, app.settings.currency)} sub={property.rent_in_day ? `arrives on the ${ordinal(property.rent_in_day)}` : undefined} />
+          <SummaryCard
+            label="Rent / mortgage out"
+            value={formatMoney(property.rent_out + property.other_costs, app.settings.currency)}
+            sub={property.payment_out_day ? `leaves on the ${ordinal(property.payment_out_day)}` : property.rent_out || property.other_costs ? undefined : "no costs entered"}
+          />
+          <SummaryCard
+            label="Net profit"
+            value={formatMoney(netProfit(property), app.settings.currency)}
+            sub={property.rent_in ? `${Math.round((netProfit(property) / property.rent_in) * 100)}% margin` : undefined}
+            tone={netProfit(property) < 0 ? "warn" : "default"}
+          />
+          <SummaryCard
+            label="Arrears"
+            value={property.arrears_amount ? formatMoney(property.arrears_amount, app.settings.currency) : "None"}
+            sub={property.months_arrears ? `${property.months_arrears} months behind` : undefined}
+            tone={property.arrears_amount > 0 ? "warn" : "default"}
+          />
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Card className="p-5 lg:col-span-2">
+            <h2 className="mb-3 text-sm font-semibold">Compliance</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {CERTIFICATES.map((c) => {
+                const date = property[c.key];
+                const st = certState(date);
+                return (
+                  <div key={c.key} className="rounded-md border p-3">
+                    <div className="stat-label">{c.label}</div>
+                    <div className="mt-1 text-sm font-medium tabular-nums">{date ? formatDate(date) : "Not recorded"}</div>
+                    <Badge variant={CERT_TONE[st]} className="mt-2">{CERT_LABEL[st]}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <h2 className="mb-3 text-sm font-semibold">Letting</h2>
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Tenant / agent</dt><dd className="text-right font-medium">{property.tenant_label || "—"}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Owner</dt><dd className="text-right font-medium">{property.owner || "—"}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Open work orders</dt><dd className="text-right font-medium">{openWorkOrders.length}</dd></div>
+            </dl>
+            {property.notes && <p className="mt-4 whitespace-pre-line border-t pt-3 text-sm text-muted-foreground">{property.notes}</p>}
+          </Card>
         </section>
 
         <section>
@@ -147,7 +196,7 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
                     <div>
                       <h3 className="font-semibold">{u.name}</h3>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {u.bedrooms} bd · {u.bathrooms} ba{u.sqft ? ` · ${u.sqft} sqft` : ""}
+                        {u.bedrooms} bed · {u.bathrooms} bath{u.sqft ? ` · ${u.sqft} sq ft` : ""}
                       </p>
                     </div>
                     <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize", STATUS_TONE[u.status])}>
@@ -221,11 +270,12 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   );
 }
 
-function SummaryCard({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "warn" }) {
+function SummaryCard({ label, value, sub, tone = "default" }: { label: string; value: string; sub?: string; tone?: "default" | "warn" }) {
   return (
     <Card className="p-4">
       <div className="stat-label">{label}</div>
       <div className={cn("mt-1 text-xl font-semibold tabular-nums", tone === "warn" && "text-warning")}>{value}</div>
+      <div className="mt-0.5 h-4 truncate text-xs text-muted-foreground">{sub}</div>
     </Card>
   );
 }
