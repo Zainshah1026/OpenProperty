@@ -67,8 +67,17 @@ a disk at `/var/data`, and env vars `DATABASE_PATH=/var/data/portfolio.db`,
 
 ## Keep it in sync with a Google Sheet
 
-The easiest way to run it: keep editing the spreadsheet, and the dashboard
-follows. In Google Sheets choose **File → Share → Publish to web → Entire
+Keep editing the spreadsheet and the dashboard follows. There are two ways to
+link it.
+
+**Private (recommended).** The sheet stays private. Open the sheet's
+**Extensions → Apps Script**, paste in `scripts/sheet-endpoint.gs`, set its
+`KEY` to a long random string, and **Deploy → New deployment → Web app**
+(Execute as: *Me*, Who has access: *Anyone*). Then set `SHEET_SCRIPT_URL` to the
+web app URL and `SHEET_SCRIPT_KEY` to the same key, plus the three `GID`
+variables below. Without the key the script returns nothing.
+
+**Published link.** In Google Sheets choose **File → Share → Publish to web → Entire
 document → Comma-separated values (.csv) → Publish**, then set:
 
 | Variable | Value |

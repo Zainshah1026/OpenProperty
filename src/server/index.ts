@@ -15,6 +15,8 @@ type Env = {
     /** Set to "true" in .dev.vars to skip the login prompt on your own machine. */
     ALLOW_NO_AUTH?: string;
     /** Google Sheet sync (see src/server/sync.ts). */
+    SHEET_SCRIPT_URL?: string;
+    SHEET_SCRIPT_KEY?: string;
     SHEET_PUB_URL?: string;
     SHEET_PROPERTIES_GID?: string;
     SHEET_COMPLIANCE_GID?: string;

@@ -1,8 +1,16 @@
 // Google Sheet sync.
 //
-// When SHEET_PUB_URL is set the spreadsheet is the source of truth: its
-// Properties, Compliance and Sales tabs (published to the web as CSV) are read
-// on start, every SYNC_MINUTES, and on demand from the app. Properties are
+// When a sheet is linked it is the source of truth: its Properties,
+// Compliance and Sales tabs are read on start, every SYNC_MINUTES, and on
+// demand from the app. Two ways to link it:
+//
+//   Private (recommended): SHEET_SCRIPT_URL + SHEET_SCRIPT_KEY. A small Apps
+//   Script attached to the sheet (scripts/sheet-endpoint.gs) hands out a tab
+//   as CSV only to a caller holding the key; the sheet itself stays private.
+//
+//   Published: SHEET_PUB_URL from File → Share → Publish to web. Simpler, but
+//   anyone who obtains that link can read the sheet.
+// Properties are
 // matched by Ref (or address), so their units, leases and work orders survive
 // a sync; homes removed from the sheet are removed here. Leads are replaced.
 
@@ -10,6 +18,8 @@ import { buildPayload } from "./sheet-mapping.js";
 import { get, query, run } from "./db";
 
 export interface SyncConfig {
+  SHEET_SCRIPT_URL?: string;
+  SHEET_SCRIPT_KEY?: string;
   SHEET_PUB_URL?: string;
   SHEET_PROPERTIES_GID?: string;
   SHEET_COMPLIANCE_GID?: string;
@@ -37,7 +47,7 @@ const status: SyncStatus = {
 };
 
 export function syncEnabled(cfg: SyncConfig): boolean {
-  return !!cfg.SHEET_PUB_URL;
+  return !!((cfg.SHEET_SCRIPT_URL && cfg.SHEET_SCRIPT_KEY) || cfg.SHEET_PUB_URL);
 }
 
 export function syncStatus(cfg: SyncConfig): SyncStatus {
@@ -50,13 +60,23 @@ function tabUrl(base: string, gid: string): string {
   return `${root}?gid=${encodeURIComponent(gid)}&single=true&output=csv`;
 }
 
-async function fetchTab(base: string, gid: string | undefined): Promise<string> {
+async function fetchTab(cfg: SyncConfig, gid: string | undefined): Promise<string> {
   if (!gid) return "";
-  const res = await fetch(tabUrl(base, gid), { redirect: "follow" });
+  let url: string;
+  let init: RequestInit = { redirect: "follow" };
+  if (cfg.SHEET_SCRIPT_URL && cfg.SHEET_SCRIPT_KEY) {
+    // The key goes in the body, never the URL, so it stays out of request logs.
+    url = `${cfg.SHEET_SCRIPT_URL}?gid=${encodeURIComponent(gid)}`;
+    init = { ...init, method: "POST", headers: { "Content-Type": "text/plain" }, body: cfg.SHEET_SCRIPT_KEY };
+  } else {
+    url = tabUrl(cfg.SHEET_PUB_URL ?? "", gid);
+  }
+  const res = await fetch(url, init);
   if (!res.ok) throw new Error(`Sheet tab ${gid}: HTTP ${res.status}`);
   const text = await res.text();
+  if (text.startsWith("ERROR:")) throw new Error(`Sheet tab ${gid}: ${text.slice(6).trim()}`);
   if (/^\s*<(!doctype|html)/i.test(text)) {
-    throw new Error(`Sheet tab ${gid} is not published as CSV (got a web page). Check File → Share → Publish to web.`);
+    throw new Error(`Sheet tab ${gid} returned a web page instead of data. Check the sheet link settings.`);
   }
   return text;
 }
@@ -78,16 +98,15 @@ const keyOf = (ref: unknown, address: unknown) =>
   ref ? `ref:${String(ref).trim().toLowerCase()}` : `addr:${String(address ?? "").trim().toLowerCase()}`;
 
 export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
-  const base = cfg.SHEET_PUB_URL;
-  if (!base) throw new Error("Sheet sync is not set up (SHEET_PUB_URL is empty).");
+  if (!syncEnabled(cfg)) throw new Error("Sheet sync is not set up.");
   if (status.running) return syncStatus(cfg);
   status.running = true;
   status.last_run = new Date().toISOString();
   try {
     const [properties, compliance, sales] = await Promise.all([
-      fetchTab(base, cfg.SHEET_PROPERTIES_GID),
-      fetchTab(base, cfg.SHEET_COMPLIANCE_GID),
-      fetchTab(base, cfg.SHEET_SALES_GID),
+      fetchTab(cfg, cfg.SHEET_PROPERTIES_GID),
+      fetchTab(cfg, cfg.SHEET_COMPLIANCE_GID),
+      fetchTab(cfg, cfg.SHEET_SALES_GID),
     ]);
     const payload = buildPayload({ properties, compliance, sales });
 
