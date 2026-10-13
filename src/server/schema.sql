@@ -216,6 +216,28 @@ CREATE TABLE IF NOT EXISTS applications (
 
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 
+-- ── Invoices ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS invoices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL,                        -- 'CC-0001'
+  property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL,
+  bill_to_name TEXT NOT NULL,
+  bill_to_email TEXT,
+  bill_to_address TEXT,
+  issue_date TEXT NOT NULL,                    -- 'YYYY-MM-DD'
+  due_date TEXT NOT NULL,
+  items TEXT NOT NULL DEFAULT '[]',            -- JSON: [{"description": "...", "amount": 1200}]
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',        -- 'draft' | 'sent' | 'paid' | 'void'
+  sent_at TEXT,
+  sent_to TEXT,
+  paid_at TEXT,
+  created_by TEXT,                             -- 'you' | 'assistant'
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+
 -- ── Sales leads ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sales_leads (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

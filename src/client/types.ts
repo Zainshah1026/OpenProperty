@@ -306,6 +306,35 @@ export interface CalendarData {
   compliance_missing: number;
 }
 
+export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
+
+export interface InvoiceItem {
+  description: string;
+  amount: number;
+}
+
+export interface Invoice {
+  id: number;
+  number: string;
+  property_id: number | null;
+  bill_to_name: string;
+  bill_to_email: string | null;
+  bill_to_address: string | null;
+  issue_date: string;
+  due_date: string;
+  items: InvoiceItem[];
+  notes: string | null;
+  status: InvoiceStatus;
+  sent_at: string | null;
+  sent_to: string | null;
+  paid_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  total: number;
+  property_name?: string | null;
+  property_ref?: string | null;
+}
+
 export type LeadStatus = "new" | "contacted" | "viewing" | "offer_made" | "under_offer" | "completed" | "withdrawn";
 
 export interface SalesLead {

@@ -2,6 +2,8 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { initDB, query, get, run } from "./db";
 import { runSync, syncStatus } from "./sync";
+import { registerInvoiceRoutes } from "./invoices";
+import { registerAssistantRoutes } from "./assistant";
 
 type Env = {
   Bindings: {
@@ -15,6 +17,12 @@ type Env = {
     /** Set to "true" in .dev.vars to skip the login prompt on your own machine. */
     ALLOW_NO_AUTH?: string;
     /** Google Sheet sync (see src/server/sync.ts). */
+    /** Invoice emails via Resend. */
+    RESEND_API_KEY?: string;
+    INVOICE_FROM_EMAIL?: string;
+    /** The Ask assistant (Claude API). */
+    ANTHROPIC_API_KEY?: string;
+    ASSISTANT_MODEL?: string;
     SHEET_SCRIPT_URL?: string;
     SHEET_SCRIPT_KEY?: string;
     SHEET_PUB_URL?: string;
@@ -1411,6 +1419,9 @@ app.post("/api/sync", async (c) => {
     return c.json({ ...syncStatus(c.env), error: (err as Error).message }, 502);
   }
 });
+
+registerInvoiceRoutes(app);
+registerAssistantRoutes(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 

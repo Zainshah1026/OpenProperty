@@ -21,6 +21,13 @@ services:
         value: admin
       - key: APP_PASSWORD
         sync: false
+      # Optional: invoice email (Resend) and the Ask assistant
+      - key: RESEND_API_KEY
+        sync: false
+      - key: INVOICE_FROM_EMAIL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       # Optional Google Sheet sync — see README
       - key: SHEET_PUB_URL
         sync: false

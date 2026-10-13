@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useApp } from "@/context";
+import { api } from "@/api";
 import { cn, colorClasses } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,14 +38,15 @@ export function SettingsPage() {
   return (
     <PageShell
       title="Settings"
-      meta="Contractors and rent policy defaults"
+      meta="Contractors, rent policy and invoice details"
       width="max-w-5xl"
     >
 
-        <Tabs defaultValue="vendors">
+        <Tabs defaultValue={window.location.hash === "#invoicing" ? "invoicing" : "vendors"}>
           <TabsList>
             <TabsTrigger value="vendors">Contractors</TabsTrigger>
             <TabsTrigger value="policy">Rent policy</TabsTrigger>
+            <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
           </TabsList>
 
           <TabsContent value="vendors" className="mt-4">
@@ -52,6 +54,9 @@ export function SettingsPage() {
           </TabsContent>
           <TabsContent value="policy" className="mt-4">
             <PolicyTab />
+          </TabsContent>
+          <TabsContent value="invoicing" className="mt-4">
+            <InvoicingTab />
           </TabsContent>
         </Tabs>
     </PageShell>
@@ -308,6 +313,74 @@ function PolicyTab() {
       </div>
       <div className="mt-4">
         <Button onClick={save} disabled={saving}>Save settings</Button>
+      </div>
+    </Card>
+  );
+}
+
+// ── Invoicing: the details printed on every invoice ────────────────
+
+const INVOICE_FIELDS: { key: string; label: string; placeholder?: string; multiline?: boolean }[] = [
+  { key: "company_name", label: "Company name", placeholder: "Chisti & Co." },
+  { key: "company_address", label: "Company address", multiline: true },
+  { key: "company_email", label: "Reply-to email", placeholder: "accounts@chistiandco.com" },
+  { key: "company_phone", label: "Phone" },
+  { key: "bank_account_name", label: "Bank account name" },
+  { key: "bank_name", label: "Bank" },
+  { key: "bank_sort_code", label: "Sort code", placeholder: "00-00-00" },
+  { key: "bank_account_number", label: "Account number" },
+  { key: "invoice_prefix", label: "Invoice number prefix", placeholder: "CC-" },
+  { key: "invoice_terms_days", label: "Payment terms (days)", placeholder: "14" },
+  { key: "invoice_footer", label: "Footer note", multiline: true, placeholder: "e.g. company number, VAT number" },
+];
+
+function InvoicingTab() {
+  const app = useApp();
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api<{ settings: Record<string, string> }>("GET", "/api/settings")
+      .then((d) => setValues(d.settings))
+      .catch((err) => app.setError((err as Error).message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const body: Record<string, string> = {};
+      for (const f of INVOICE_FIELDS) body[f.key] = (values[f.key] ?? "").trim();
+      await api("PUT", "/api/settings", body);
+      setSaved(true);
+    } catch (err) {
+      app.setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <h2 className="text-sm font-semibold">Invoice details</h2>
+      <p className="mb-4 text-xs text-muted-foreground">Shown on every invoice. Bank details appear under "How to pay".</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {INVOICE_FIELDS.map((f) => (
+          <div key={f.key} className={f.multiline ? "sm:col-span-2" : undefined}>
+            <Label htmlFor={`inv-${f.key}`} className="mb-1 block">{f.label}</Label>
+            {f.multiline ? (
+              <Textarea id={`inv-${f.key}`} rows={2} value={values[f.key] ?? ""} placeholder={f.placeholder} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} />
+            ) : (
+              <Input id={`inv-${f.key}`} value={values[f.key] ?? ""} placeholder={f.placeholder} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save invoice details"}</Button>
+        {saved && <span className="text-sm text-success">Saved</span>}
       </div>
     </Card>
   );

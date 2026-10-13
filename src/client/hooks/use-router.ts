@@ -11,6 +11,7 @@ export type Route =
   | { name: "maintenance" }
   | { name: "compliance" }
   | { name: "sales" }
+  | { name: "invoices" }
   | { name: "settings" }
   | { name: "not-found" };
 
@@ -28,6 +29,7 @@ function parse(full: string): Route {
   if (path === "/maintenance") return { name: "maintenance" };
   if (path === "/compliance") return { name: "compliance" };
   if (path === "/sales") return { name: "sales" };
+  if (path === "/invoices") return { name: "invoices" };
   if (path === "/settings") return { name: "settings" };
   return { name: "not-found" };
 }

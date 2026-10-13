@@ -15,6 +15,8 @@ import { MaintenancePage } from "./components/maintenance/maintenance-page";
 import { SettingsPage } from "./components/settings/settings-page";
 import { CompliancePage } from "./components/compliance/compliance-page";
 import { SalesPage } from "./components/sales/sales-page";
+import { InvoicesPage } from "./components/invoices/invoices-page";
+import { AssistantPanel } from "./components/assistant-panel";
 
 /**
  * The navigation, defined once.
@@ -38,6 +40,7 @@ const PORTFOLIO: AppNavItem[] = [
   { id: "leases", label: "Leases", href: "/leases", icon: "clipboard-list", color: "violet" },
 ];
 const OPERATIONS: AppNavItem[] = [
+  { id: "invoices", label: "Invoices", href: "/invoices", icon: "file-text", color: "blue" },
   { id: "rent", label: "Rent ledger", href: "/rent", icon: "dollar-sign", color: "amber" },
   { id: "compliance", label: "Compliance", href: "/compliance", icon: "shield-check", color: "rose" },
   { id: "maintenance", label: "Maintenance", href: "/maintenance", icon: "list-checks", color: "orange" },
@@ -122,6 +125,7 @@ export function App() {
               {route.name === "maintenance" && <MaintenancePage />}
               {route.name === "compliance" && <CompliancePage navigate={navigate} />}
               {route.name === "sales" && <SalesPage />}
+              {route.name === "invoices" && <InvoicesPage />}
               {route.name === "settings" && <SettingsPage />}
               {route.name === "not-found" && (
                 <Placeholder title="Not found" message="That page doesn't exist." />
@@ -130,6 +134,7 @@ export function App() {
           )}
         </main>
         <ErrorBanner />
+        <AssistantPanel navigate={navigate} />
       </div>
     </AppContext.Provider>
   );

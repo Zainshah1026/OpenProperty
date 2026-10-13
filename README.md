@@ -65,6 +65,29 @@ start command `node --disable-warning=ExperimentalWarning dist-server/node.js`,
 a disk at `/var/data`, and env vars `DATABASE_PATH=/var/data/portfolio.db`,
 `NODE_VERSION=22.20.0`, `APP_PASSWORD`.
 
+## Invoices
+
+**Invoices** creates branded Chisti & Co. invoices (rent, ground rent, service
+charge, anything) with a printable view (save as PDF from the browser) and
+emails them. Company and bank details go in **Settings → Invoicing**.
+
+Nothing is emailed until someone presses **Send** and confirms. To switch on
+email, create a free [Resend](https://resend.com) account, verify your
+sending domain (DNS records for e.g. chistiandco.com), and set:
+
+| Variable | Value |
+|---|---|
+| `RESEND_API_KEY` | from Resend → API Keys |
+| `INVOICE_FROM_EMAIL` | an address on the verified domain, e.g. `accounts@chistiandco.com` |
+
+## Ask (AI assistant)
+
+The **Ask** button on every page answers questions from the live data ("who's
+in arrears?", "what goes out this week?") and can draft invoices. It can only
+create drafts; sending is always a person's click. Set `ANTHROPIC_API_KEY`
+(from console.anthropic.com) to switch it on; `ASSISTANT_MODEL` optionally
+overrides the model (default `claude-sonnet-5-5`).
+
 ## Keep it in sync with a Google Sheet
 
 Keep editing the spreadsheet and the dashboard follows. There are two ways to
