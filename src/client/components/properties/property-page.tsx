@@ -13,7 +13,7 @@ import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, certState, dealLabel, netProfit,
-  occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone,
+  occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
 } from "@/lib/portfolio";
 
 
@@ -122,6 +122,7 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
         <div className="flex flex-wrap items-center gap-2">
           {property.ref && <span className="chip">Ref {property.ref}</span>}
           <span className="chip">{dealLabel(property.deal_type)}</span>
+          {property.tenure && <span className="chip">{tenureLabel(property.tenure)}</span>}
           {property.owner && <span className="chip">{property.owner}</span>}
           {property.bedrooms ? <span className="chip">{property.bedrooms} bed</span> : null}
           {property.hmo ? <span className="chip">HMO</span> : null}

@@ -243,6 +243,7 @@ const PropertyInput = z.object({
   owner: z.string().optional().nullable(),
   deal_type: z.enum(DEAL_TYPES).optional(),
   section: z.enum(["owned", "managed"]).optional(),
+  tenure: z.enum(["freehold", "leasehold", "share_of_freehold"]).optional().nullable(),
   bedrooms: z.number().int().min(0).optional().nullable(),
   hmo: z.number().int().min(0).max(1).optional(),
   occupancy: z.enum(OCCUPANCY).optional(),

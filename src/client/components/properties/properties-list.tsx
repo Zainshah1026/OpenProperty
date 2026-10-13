@@ -3,7 +3,7 @@ import { Building2, Plus, Search } from "lucide-react";
 import { useApp } from "@/context";
 import { cn, formatMoney } from "@/lib/utils";
 import {
-  DEAL_TYPES, OCCUPANCY, RENT_STATUS,
+  DEAL_TYPES, OCCUPANCY, RENT_STATUS, isFreehold,
   dealLabel, netProfit, occupancyLabel, occupancyTone, rentStatusLabel, rentStatusTone,
 } from "@/lib/portfolio";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +17,13 @@ import { SyncBanner } from "@/components/sync-banner";
 
 const ALL = "__all";
 
-type Section = "all" | "owned" | "managed";
+type Section = "all" | "owned" | "managed" | "freehold";
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: "all", label: "All" },
   { value: "owned", label: "Our properties" },
   { value: "managed", label: "Rent to rent (managed)" },
+  { value: "freehold", label: "Freehold" },
 ];
 
 export function PropertiesList({ navigate, section = "all" }: { navigate: (to: string) => void; section?: Section }) {
@@ -31,9 +32,15 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
     all: allProperties.length,
     owned: allProperties.filter((p) => p.section !== "managed").length,
     managed: allProperties.filter((p) => p.section === "managed").length,
+    freehold: allProperties.filter((p) => isFreehold(p.tenure)).length,
   };
   const properties = useMemo(
-    () => (section === "all" ? allProperties : allProperties.filter((p) => (p.section === "managed") === (section === "managed"))),
+    () =>
+      section === "all"
+        ? allProperties
+        : section === "freehold"
+          ? allProperties.filter((p) => isFreehold(p.tenure))
+          : allProperties.filter((p) => (p.section === "managed") === (section === "managed")),
     [allProperties, section],
   );
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -70,7 +77,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
 
   return (
     <PageShell
-      title={section === "managed" ? "Rent to rent" : section === "owned" ? "Our properties" : "Properties"}
+      title={section === "managed" ? "Rent to rent" : section === "owned" ? "Our properties" : section === "freehold" ? "Freehold" : "Properties"}
       meta={`${filtered ? `${rows.length} of ` : ""}${properties.length} ${properties.length === 1 ? "home" : "homes"} · ${money(totals.in)} rent in · ${money(totals.net)} net`}
       actions={
         <Button onClick={() => setDialogOpen(true)}>
@@ -97,6 +104,12 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
       {section === "managed" && (
         <p className="text-xs text-muted-foreground">
           Homes we rent from a landlord and let out. "Owner" is the landlord we pay; "Out" is the rent we pay them.
+        </p>
+      )}
+      {section === "freehold" && (
+        <p className="text-xs text-muted-foreground">
+          Homes where we own the freehold (or a share of it). Set this in the Tenure column on the Properties and Rent to Rent tabs of the sheet.
+          {counts.freehold === 0 && " No homes are marked yet."}
         </p>
       )}
       {properties.length === 0 ? (
@@ -155,7 +168,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                         <td className="max-w-[18rem] px-3 py-2.5">
                           <div className="truncate font-medium">{p.name}</div>
                           <div className="truncate text-xs text-muted-foreground">
-                            {[p.city, p.zip, p.bedrooms ? `${p.bedrooms} bed` : null, p.hmo ? "HMO" : null, p.room_count ? `${p.rooms_let ?? 0}/${p.room_count} rooms let` : null].filter(Boolean).join(" · ")}
+                            {[p.city, p.zip, p.bedrooms ? `${p.bedrooms} bed` : null, p.hmo ? "HMO" : null, p.room_count ? `${p.rooms_let ?? 0}/${p.room_count} rooms let` : null, isFreehold(p.tenure) ? "Freehold" : null].filter(Boolean).join(" · ")}
                           </div>
                         </td>
                         <td className="max-w-[10rem] truncate px-3 py-2.5">{p.owner || "—"}</td>

@@ -78,6 +78,7 @@ const DEAL = { jointventure: "joint_venture", jv: "joint_venture", owned: "owned
 const TYPE = { flat: "flat", apartment: "flat", maisonette: "maisonette", terrace: "terraced", semi: "semi_detached", detached: "detached", bungalow: "bungalow", commercial: "commercial", shop: "commercial", office: "commercial" };
 const OCC = { occupied: "occupied", partoccupied: "part_occupied", part: "part_occupied", vacant: "vacant", empty: "vacant", eviction: "eviction" };
 const RENT = { ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", advance: "in_advance", inadvance: "in_advance", groundrent: "ground_rent" };
+const TENURE = { freehold: "freehold", fh: "freehold", leasehold: "leasehold", lh: "leasehold", shareoffreehold: "share_of_freehold", share: "share_of_freehold", sof: "share_of_freehold" };
 const LEAD = { new: "new", contacted: "contacted", viewing: "viewing", offer: "offer_made", underoffer: "under_offer", sstc: "under_offer", completed: "completed", sold: "completed", withdrawn: "withdrawn", dead: "withdrawn" };
 
 const COUNTIES = ["Essex", "Kent", "Surrey", "Sussex", "East Sussex", "West Sussex", "Yorkshire", "Bedfordshire", "Hertfordshire", "Suffolk", "Norfolk", "Berkshire", "Buckinghamshire", "Middlesex", "Wiltshire", "Hampshire", "Leicestershire"];
@@ -105,6 +106,7 @@ export function toProperty(r, compliance, section = "owned") {
     owner: text(pick(r, "Owner", "Landlord")),
     deal_type: choose(pick(r, "Deal Type"), DEAL, section === "managed" ? "rent_to_rent" : "owned"),
     section,
+    tenure: choose(pick(r, "Tenure"), TENURE, null),
     bedrooms: int(pick(r, "Bedrooms")),
     hmo: /^y/i.test(pick(r, "HMO")) ? 1 : 0,
     occupancy: choose(pick(r, "Occupancy"), OCC, "occupied"),

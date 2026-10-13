@@ -24,7 +24,10 @@ const sqlite = new DatabaseSync(DB_PATH);
 sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 sqlite.exec(schema);
 // Columns added after a database was first created: add them if missing.
-for (const ddl of ["ALTER TABLE properties ADD COLUMN section TEXT NOT NULL DEFAULT 'owned'"]) {
+for (const ddl of [
+  "ALTER TABLE properties ADD COLUMN section TEXT NOT NULL DEFAULT 'owned'",
+  "ALTER TABLE properties ADD COLUMN tenure TEXT",
+]) {
   try { sqlite.exec(ddl); } catch { /* already there */ }
 }
 

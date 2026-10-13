@@ -33,6 +33,7 @@ const PORTFOLIO: AppNavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/dashboard", home: true },
   { id: "properties", label: "Our properties", href: "/properties?section=owned", icon: "building-2", color: "green" },
   { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: "key", color: "teal" },
+  { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: "landmark", color: "violet" },
   { id: "tenants", label: "Tenants", href: "/tenants", icon: "users", color: "blue" },
   { id: "leases", label: "Leases", href: "/leases", icon: "clipboard-list", color: "violet" },
 ];
@@ -52,6 +53,7 @@ const ADMIN: AppNavItem[] = [
 /** A record page keeps its collection's row lit. */
 function activeFor(route: Route, path: string): string {
   if (route.name === "properties" && path.includes("section=managed")) return "managed";
+  if (route.name === "properties" && path.includes("section=freehold")) return "freehold";
   if (route.name === "property") return "properties";
   if (route.name === "tenant") return "tenants";
   return route.name;
@@ -104,7 +106,12 @@ export function App() {
                 <PropertiesList
                   key={path}
                   navigate={navigate}
-                  section={path.includes("section=managed") ? "managed" : path.includes("section=owned") ? "owned" : "all"}
+                  section={
+                    path.includes("section=managed") ? "managed"
+                      : path.includes("section=owned") ? "owned"
+                      : path.includes("section=freehold") ? "freehold"
+                      : "all"
+                  }
                 />
               )}
               {route.name === "property" && <PropertyPage id={route.id} navigate={navigate} />}

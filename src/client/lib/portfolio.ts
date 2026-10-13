@@ -26,6 +26,14 @@ export const OCCUPANCY: { value: Occupancy; label: string }[] = [
   { value: "eviction", label: "Eviction in process" },
 ];
 
+export const TENURES: { value: "freehold" | "leasehold" | "share_of_freehold"; label: string }[] = [
+  { value: "freehold", label: "Freehold" },
+  { value: "share_of_freehold", label: "Share of freehold" },
+  { value: "leasehold", label: "Leasehold" },
+];
+
+export const isFreehold = (t: string | null | undefined) => t === "freehold" || t === "share_of_freehold";
+
 export const RENT_STATUS: { value: RentStatus; label: string }[] = [
   { value: "on_time", label: "On time" },
   { value: "in_arrears", label: "In arrears" },
@@ -50,6 +58,7 @@ export const propertyTypeLabel = lookup(PROPERTY_TYPES);
 export const dealLabel = lookup(DEAL_TYPES);
 export const occupancyLabel = lookup(OCCUPANCY);
 export const rentStatusLabel = lookup(RENT_STATUS);
+export const tenureLabel = lookup(TENURES);
 export const leadStatusLabel = lookup(LEAD_STATUS);
 
 /** Badge variant for each value, so the same state reads the same everywhere. */

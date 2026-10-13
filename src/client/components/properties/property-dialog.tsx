@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CERTIFICATES, DEAL_TYPES, OCCUPANCY, PROPERTY_TYPES, RENT_STATUS } from "@/lib/portfolio";
+import { CERTIFICATES, DEAL_TYPES, OCCUPANCY, PROPERTY_TYPES, RENT_STATUS, TENURES } from "@/lib/portfolio";
 import type { DealType, NewProperty, Occupancy, Property, PropertyType, RentStatus } from "@/types";
 
 interface Props {
@@ -36,6 +36,7 @@ function toForm(p?: Property): Form {
   f.occupancy = p?.occupancy ?? "occupied";
   f.rent_status = p?.rent_status ?? "on_time";
   f.hmo = p?.hmo ? "1" : "0";
+  f.tenure = p?.tenure ?? "unknown";
   return f;
 }
 
@@ -71,6 +72,7 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props)
       payload.occupancy = f.occupancy as Occupancy;
       payload.rent_status = f.rent_status as RentStatus;
       payload.hmo = f.hmo === "1" ? 1 : 0;
+      payload.tenure = f.tenure === "unknown" ? null : (f.tenure as Property["tenure"]);
       const saved = property ? await app.updateProperty(property.id, payload) : await app.createProperty(payload);
       onSaved?.(saved);
       onOpenChange(false);
@@ -116,6 +118,7 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props)
                 <Field label="Bedrooms"><Input type="number" min={0} {...bind("bedrooms")} /></Field>
                 <Field label="HMO"><Choice value={f.hmo} onChange={set("hmo")} options={[{ value: "0", label: "No" }, { value: "1", label: "Yes" }]} /></Field>
               </div>
+              <Field label="Tenure"><Choice value={f.tenure} onChange={set("tenure")} options={[{ value: "unknown", label: "Not set" }, ...TENURES]} /></Field>
             </Section>
 
             <Section title="Ownership & letting">
