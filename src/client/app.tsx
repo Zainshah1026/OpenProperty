@@ -31,7 +31,8 @@ const PORTFOLIO: AppNavItem[] = [
   // Not drawn as a row: the app's name opens it (the brand row standalone, the
   // app's own header in the dashboard).
   { id: "dashboard", label: "Dashboard", href: "/dashboard", home: true },
-  { id: "properties", label: "Properties", href: "/properties", icon: "building-2", color: "green" },
+  { id: "properties", label: "Our properties", href: "/properties?section=owned", icon: "building-2", color: "green" },
+  { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: "key", color: "teal" },
   { id: "tenants", label: "Tenants", href: "/tenants", icon: "users", color: "blue" },
   { id: "leases", label: "Leases", href: "/leases", icon: "clipboard-list", color: "violet" },
 ];
@@ -49,7 +50,8 @@ const ADMIN: AppNavItem[] = [
 ];
 
 /** A record page keeps its collection's row lit. */
-function activeFor(route: Route): string {
+function activeFor(route: Route, path: string): string {
+  if (route.name === "properties" && path.includes("section=managed")) return "managed";
   if (route.name === "property") return "properties";
   if (route.name === "tenant") return "tenants";
   return route.name;
@@ -82,7 +84,7 @@ export function App() {
             title="Chisti & Co."
             icon="home"
             groups={groups}
-            active={activeFor(route)}
+            active={activeFor(route, path)}
             onNavigate={(item) => {
               // Signing out is a server round trip, not a client-side route.
               if (item.href === "/logout") window.location.href = "/logout";
@@ -98,7 +100,13 @@ export function App() {
           ) : (
             <>
               {route.name === "dashboard" && <DashboardPage navigate={navigate} />}
-              {route.name === "properties" && <PropertiesList navigate={navigate} />}
+              {route.name === "properties" && (
+                <PropertiesList
+                  key={path}
+                  navigate={navigate}
+                  section={path.includes("section=managed") ? "managed" : path.includes("section=owned") ? "owned" : "all"}
+                />
+              )}
               {route.name === "property" && <PropertyPage id={route.id} navigate={navigate} />}
               {route.name === "tenants" && <TenantsList navigate={navigate} />}
               {route.name === "tenant" && <TenantPage id={route.id} navigate={navigate} />}

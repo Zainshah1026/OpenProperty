@@ -84,7 +84,7 @@ const COUNTIES = ["Essex", "Kent", "Surrey", "Sussex", "East Sussex", "West Suss
 
 // ── Properties ─────────────────────────────────────────────────────
 
-export function toProperty(r, compliance) {
+export function toProperty(r, compliance, section = "owned") {
   const address = pick(r, "Full Address", "Address");
   const parts = address.split(",").map((s) => s.trim()).filter(Boolean);
   const county = parts.length > 1 && COUNTIES.includes(parts[parts.length - 1]) ? parts[parts.length - 1] : null;
@@ -103,7 +103,8 @@ export function toProperty(r, compliance) {
     state: county,
     zip: text(pick(r, "Postcode")),
     owner: text(pick(r, "Owner", "Landlord")),
-    deal_type: choose(pick(r, "Deal Type"), DEAL, "owned"),
+    deal_type: choose(pick(r, "Deal Type"), DEAL, section === "managed" ? "rent_to_rent" : "owned"),
+    section,
     bedrooms: int(pick(r, "Bedrooms")),
     hmo: /^y/i.test(pick(r, "HMO")) ? 1 : 0,
     occupancy: choose(pick(r, "Occupancy"), OCC, "occupied"),
@@ -151,17 +152,39 @@ export function toLead(r) {
   };
 }
 
+const ROOM_STATUS = { ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", roomempty: "empty", empty: "empty", vacant: "empty" };
+
+/** One row of the Tenants tab: a room and who pays for it. */
+export function toRoom(r, i) {
+  return {
+    ref: text(pick(r, "Ref")),
+    room: text(pick(r, "Room")) ?? `Room ${i + 1}`,
+    tenant_name: text(pick(r, "Tenant")),
+    rent: money(pick(r, "Rent")),
+    pay_day: day(pick(r, "Pay Day", "Rent In Day")),
+    rent_status: choose(pick(r, "Rent Paid", "Status"), ROOM_STATUS, null),
+    start_date: date(pick(r, "Tenancy Start", "Start")),
+    end_date: date(pick(r, "Tenancy End", "End")),
+    notes: text(pick(r, "Notes")),
+    sort: i,
+  };
+}
+
 // ── Whole payload ──────────────────────────────────────────────────
 
 /**
- * Build an import payload from the CSV text of each tab.
- * @param {{ properties?: string, compliance?: string, sales?: string }} csv
+ * Build an import payload from the CSV text of each tab. Homes on the
+ * Rent to Rent tab are ones we manage but don't own (section "managed").
+ * @param {{ properties?: string, rentToRent?: string, compliance?: string, sales?: string, tenants?: string }} csv
  */
 export function buildPayload(csv) {
   const compliance = new Map(parseCsv(csv.compliance ?? "").map((r) => [pick(r, "Ref"), r]));
-  const properties = parseCsv(csv.properties ?? "")
-    .filter((r) => pick(r, "Full Address", "Address"))
-    .map((r) => toProperty(r, compliance));
+  const fromTab = (text, section) =>
+    parseCsv(text ?? "")
+      .filter((r) => pick(r, "Full Address", "Address"))
+      .map((r) => toProperty(r, compliance, section));
+  const properties = [...fromTab(csv.properties, "owned"), ...fromTab(csv.rentToRent, "managed")];
   const leads = parseCsv(csv.sales ?? "").map(toLead).filter((l) => l.landlord_name);
-  return { properties, leads };
+  const rooms = parseCsv(csv.tenants ?? "").map(toRoom).filter((r) => r.ref);
+  return { properties, leads, rooms };
 }

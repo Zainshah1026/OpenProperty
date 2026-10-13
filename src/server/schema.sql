@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS properties (
   year_built INTEGER,
   owner TEXT,                                  -- owning company or person; for rent to rent, the landlord you rent from
   deal_type TEXT NOT NULL DEFAULT 'owned',     -- 'owned' | 'joint_venture' | 'rent_to_rent' | 'ground_rent'
+  section TEXT NOT NULL DEFAULT 'owned',       -- 'owned' (ours, incl. joint ventures) | 'managed' (rent to rent: we manage, don't own)
   bedrooms INTEGER,
   hmo INTEGER NOT NULL DEFAULT 0,              -- 1 if licensed / run as an HMO
   occupancy TEXT NOT NULL DEFAULT 'occupied',  -- 'occupied' | 'part_occupied' | 'vacant' | 'eviction'
@@ -48,6 +49,24 @@ CREATE TABLE IF NOT EXISTS properties (
 
 CREATE INDEX IF NOT EXISTS idx_properties_owner ON properties(owner);
 CREATE INDEX IF NOT EXISTS idx_properties_deal ON properties(deal_type);
+
+-- ── Rooms (one per tenant in HMOs and shared houses) ─────────────
+CREATE TABLE IF NOT EXISTS rooms (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  room TEXT,                                   -- 'Room 1', 'Top floor'
+  tenant_name TEXT,
+  rent REAL NOT NULL DEFAULT 0,                -- monthly rent this tenant pays
+  pay_day INTEGER,                             -- day of month they pay (1–31)
+  rent_status TEXT,                            -- 'on_time' | 'in_arrears' | 'empty'
+  start_date TEXT,                             -- 'YYYY-MM-DD'
+  end_date TEXT,
+  notes TEXT,
+  sort INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_rooms_property ON rooms(property_id);
 
 -- ── Units (rentable spaces inside a property) ────────────────────
 CREATE TABLE IF NOT EXISTS units (

@@ -33,7 +33,7 @@ function parse(full: string): Route {
 }
 
 export function useRouter() {
-  const [path, setPath] = useState<string>(() => window.location.pathname);
+  const [path, setPath] = useState<string>(() => window.location.pathname + window.location.search);
 
   const navigate = useCallback((to: string) => {
     if (to === window.location.pathname + window.location.search) return;
@@ -42,7 +42,7 @@ export function useRouter() {
   }, []);
 
   useEffect(() => {
-    const handler = () => setPath(window.location.pathname);
+    const handler = () => setPath(window.location.pathname + window.location.search);
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
   }, []);

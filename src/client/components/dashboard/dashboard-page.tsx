@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { SyncBanner } from "@/components/sync-banner";
+import { CalendarCard } from "./calendar-card";
 
 export function DashboardPage({ navigate }: { navigate: (to: string) => void }) {
   const { settings, setError } = useApp();
@@ -87,6 +88,8 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         />
       </section>
 
+      <CalendarCard navigate={navigate} currency={settings.currency} version={version} />
+
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <CardTitle title="Cashflow through the month" sub="Rent arriving and rent / mortgage going out, by day of the month" />
@@ -134,8 +137,12 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
           <GroupTable rows={s.by_owner} label={(k) => k} money={money} />
         </Card>
         <Card className="p-5">
-          <CardTitle title="By deal type" sub="Owned, joint venture, rent to rent, ground rent" />
-          <GroupTable rows={s.by_deal} label={dealLabel} money={money} />
+          <CardTitle title="Ours vs rent to rent" sub="Homes we own (with joint ventures) and homes we manage for landlords" />
+          <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "Rent to rent (managed)" : "Our properties")} money={money} />
+          <div className="mt-5">
+            <CardTitle title="By deal type" sub="Owned, joint venture, rent to rent, ground rent" />
+            <GroupTable rows={s.by_deal} label={dealLabel} money={money} />
+          </div>
         </Card>
       </section>
     </PageShell>

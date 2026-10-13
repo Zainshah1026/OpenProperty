@@ -17,6 +17,7 @@ export interface Property {
   year_built: number | null;
   owner: string | null;
   deal_type: DealType;
+  section: "owned" | "managed";
   bedrooms: number | null;
   hmo: number;
   occupancy: Occupancy;
@@ -39,6 +40,9 @@ export interface Property {
   created_at: string;
   // Computed / joined
   net_profit?: number;
+  room_count?: number;
+  rooms_let?: number;
+  rooms_rent?: number;
   unit_count?: number;
   occupied_count?: number;
 }
@@ -257,9 +261,43 @@ export interface PortfolioSummary {
   compliance: { expired: number; due_soon: number; missing: number };
   by_owner: PortfolioGroup[];
   by_deal: PortfolioGroup[];
+  by_section: PortfolioGroup[];
   cashflow_days: { day: number; money_in: number; money_out: number }[];
   arrears: { id: number; ref: string | null; name: string; owner: string | null; tenant_label: string | null; months_arrears: number; arrears_amount: number }[];
   attention: { id: number; ref: string | null; name: string; owner: string | null; occupancy: Occupancy }[];
+}
+
+export interface Room {
+  id: number;
+  property_id: number;
+  room: string | null;
+  tenant_name: string | null;
+  rent: number;
+  pay_day: number | null;
+  rent_status: "on_time" | "in_arrears" | "empty" | null;
+  start_date: string | null;
+  end_date: string | null;
+  notes: string | null;
+}
+
+export interface CalendarEvent {
+  date: string;
+  kind: "in" | "out" | "compliance" | "tenancy";
+  amount?: number;
+  title: string;
+  detail: string;
+  property_id: number;
+  ref: string | null;
+  status?: string;
+}
+
+export interface CalendarData {
+  month: string;
+  days_in_month: number;
+  events: CalendarEvent[];
+  totals: { in: number; out: number };
+  compliance_due: { date: string; title: string; detail: string; property_id: number; ref: string | null; expired: boolean }[];
+  compliance_missing: number;
 }
 
 export type LeadStatus = "new" | "contacted" | "viewing" | "offer_made" | "under_offer" | "completed" | "withdrawn";
@@ -291,7 +329,7 @@ export type NewSalesLead = Partial<Omit<SalesLead, "id" | "created_at">> & { lan
 
 // ── Input types for mutations ──────────────────────────────────────
 
-export type NewProperty = Partial<Omit<Property, "id" | "created_at" | "unit_count" | "occupied_count" | "net_profit">> & { name: string };
+export type NewProperty = Partial<Omit<Property, "id" | "created_at" | "unit_count" | "occupied_count" | "net_profit" | "room_count" | "rooms_let" | "rooms_rent">> & { name: string };
 export type NewUnit = Partial<Omit<Unit, "id" | "created_at" | "property_name" | "property_color" | "property_address" | "property_city" | "active_lease_id" | "active_tenant_name">> & { property_id: number; name: string };
 export type NewTenant = Partial<Omit<Tenant, "id" | "created_at" | "active_unit_id" | "active_unit_name" | "active_property_name">> & { first_name: string; last_name: string };
 export type NewLease = Partial<Omit<Lease, "id" | "created_at" | "unit_name" | "property_id" | "property_name" | "property_color" | "tenant_first_name" | "tenant_last_name" | "tenant_email" | "tenant_phone">> & { unit_id: number; start_date: string; end_date: string };

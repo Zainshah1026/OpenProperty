@@ -22,8 +22,10 @@ export interface SyncConfig {
   SHEET_SCRIPT_KEY?: string;
   SHEET_PUB_URL?: string;
   SHEET_PROPERTIES_GID?: string;
+  SHEET_RENT_TO_RENT_GID?: string;
   SHEET_COMPLIANCE_GID?: string;
   SHEET_SALES_GID?: string;
+  SHEET_TENANTS_GID?: string;
 }
 
 export interface SyncStatus {
@@ -34,6 +36,7 @@ export interface SyncStatus {
   error: string | null;
   properties: number;
   leads: number;
+  rooms: number;
 }
 
 const status: SyncStatus = {
@@ -44,6 +47,7 @@ const status: SyncStatus = {
   error: null,
   properties: 0,
   leads: 0,
+  rooms: 0,
 };
 
 export function syncEnabled(cfg: SyncConfig): boolean {
@@ -82,7 +86,7 @@ async function fetchTab(cfg: SyncConfig, gid: string | undefined): Promise<strin
 }
 
 const PROPERTY_COLUMNS = [
-  "ref", "name", "type", "address", "city", "state", "zip", "owner", "deal_type", "bedrooms", "hmo",
+  "ref", "name", "type", "address", "city", "state", "zip", "owner", "deal_type", "section", "bedrooms", "hmo",
   "occupancy", "tenant_label", "rent_in", "rent_out", "other_costs", "rent_in_day", "payment_out_day",
   "rent_status", "months_arrears", "arrears_amount", "gas_expiry", "epc_expiry", "eicr_expiry",
   "licence_expiry", "insurance_expiry", "notes",
@@ -94,6 +98,8 @@ const LEAD_COLUMNS = [
   "status", "next_action", "notes",
 ] as const;
 
+const ROOM_COLUMNS = ["room", "tenant_name", "rent", "pay_day", "rent_status", "start_date", "end_date", "notes", "sort"] as const;
+
 const keyOf = (ref: unknown, address: unknown) =>
   ref ? `ref:${String(ref).trim().toLowerCase()}` : `addr:${String(address ?? "").trim().toLowerCase()}`;
 
@@ -103,12 +109,13 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
   status.running = true;
   status.last_run = new Date().toISOString();
   try {
-    const [properties, compliance, sales] = await Promise.all([
-      fetchTab(cfg, cfg.SHEET_PROPERTIES_GID),
-      fetchTab(cfg, cfg.SHEET_COMPLIANCE_GID),
-      fetchTab(cfg, cfg.SHEET_SALES_GID),
-    ]);
-    const payload = buildPayload({ properties, compliance, sales });
+    // One tab at a time: Apps Script handles parallel calls poorly.
+    const properties = await fetchTab(cfg, cfg.SHEET_PROPERTIES_GID);
+    const rentToRent = await fetchTab(cfg, cfg.SHEET_RENT_TO_RENT_GID);
+    const compliance = await fetchTab(cfg, cfg.SHEET_COMPLIANCE_GID);
+    const sales = await fetchTab(cfg, cfg.SHEET_SALES_GID);
+    const tenants = await fetchTab(cfg, cfg.SHEET_TENANTS_GID);
+    const payload = buildPayload({ properties, rentToRent, compliance, sales, tenants });
 
     // A sheet that comes back empty is far more likely a publishing problem
     // than a sold-off portfolio: never wipe the database on it.
@@ -151,6 +158,22 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
       }
     }
 
+    if (cfg.SHEET_TENANTS_GID) {
+      const ids = new Map<string, number>();
+      for (const r of await query<{ id: number; ref: string | null }>("SELECT id, ref FROM properties WHERE ref IS NOT NULL")) {
+        ids.set(String(r.ref).trim().toLowerCase(), r.id);
+      }
+      await run("DELETE FROM rooms");
+      for (const room of payload.rooms) {
+        const pid = ids.get(String(room.ref ?? "").trim().toLowerCase());
+        if (!pid) continue;
+        await run(
+          `INSERT INTO rooms (property_id, ${ROOM_COLUMNS.join(", ")}) VALUES (?, ${ROOM_COLUMNS.map(() => "?").join(", ")})`,
+          [pid, ...ROOM_COLUMNS.map((c) => (room[c] === undefined ? null : room[c]))],
+        );
+      }
+    }
+
     if (cfg.SHEET_SALES_GID) {
       await run("DELETE FROM sales_leads");
       for (const l of payload.leads) {
@@ -162,8 +185,9 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
     }
 
     const counts = await get<{ p: number; l: number }>(
-      "SELECT (SELECT COUNT(*) FROM properties) AS p, (SELECT COUNT(*) FROM sales_leads) AS l",
+      "SELECT (SELECT COUNT(*) FROM properties) AS p, (SELECT COUNT(*) FROM sales_leads) AS l, (SELECT COUNT(*) FROM rooms) AS r",
     );
+    status.rooms = Number((counts as { r?: number } | undefined)?.r ?? 0);
     status.properties = Number(counts?.p ?? 0);
     status.leads = Number(counts?.l ?? 0);
     status.last_success = new Date().toISOString();

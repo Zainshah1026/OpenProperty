@@ -17,8 +17,25 @@ import { SyncBanner } from "@/components/sync-banner";
 
 const ALL = "__all";
 
-export function PropertiesList({ navigate }: { navigate: (to: string) => void }) {
-  const { properties, settings } = useApp();
+type Section = "all" | "owned" | "managed";
+
+const SECTIONS: { value: Section; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "owned", label: "Our properties" },
+  { value: "managed", label: "Rent to rent (managed)" },
+];
+
+export function PropertiesList({ navigate, section = "all" }: { navigate: (to: string) => void; section?: Section }) {
+  const { properties: allProperties, settings } = useApp();
+  const counts = {
+    all: allProperties.length,
+    owned: allProperties.filter((p) => p.section !== "managed").length,
+    managed: allProperties.filter((p) => p.section === "managed").length,
+  };
+  const properties = useMemo(
+    () => (section === "all" ? allProperties : allProperties.filter((p) => (p.section === "managed") === (section === "managed"))),
+    [allProperties, section],
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [q, setQ] = useState("");
   const [owner, setOwner] = useState(ALL);
@@ -53,7 +70,7 @@ export function PropertiesList({ navigate }: { navigate: (to: string) => void })
 
   return (
     <PageShell
-      title="Properties"
+      title={section === "managed" ? "Rent to rent" : section === "owned" ? "Our properties" : "Properties"}
       meta={`${filtered ? `${rows.length} of ` : ""}${properties.length} ${properties.length === 1 ? "home" : "homes"} · ${money(totals.in)} rent in · ${money(totals.net)} net`}
       actions={
         <Button onClick={() => setDialogOpen(true)}>
@@ -62,6 +79,26 @@ export function PropertiesList({ navigate }: { navigate: (to: string) => void })
       }
     >
       <SyncBanner />
+      <div className="flex flex-wrap gap-1 border-b">
+        {SECTIONS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => navigate(t.value === "all" ? "/properties" : `/properties?section=${t.value}`)}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              section === t.value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label} <span className="ml-1 tabular-nums text-muted-foreground">{counts[t.value]}</span>
+          </button>
+        ))}
+      </div>
+      {section === "managed" && (
+        <p className="text-xs text-muted-foreground">
+          Homes we rent from a landlord and let out. "Owner" is the landlord we pay; "Out" is the rent we pay them.
+        </p>
+      )}
       {properties.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
           <Building2 className="size-8 text-faint" aria-hidden />
@@ -118,7 +155,7 @@ export function PropertiesList({ navigate }: { navigate: (to: string) => void })
                         <td className="max-w-[18rem] px-3 py-2.5">
                           <div className="truncate font-medium">{p.name}</div>
                           <div className="truncate text-xs text-muted-foreground">
-                            {[p.city, p.zip, p.bedrooms ? `${p.bedrooms} bed` : null, p.hmo ? "HMO" : null].filter(Boolean).join(" · ")}
+                            {[p.city, p.zip, p.bedrooms ? `${p.bedrooms} bed` : null, p.hmo ? "HMO" : null, p.room_count ? `${p.rooms_let ?? 0}/${p.room_count} rooms let` : null].filter(Boolean).join(" · ")}
                           </div>
                         </td>
                         <td className="max-w-[10rem] truncate px-3 py-2.5">{p.owner || "—"}</td>

@@ -19,6 +19,8 @@ type Env = {
     SHEET_SCRIPT_KEY?: string;
     SHEET_PUB_URL?: string;
     SHEET_PROPERTIES_GID?: string;
+    SHEET_RENT_TO_RENT_GID?: string;
+    SHEET_TENANTS_GID?: string;
     SHEET_COMPLIANCE_GID?: string;
     SHEET_SALES_GID?: string;
   };
@@ -240,6 +242,7 @@ const PropertyInput = z.object({
   year_built: z.number().int().optional().nullable(),
   owner: z.string().optional().nullable(),
   deal_type: z.enum(DEAL_TYPES).optional(),
+  section: z.enum(["owned", "managed"]).optional(),
   bedrooms: z.number().int().min(0).optional().nullable(),
   hmo: z.number().int().min(0).max(1).optional(),
   occupancy: z.enum(OCCUPANCY).optional(),
@@ -264,6 +267,9 @@ const PropertyInput = z.object({
 const PROPERTY_SELECT = `
   SELECT p.*,
     (p.rent_in - p.rent_out - p.other_costs) as net_profit,
+    (SELECT COUNT(*) FROM rooms r WHERE r.property_id = p.id) as room_count,
+    (SELECT COUNT(*) FROM rooms r WHERE r.property_id = p.id AND r.tenant_name IS NOT NULL AND COALESCE(r.rent_status, '') != 'empty') as rooms_let,
+    (SELECT COALESCE(SUM(r.rent), 0) FROM rooms r WHERE r.property_id = p.id) as rooms_rent,
     (SELECT COUNT(*) FROM units u WHERE u.property_id = p.id) as unit_count,
     (SELECT COUNT(*) FROM units u WHERE u.property_id = p.id AND u.status = 'occupied') as occupied_count
   FROM properties p
@@ -1080,19 +1086,110 @@ app.put("/api/settings", async (c) => {
   return c.json({ settings: out });
 });
 
+// ── Rooms (from the sheet's Tenants tab) ──────────────────────────
+
+app.get("/api/properties/:id/rooms", async (c) => {
+  const id = intParam(c.req.param("id"));
+  if (!id) return c.json({ error: "Invalid ID" }, 400);
+  const rows = await query("SELECT * FROM rooms WHERE property_id = ? ORDER BY sort, id", [id]).catch(() => []);
+  return c.json({ rooms: rows });
+});
+
+// ── Calendar: money in, money out, certificates due ────────────────
+
+const CERT_LABELS: Record<string, string> = {
+  gas_expiry: "Gas safety",
+  epc_expiry: "EPC",
+  eicr_expiry: "EICR",
+  licence_expiry: "Licence",
+  insurance_expiry: "Insurance",
+};
+
+app.get("/api/calendar", async (c) => {
+  const month = c.req.query("month") ?? new Date().toISOString().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) return c.json({ error: "month must be YYYY-MM" }, 400);
+  const [y, m] = month.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const iso = (d: number) => `${month}-${String(Math.min(d, daysInMonth)).padStart(2, "0")}`;
+
+  type P = {
+    id: number; ref: string | null; name: string; deal_type: string; section: string; occupancy: string;
+    rent_in: number; rent_out: number; rent_in_day: number | null; payment_out_day: number | null; tenant_label: string | null;
+    gas_expiry: string | null; epc_expiry: string | null; eicr_expiry: string | null; licence_expiry: string | null; insurance_expiry: string | null;
+  };
+  type R = { property_id: number; room: string | null; tenant_name: string | null; rent: number; pay_day: number | null; rent_status: string | null; end_date: string | null };
+  const props = await query<P>("SELECT * FROM properties").catch(() => [] as P[]);
+  const rooms = await query<R>("SELECT * FROM rooms").catch(() => [] as R[]);
+  const roomsBy = new Map<number, R[]>();
+  for (const r of rooms) roomsBy.set(r.property_id, [...(roomsBy.get(r.property_id) ?? []), r]);
+
+  type Ev = { date: string; kind: "in" | "out" | "compliance" | "tenancy"; amount?: number; title: string; detail: string; property_id: number; ref: string | null; status?: string };
+  const events: Ev[] = [];
+
+  for (const p of props) {
+    const paying = (roomsBy.get(p.id) ?? []).filter((r) => r.rent > 0 && r.rent_status !== "empty");
+    if (paying.length) {
+      // Room by room for shared houses: each tenant on the day they pay.
+      for (const r of paying) {
+        const d = r.pay_day ?? p.rent_in_day;
+        if (!d) continue;
+        events.push({ date: iso(d), kind: "in", amount: r.rent, title: p.name, detail: [r.room, r.tenant_name].filter(Boolean).join(" · "), property_id: p.id, ref: p.ref, status: r.rent_status ?? undefined });
+      }
+    } else if (p.rent_in && p.rent_in_day && p.occupancy !== "vacant") {
+      events.push({ date: iso(p.rent_in_day), kind: "in", amount: p.rent_in, title: p.name, detail: p.tenant_label || "Rent", property_id: p.id, ref: p.ref });
+    }
+    if (p.rent_out && p.payment_out_day) {
+      const what = p.deal_type === "rent_to_rent" ? "Rent to landlord" : p.deal_type === "ground_rent" ? "Ground rent" : "Mortgage";
+      events.push({ date: iso(p.payment_out_day), kind: "out", amount: p.rent_out, title: p.name, detail: what, property_id: p.id, ref: p.ref });
+    }
+    for (const [key, label] of Object.entries(CERT_LABELS)) {
+      const d = p[key as keyof P] as string | null;
+      if (d && d.startsWith(month)) {
+        events.push({ date: d, kind: "compliance", title: p.name, detail: `${label} expires`, property_id: p.id, ref: p.ref });
+      }
+    }
+    for (const r of roomsBy.get(p.id) ?? []) {
+      if (r.end_date && r.end_date.startsWith(month)) {
+        events.push({ date: r.end_date, kind: "tenancy", title: p.name, detail: `Tenancy ends · ${[r.room, r.tenant_name].filter(Boolean).join(" · ")}`, property_id: p.id, ref: p.ref });
+      }
+    }
+  }
+  events.sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind));
+
+  // Certificates expired or due in the next 60 days, whatever month is shown.
+  const today = new Date().toISOString().slice(0, 10);
+  const horizon = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
+  const due: { date: string; title: string; detail: string; property_id: number; ref: string | null; expired: boolean }[] = [];
+  let missing = 0;
+  for (const p of props) {
+    let any = false;
+    for (const [key, label] of Object.entries(CERT_LABELS)) {
+      const d = p[key as keyof P] as string | null;
+      if (!d) continue;
+      any = true;
+      if (d <= horizon) due.push({ date: d, title: p.name, detail: label, property_id: p.id, ref: p.ref, expired: d < today });
+    }
+    if (!any) missing++;
+  }
+  due.sort((a, b) => a.date.localeCompare(b.date));
+
+  const sum = (k: Ev["kind"]) => events.filter((e) => e.kind === k).reduce((a, e) => a + (e.amount ?? 0), 0);
+  return c.json({ month, days_in_month: daysInMonth, events, totals: { in: sum("in"), out: sum("out") }, compliance_due: due, compliance_missing: missing });
+});
+
 // ── Portfolio summary (the spreadsheet's Summary tab) ──────────────
 
 app.get("/api/portfolio/summary", async (c) => {
   type Row = {
     id: number; ref: string | null; name: string; address: string | null; owner: string | null;
-    deal_type: string; occupancy: string; rent_in: number; rent_out: number; other_costs: number;
+    deal_type: string; section: string; occupancy: string; rent_in: number; rent_out: number; other_costs: number;
     rent_in_day: number | null; payment_out_day: number | null;
     rent_status: string | null; months_arrears: number; arrears_amount: number;
     gas_expiry: string | null; epc_expiry: string | null; eicr_expiry: string | null;
     licence_expiry: string | null; insurance_expiry: string | null; tenant_label: string | null;
   };
   const rows = await query<Row>(
-    `SELECT id, ref, name, address, owner, deal_type, occupancy, rent_in, rent_out, other_costs,
+    `SELECT id, ref, name, address, owner, deal_type, section, occupancy, rent_in, rent_out, other_costs,
             rent_in_day, payment_out_day, rent_status, months_arrears, arrears_amount,
             gas_expiry, epc_expiry, eicr_expiry, licence_expiry, insurance_expiry, tenant_label
      FROM properties`,
@@ -1163,6 +1260,7 @@ app.get("/api/portfolio/summary", async (c) => {
     compliance: { expired, due_soon: dueSoon, missing },
     by_owner: group((r) => r.owner || "Unassigned"),
     by_deal: group((r) => r.deal_type),
+    by_section: group((r) => r.section || "owned"),
     cashflow_days: days,
     arrears,
     attention,

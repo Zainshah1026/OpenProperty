@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { PropertyDialog } from "./property-dialog";
 import { UnitDialog } from "./unit-dialog";
 import { WorkOrderDialog } from "../maintenance/work-order-dialog";
-import type { Property, Unit, WorkOrder } from "@/types";
+import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, certState, dealLabel, netProfit,
@@ -29,6 +29,7 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   const [property, setProperty] = useState<Property | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProperty, setEditingProperty] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | undefined>(undefined);
@@ -38,12 +39,14 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   async function load() {
     try {
       setLoading(true);
-      const [{ property: p }, ulist, wlist] = await Promise.all([
+      const [{ property: p }, ulist, wlist, rlist] = await Promise.all([
         api<{ property: Property }>("GET", `/api/properties/${id}`),
         app.listUnits(id),
         app.listWorkOrders({ property_id: id }),
+        api<{ rooms: Room[] }>("GET", `/api/properties/${id}/rooms`).catch(() => ({ rooms: [] as Room[] })),
       ]);
       setProperty(p);
+      setRooms(rlist.rooms);
       setUnits(ulist);
       setWorkOrders(wlist);
     } catch (err) {
@@ -177,6 +180,10 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
           </Card>
         </section>
 
+        {(rooms.length > 0 || property.hmo === 1 || property.occupancy === "part_occupied") && (
+          <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} />
+        )}
+
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-[1.0625rem] font-semibold leading-tight">Units</h2>
@@ -277,5 +284,82 @@ function SummaryCard({ label, value, sub, tone = "default" }: { label: string; v
       <div className={cn("mt-1 text-xl font-semibold tabular-nums", tone === "warn" && "text-warning")}>{value}</div>
       <div className="mt-0.5 h-4 truncate text-xs text-muted-foreground">{sub}</div>
     </Card>
+  );
+}
+
+const ROOM_STATUS: Record<string, { label: string; tone: "success" | "destructive" | "neutral" }> = {
+  on_time: { label: "On time", tone: "success" },
+  in_arrears: { label: "In arrears", tone: "destructive" },
+  empty: { label: "Room empty", tone: "neutral" },
+};
+
+/** One row per room or tenant, from the Tenants tab of the sheet. */
+function RoomsSection({ rooms, property, currency }: { rooms: Room[]; property: Property; currency: string }) {
+  const let_ = rooms.filter((r) => r.tenant_name && r.rent_status !== "empty");
+  const total = rooms.reduce((a, r) => a + (r.rent || 0), 0);
+  const diff = total - (property.rent_in || 0);
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-[1.0625rem] font-semibold leading-tight">Rooms &amp; tenants</h2>
+          <p className="text-xs text-muted-foreground">
+            {rooms.length
+              ? `${let_.length} of ${rooms.length} rooms let · ${formatMoney(total, currency)} a month from tenants`
+              : "No rooms listed yet."}
+            {rooms.length > 0 && total > 0 && Math.abs(diff) >= 1 && property.rent_in > 0 && (
+              <span className="text-warning"> · {formatMoney(Math.abs(diff), currency)} {diff < 0 ? "less" : "more"} than the property's rent in</span>
+            )}
+          </p>
+        </div>
+        <span className="text-xs text-muted-foreground">Edit on the Tenants tab of the Google Sheet</span>
+      </div>
+      {rooms.length === 0 ? (
+        <Card className="p-6 text-center text-sm text-muted-foreground">
+          Add a row per room on the sheet's Tenants tab with Ref {property.ref ?? "—"}, and each tenant will show here.
+        </Card>
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="border-b bg-muted/40 text-left text-[0.8125rem] text-muted-foreground">
+                <tr>
+                  <th className="h-10 px-3 font-medium">Room</th>
+                  <th className="h-10 px-3 font-medium">Tenant</th>
+                  <th className="h-10 px-3 text-right font-medium">Rent / month</th>
+                  <th className="h-10 px-3 font-medium">Pays on</th>
+                  <th className="h-10 px-3 font-medium">Status</th>
+                  <th className="h-10 px-3 font-medium">Tenancy</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rooms.map((r) => {
+                  const st = r.rent_status ? ROOM_STATUS[r.rent_status] : null;
+                  return (
+                    <tr key={r.id}>
+                      <td className="px-3 py-2.5 font-medium">{r.room || "—"}</td>
+                      <td className="px-3 py-2.5">{r.tenant_name || <span className="text-muted-foreground">Empty</span>}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{r.rent ? formatMoney(r.rent, currency) : <span className="text-warning">Not set</span>}</td>
+                      <td className="px-3 py-2.5">{r.pay_day ? `the ${ordinal(r.pay_day)}` : "—"}</td>
+                      <td className="px-3 py-2.5">{st ? <Badge variant={st.tone}>{st.label}</Badge> : <span className="text-muted-foreground">—</span>}</td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                        {r.start_date || r.end_date ? `${r.start_date ? formatDate(r.start_date) : "?"} – ${r.end_date ? formatDate(r.end_date) : "rolling"}` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t bg-muted/40 font-medium">
+                <tr>
+                  <td className="px-3 py-2.5" colSpan={2}>Total</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{formatMoney(total, currency)}</td>
+                  <td colSpan={3} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+      )}
+    </section>
   );
 }

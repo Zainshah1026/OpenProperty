@@ -86,6 +86,8 @@ document → Comma-separated values (.csv) → Publish**, then set:
 | `SHEET_PROPERTIES_GID` | the `gid=` number in the Properties tab's URL |
 | `SHEET_COMPLIANCE_GID` | the Compliance tab's `gid` |
 | `SHEET_SALES_GID` | the Sales tab's `gid` |
+| `SHEET_RENT_TO_RENT_GID` | optional: a tab of homes managed for landlords (same columns as Properties) |
+| `SHEET_TENANTS_GID` | optional: one row per room (Ref, Room, Tenant Name, Rent, Pay Day, Rent Paid, Tenancy Start/End, Notes) |
 | `SYNC_MINUTES` | optional, default 5 |
 
 The app reads the sheet on start, every few minutes, and when you press

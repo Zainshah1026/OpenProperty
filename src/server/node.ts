@@ -23,6 +23,10 @@ mkdirSync(dirname(DB_PATH), { recursive: true });
 const sqlite = new DatabaseSync(DB_PATH);
 sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 sqlite.exec(schema);
+// Columns added after a database was first created: add them if missing.
+for (const ddl of ["ALTER TABLE properties ADD COLUMN section TEXT NOT NULL DEFAULT 'owned'"]) {
+  try { sqlite.exec(ddl); } catch { /* already there */ }
+}
 
 type SqlValue = null | number | bigint | string | Uint8Array;
 const bindable = (params: unknown[]): SqlValue[] =>
@@ -88,6 +92,8 @@ const env = {
   SHEET_SCRIPT_KEY: process.env.SHEET_SCRIPT_KEY,
   SHEET_PUB_URL: process.env.SHEET_PUB_URL,
   SHEET_PROPERTIES_GID: process.env.SHEET_PROPERTIES_GID,
+  SHEET_RENT_TO_RENT_GID: process.env.SHEET_RENT_TO_RENT_GID,
+  SHEET_TENANTS_GID: process.env.SHEET_TENANTS_GID,
   SHEET_COMPLIANCE_GID: process.env.SHEET_COMPLIANCE_GID,
   SHEET_SALES_GID: process.env.SHEET_SALES_GID,
 };
@@ -165,7 +171,7 @@ const SYNC_MINUTES = Math.max(1, Number(process.env.SYNC_MINUTES || 5));
 async function syncOnce(when: string) {
   try {
     const s = await runSync(env);
-    console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.leads} leads`);
+    console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.rooms} rooms, ${s.leads} leads`);
   } catch (err) {
     console.error(`Sheet sync (${when}) failed: ${(err as Error).message}`);
   }
