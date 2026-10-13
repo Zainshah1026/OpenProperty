@@ -33,7 +33,7 @@
   --input: #e5e3de;
 
   /* ── Action: the ONE solid button per screen is ink, not the brand hue ── */
-  --primary: #1b1a19;
+  --primary: #0b7cc2;             /* Chisti & Co. blue */
   --primary-foreground: #ffffff;
   /* Secondary is white with a raised shadow ring rather than a border. */
   --secondary: #ffffff;
@@ -45,12 +45,12 @@
   /* ── Brand: OpenProperty's own hue (H 149.2, from icon.svg #16A34A). ──
      It appears in exactly three places — the app icon, count badges, and the
      focus ring — and never as a status badge. */
-  --brand: #31974e;               /* solid  L 0.60 C 85% */
-  --brand-hover: #287f41;         /* L 0.53 */
-  --brand-tint: #dcf9e0;          /* L 0.955 C 60% */
-  --brand-text: #2b6037;          /* L 0.44 C 70% — passes on the tint and on white */
+  --brand: #0b7cc2;               /* Chisti & Co. blue, from the logo */
+  --brand-hover: #0968a3;
+  --brand-tint: #e1f0fb;
+  --brand-text: #075a8e;          /* passes on the tint and on white */
   --on-brand: #ffffff;
-  --ring: #31974e;                /* focus ring = the brand solid */
+  --ring: #0b7cc2;                /* focus ring = the brand solid */
 
   /* ── Status: hue only differs; L and C% are shared across all four ── */
   --info: #173ec4;
@@ -99,17 +99,17 @@
     --faint: #82807c;
     --border: #2e2e2c;
     --input: #2e2e2c;
-    --primary: #efeeed;           /* the solid ink button inverts to a light one */
-    --primary-foreground: #100f0e;
+    --primary: #4aa8e6;           /* lighter brand blue on dark */
+    --primary-foreground: #06121c;
     --secondary: #161615;
     --secondary-foreground: #efeeed;
     --accent: #222120;
     --accent-foreground: #efeeed;
-    --brand: #3c9d55;
-    --brand-hover: #4bc06a;
-    --brand-tint: #1a2b1d;
-    --brand-text: #86db97;
-    --ring: #3c9d55;
+    --brand: #2b93d6;
+    --brand-hover: #4aa8e6;
+    --brand-tint: #10263a;
+    --brand-text: #8cc8f2;
+    --ring: #4aa8e6;
     --info: #b5c4e5;
     --info-tint: #12234f;
     --info-solid: #5580e8;

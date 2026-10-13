@@ -79,7 +79,7 @@ export function App() {
             the flex-col above puts ABOVE the content rather than beside it. */}
         <div className="flex shrink-0">
           <AppNav
-            title="Portfolio"
+            title="Chisti & Co."
             icon="home"
             groups={groups}
             active={activeFor(route)}

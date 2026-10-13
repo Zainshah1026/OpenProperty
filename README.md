@@ -1,4 +1,4 @@
-# Portfolio — UK property management dashboard
+# Chisti & Co. — property portfolio dashboard
 
 A self-hosted dashboard for a UK rental portfolio, forked from
 [clawnify/OpenProperty](https://github.com/clawnify/OpenProperty) and reshaped

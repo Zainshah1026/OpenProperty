@@ -80,12 +80,14 @@ function readCookie(header: string | undefined, name: string): string | undefine
 function loginPage(error = ""): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">
-<title>Sign in · Portfolio</title>
+<title>Sign in · Chisti &amp; Co.</title><link rel="icon" type="image/svg+xml" href="/brand/favicon.svg">
 <style>
-  :root{color-scheme:light dark;--bg:#f6f6f4;--card:#fff;--ink:#1b1b1a;--muted:#6b6b66;--line:#e2e2dd;--brand:#1f5f45;--err:#a1281f}
-  @media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#f1f1ee;--muted:#a3a39c;--line:#33332f;--brand:#5fbf8f;--err:#ff8a80}}
+  :root{color-scheme:light dark;--bg:#eef4f9;--card:#fff;--ink:#14212b;--muted:#5c6b77;--line:#d9e3ea;--brand:#0b7cc2;--err:#a1281f}
+  @media (prefers-color-scheme:dark){:root{--bg:#0d1720;--card:#16222c;--ink:#eef3f7;--muted:#9aaab6;--line:#2a3945;--brand:#4aa8e6;--err:#ff8a80}}
   *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
-  form{width:100%;max-width:360px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px}
+  .wrap{width:100%;max-width:380px}
+  .logo{display:block;width:100%;border-radius:12px 12px 0 0;background:#0b7cc2}
+  form{width:100%;background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:24px 28px 28px}
   h1{font-size:20px;margin:0 0 4px}p{margin:0 0 20px;color:var(--muted);font-size:14px}
   label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
   input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font-size:16px}
@@ -93,13 +95,14 @@ function loginPage(error = ""): string {
   button{margin-top:22px;width:100%;padding:12px;border:0;border-radius:8px;background:var(--brand);color:#fff;font-size:16px;font-weight:600;cursor:pointer}
   .err{color:var(--err);font-size:14px;margin:12px 0 0}
 </style></head><body>
+<div class="wrap"><img class="logo" src="/brand/chisti-logo.jpg" alt="Chisti &amp; Co., Ilford" width="380" height="236">
 <form method="post" action="/login">
-  <h1>Portfolio</h1><p>Sign in to see the dashboard.</p>
+  <h1>Portfolio dashboard</h1><p>Sign in to see the properties, rents and compliance.</p>
   <label for="u">Username</label><input id="u" name="username" autocomplete="username" autocapitalize="none" required>
   <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
   ${error ? `<div class="err" role="alert">${error}</div>` : ""}
   <button type="submit">Sign in</button>
-</form></body></html>`;
+</form></div></body></html>`;
 }
 
 app.post("/login", async (c) => {
@@ -127,7 +130,8 @@ app.get("/logout", (c) => {
 });
 
 app.use("*", async (c, next) => {
-  if (c.req.path === "/api/health") return next();
+  // The health check and the brand images on the sign-in page are public.
+  if (c.req.path === "/api/health" || c.req.path.startsWith("/brand/") || c.req.path === "/favicon.svg") return next();
   if (c.env.ALLOW_NO_AUTH === "true") return next();
   const password = c.env.APP_PASSWORD;
   if (!password) {
