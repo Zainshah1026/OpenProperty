@@ -28,15 +28,21 @@ import { AssistantPanel } from "./components/assistant-panel";
  * keeps it on its tile wherever the type appears.
  *
  * Icons come from the platform's TILE_ICONS library — a name outside it draws
- * as a plain dot in the dashboard.
+ * as a plain dot. The names are: activity archive bar-chart-3 bell book-open
+ * bot briefcase building-2 calendar calendar-days camera check-square
+ * clipboard-list clock code-2 contact credit-card database dollar-sign file
+ * file-text folder globe hash history home image inbox kanban layers
+ * layout-dashboard layout-grid link list list-checks mail map message-square
+ * mic package phone pie-chart play search send settings shopping-cart
+ * sparkles star table tag target truck upload user users video wallet zap
  */
 const PORTFOLIO: AppNavItem[] = [
   // Not drawn as a row: the app's name opens it (the brand row standalone, the
   // app's own header in the dashboard).
   { id: "dashboard", label: "Dashboard", href: "/dashboard", home: true },
   { id: "properties", label: "Our properties", href: "/properties?section=owned", icon: "building-2", color: "green" },
-  { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: "key", color: "teal" },
-  { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: "landmark", color: "violet" },
+  { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: "home", color: "teal" },
+  { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: "map", color: "violet" },
   { id: "tenants", label: "Tenants", href: "/tenants", icon: "users", color: "blue" },
   { id: "leases", label: "Leases", href: "/leases", icon: "clipboard-list", color: "violet" },
 ];
@@ -44,7 +50,7 @@ const OPERATIONS: AppNavItem[] = [
   { id: "inbox", label: "Inbox", href: "/inbox", icon: "inbox", color: "sky" },
   { id: "invoices", label: "Invoices", href: "/invoices", icon: "file-text", color: "blue" },
   { id: "rent", label: "Rent ledger", href: "/rent", icon: "dollar-sign", color: "amber" },
-  { id: "compliance", label: "Compliance", href: "/compliance", icon: "shield-check", color: "rose" },
+  { id: "compliance", label: "Compliance", href: "/compliance", icon: "check-square", color: "rose" },
   { id: "maintenance", label: "Maintenance", href: "/maintenance", icon: "list-checks", color: "orange" },
 ];
 const GROWTH: AppNavItem[] = [
@@ -74,7 +80,7 @@ export function App() {
 
   const ADMIN_ITEMS: AppNavItem[] = [
     ...ADMIN,
-    { id: "logout", label: state.me ? `Sign out (${state.me.name})` : "Sign out", href: "/logout", icon: "log-out" },
+    { id: "logout", label: state.me ? `Sign out (${state.me.name})` : "Sign out", href: "/logout", icon: "user" },
   ];
   const groups = [
     { items: PORTFOLIO },
