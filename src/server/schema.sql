@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS properties (
   occupancy TEXT NOT NULL DEFAULT 'occupied',  -- 'occupied' | 'part_occupied' | 'vacant' | 'eviction'
   tenant_label TEXT,                           -- tenant or letting agent, as free text
   tenant_email TEXT,                           -- where rent invoices go
+  energy TEXT,                                 -- 'all_electric' | 'gas_electric' (no gas cert needed if all electric)
   rent_in REAL NOT NULL DEFAULT 0,             -- monthly rent received
   rent_out REAL NOT NULL DEFAULT 0,            -- monthly rent or mortgage paid out
   other_costs REAL NOT NULL DEFAULT 0,         -- council tax, utilities, insurance, licences (monthly)

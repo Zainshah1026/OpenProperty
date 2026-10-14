@@ -97,9 +97,16 @@ export function certState(date: string | null | undefined): CertState {
   return "ok";
 }
 
-/** A property's overall compliance: the worst of its certificates. */
+export const ENERGY_LABEL: Record<string, string> = { all_electric: "All electric", gas_electric: "Gas & electric" };
+
+/** All-electric homes don't need a gas safety certificate. */
+export function certNeeded(p: Property, key: CertKey): boolean {
+  return !(key === "gas_expiry" && p.energy === "all_electric");
+}
+
+/** A property's overall compliance: the worst of the certificates it needs. */
 export function complianceState(p: Property): CertState {
-  const states = CERTIFICATES.map((c) => certState(p[c.key]));
+  const states = CERTIFICATES.filter((c) => certNeeded(p, c.key)).map((c) => certState(p[c.key]));
   if (states.includes("expired")) return "expired";
   if (states.every((s) => s === "missing")) return "missing";
   if (states.includes("due_soon")) return "due_soon";

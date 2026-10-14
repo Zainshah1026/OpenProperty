@@ -81,6 +81,7 @@ const TYPE = { flat: "flat", apartment: "flat", maisonette: "maisonette", terrac
 const OCC = { occupied: "occupied", partoccupied: "part_occupied", part: "part_occupied", vacant: "vacant", empty: "vacant", eviction: "eviction" };
 const RENT = { ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", advance: "in_advance", inadvance: "in_advance", groundrent: "ground_rent" };
 const TENURE = { freehold: "freehold", fh: "freehold", leasehold: "leasehold", lh: "leasehold", shareoffreehold: "share_of_freehold", share: "share_of_freehold", sof: "share_of_freehold" };
+const ENERGY = { allelectric: "all_electric", electriconly: "all_electric", electric: "all_electric", gas: "gas_electric", both: "gas_electric", dual: "gas_electric" };
 const LEAD = { new: "new", contacted: "contacted", viewing: "viewing", offer: "offer_made", underoffer: "under_offer", sstc: "under_offer", completed: "completed", sold: "completed", withdrawn: "withdrawn", dead: "withdrawn" };
 
 const COUNTIES = ["Essex", "Kent", "Surrey", "Sussex", "East Sussex", "West Sussex", "Yorkshire", "Bedfordshire", "Hertfordshire", "Suffolk", "Norfolk", "Berkshire", "Buckinghamshire", "Middlesex", "Wiltshire", "Hampshire", "Leicestershire"];
@@ -118,6 +119,7 @@ export function toProperty(r, compliance, section = "owned") {
     occupancy: choose(pick(r, "Occupancy"), OCC, "occupied"),
     tenant_label: text(pick(r, "Tenant / Agent", "Tenant Name")),
     tenant_email: email(pick(r, "Tenant Email", "Email")),
+    energy: choose(pick(r, "Energy", "Gas / Electric", "Fuel"), ENERGY, null),
     rent_in: money(pick(r, "Rent In", "Monthly Gross Income")),
     rent_out: rentOut,
     other_costs: Math.max(0, totalCosts - rentOut),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Building2, MapPin, Pencil, Plus, Wrench } from "lucide-react";
+import { ArrowLeft, Building2, Flame, MapPin, Pencil, Plus, Wrench, Zap } from "lucide-react";
 import { useApp } from "@/context";
 import { api } from "@/api";
 import { cn, colorClasses, formatDate, formatMoney } from "@/lib/utils";
@@ -13,7 +13,7 @@ import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
 import { DocumentsPanel } from "@/components/compliance/documents";
 import {
-  CERTIFICATES, CERT_LABEL, CERT_TONE, certState, dealLabel, netProfit,
+  CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, dealLabel, netProfit,
   hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
 } from "@/lib/portfolio";
 
@@ -158,9 +158,24 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="p-5 lg:col-span-2">
-            <h2 className="mb-3 text-sm font-semibold">Compliance</h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Compliance</h2>
+              <span className={cn("inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium", property.energy === "all_electric" ? "bg-info-tint text-info" : property.energy === "gas_electric" ? "bg-warning-tint text-warning" : "text-muted-foreground")}>
+                {property.energy === "all_electric" ? <Zap className="size-3.5" /> : property.energy === "gas_electric" ? <Flame className="size-3.5" /> : null}
+                {property.energy ? ENERGY_LABEL[property.energy] : "Energy not set (Energy column in the sheet)"}
+              </span>
+            </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {CERTIFICATES.map((c) => {
+                if (!certNeeded(property, c.key)) {
+                  return (
+                    <div key={c.key} className="rounded-md border p-3">
+                      <div className="stat-label">{c.label}</div>
+                      <div className="mt-1 text-sm font-medium">Not needed</div>
+                      <p className="mt-2 text-xs text-muted-foreground">All electric</p>
+                    </div>
+                  );
+                }
                 const date = property[c.key];
                 const st = certState(date);
                 return (
@@ -179,6 +194,7 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
             <h2 className="mb-3 text-sm font-semibold">Letting</h2>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Tenant / agent</dt><dd className="text-right font-medium">{property.tenant_label || "—"}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Energy</dt><dd className="text-right font-medium">{property.energy ? ENERGY_LABEL[property.energy] : "—"}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Owner</dt><dd className="text-right font-medium">{property.owner || "—"}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Open work orders</dt><dd className="text-right font-medium">{openWorkOrders.length}</dd></div>
             </dl>

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { Flame, Paperclip, Zap } from "lucide-react";
 import { useApp } from "@/context";
 import { cn, daysBetween, formatDate, toIsoDate } from "@/lib/utils";
-import { CERTIFICATES, CERT_LABEL, CERT_TONE, certState, complianceState, type CertState } from "@/lib/portfolio";
+import { CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, complianceState, type CertState } from "@/lib/portfolio";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -80,6 +80,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
             <thead className="border-b bg-muted/40 text-left text-[0.8125rem] text-muted-foreground">
               <tr>
                 <th className="h-10 px-3 font-medium">Property</th>
+                <th className="h-10 px-3 font-medium">Energy</th>
                 {CERTIFICATES.map((c) => <th key={c.key} className="h-10 px-3 font-medium">{c.label}</th>)}
                 <th className="h-10 px-3 font-medium">Documents</th>
                 <th className="h-10 px-3 font-medium">Status</th>
@@ -100,7 +101,23 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
                       </button>
                       <div className="truncate text-xs text-muted-foreground">{p.owner || "—"}{p.hmo ? " · HMO" : ""}</div>
                     </td>
+                    <td className="px-3 py-2.5">
+                      {p.energy ? (
+                        <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium", p.energy === "all_electric" ? "bg-info-tint text-info" : "bg-warning-tint text-warning")}>
+                          {p.energy === "all_electric" ? <Zap className="size-3.5" /> : <Flame className="size-3.5" />} {ENERGY_LABEL[p.energy]}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-faint" title="Fill in the Energy column in the sheet">Not set</span>
+                      )}
+                    </td>
                     {CERTIFICATES.map((c) => {
+                      if (!certNeeded(p, c.key)) {
+                        return (
+                          <td key={c.key} className="px-2 py-2">
+                            <span className="inline-block rounded px-1.5 py-0.5 text-xs text-muted-foreground" title="All electric: no gas safety certificate needed">Not needed</span>
+                          </td>
+                        );
+                      }
                       const date = p[c.key];
                       const cs = certState(date);
                       const days = date ? daysBetween(today, date) : null;
@@ -133,13 +150,13 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
                 );
               })}
               {rows.length === 0 && (
-                <tr><td colSpan={8} className="px-3 py-10 text-center text-muted-foreground">Nothing here.</td></tr>
+                <tr><td colSpan={9} className="px-3 py-10 text-center text-muted-foreground">Nothing here.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </Card>
-      <p className="text-xs text-muted-foreground">Click a row to upload or open its certificates (gas safety, EICR, EPC, licence, insurance). A paperclip means a certificate is uploaded. Licence only applies where the council requires one.</p>
+      <p className="text-xs text-muted-foreground">Click a row to upload or open its certificates (gas safety, EICR, EPC, licence, insurance). A paperclip means a certificate is uploaded. Set Energy (All electric / Gas & electric) in the sheet; all-electric homes don't need a gas safety certificate. Licence only applies where the council requires one.</p>
 
       <DocumentsDialog
         property={docsFor}

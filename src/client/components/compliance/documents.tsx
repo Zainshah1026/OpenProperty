@@ -89,8 +89,8 @@ export function DocumentsPanel({ property, onChanged }: { property: Property; on
         <KindSection
           key={k.kind}
           kind={k.kind}
-          label={k.label}
-          sheetExpiry={k.certKey ? (property[k.certKey] as string | null) : null}
+          label={k.kind === "gas" && property.energy === "all_electric" ? `${k.label} (not needed: all electric)` : k.label}
+          sheetExpiry={k.certKey && !(k.kind === "gas" && property.energy === "all_electric") ? (property[k.certKey] as string | null) : null}
           docs={docs.filter((d) => d.kind === k.kind)}
           propertyId={property.id}
           onUploaded={() => { load(); onChanged?.(); }}

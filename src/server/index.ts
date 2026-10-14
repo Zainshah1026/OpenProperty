@@ -1021,6 +1021,7 @@ app.get("/api/calendar", async (c) => {
     id: number; ref: string | null; name: string; deal_type: string; section: string; occupancy: string;
     rent_in: number; rent_out: number; rent_in_day: number | null; payment_out_day: number | null; tenant_label: string | null;
     gas_expiry: string | null; epc_expiry: string | null; eicr_expiry: string | null; licence_expiry: string | null; insurance_expiry: string | null;
+    energy: string | null;
   };
   type R = { property_id: number; room: string | null; tenant_name: string | null; rent: number; pay_day: number | null; rent_status: string | null; end_date: string | null };
   const props = await query<P>("SELECT * FROM properties").catch(() => [] as P[]);
@@ -1048,6 +1049,7 @@ app.get("/api/calendar", async (c) => {
       events.push({ date: iso(p.payment_out_day), kind: "out", amount: p.rent_out, title: p.name, detail: what, property_id: p.id, ref: p.ref });
     }
     for (const [key, label] of Object.entries(CERT_LABELS)) {
+      if (key === "gas_expiry" && p.energy === "all_electric") continue;
       const d = p[key as keyof P] as string | null;
       if (d && d.startsWith(month)) {
         events.push({ date: d, kind: "compliance", title: p.name, detail: `${label} expires`, property_id: p.id, ref: p.ref });
@@ -1069,6 +1071,7 @@ app.get("/api/calendar", async (c) => {
   for (const p of props) {
     let any = false;
     for (const [key, label] of Object.entries(CERT_LABELS)) {
+      if (key === "gas_expiry" && p.energy === "all_electric") continue;
       const d = p[key as keyof P] as string | null;
       if (!d) continue;
       any = true;
@@ -1093,12 +1096,13 @@ app.get("/api/portfolio/summary", async (c) => {
     gas_expiry: string | null; epc_expiry: string | null; eicr_expiry: string | null;
     licence_expiry: string | null; insurance_expiry: string | null; tenant_label: string | null;
     ground_rent_paid: number; service_charge_paid: number; ground_rent_received: number; service_charge_received: number;
+    energy: string | null;
   };
   const rows = await query<Row>(
     `SELECT id, ref, name, address, owner, deal_type, section, occupancy, rent_in, rent_out, other_costs,
             rent_in_day, payment_out_day, rent_status, months_arrears, arrears_amount,
             gas_expiry, epc_expiry, eicr_expiry, licence_expiry, insurance_expiry, tenant_label,
-            ground_rent_paid, service_charge_paid, ground_rent_received, service_charge_received
+            ground_rent_paid, service_charge_paid, ground_rent_received, service_charge_received, energy
      FROM properties`,
   ).catch(() => [] as Row[]);
 
@@ -1133,7 +1137,8 @@ app.get("/api/portfolio/summary", async (c) => {
   let dueSoon = 0;
   let missing = 0;
   for (const r of rows) {
-    const dates = certs.map((k) => r[k]).filter((d): d is string => !!d);
+    // All-electric homes need no gas safety certificate.
+    const dates = certs.filter((k) => !(k === "gas_expiry" && r.energy === "all_electric")).map((k) => r[k]).filter((d): d is string => !!d);
     if (dates.length === 0) { missing++; continue; }
     const next = dates.sort()[0];
     if (next < today) expired++;

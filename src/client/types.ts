@@ -23,6 +23,7 @@ export interface Property {
   hmo: number;
   occupancy: Occupancy;
   tenant_label: string | null;
+  energy?: "all_electric" | "gas_electric" | null;
   rent_in: number;
   rent_out: number;
   other_costs: number;
