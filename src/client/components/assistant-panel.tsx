@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { FileText, Send, Sparkles, X } from "lucide-react";
+import { ArrowRight, FileText, Search, Send, Sparkles, X } from "lucide-react";
 import { api } from "@/api";
+import { useApp } from "@/context";
 import { cn } from "@/lib/utils";
+import { QUICK_QUESTIONS, quickAnswer, searchProperties, type QuickId, type QuickLink } from "./quick-answers";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   invoices?: { id: number; number: string }[];
+  links?: QuickLink[];
   error?: boolean;
 }
 
@@ -44,6 +47,32 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const app = useApp();
+  // No AI key: free quick answers and property search instead of chat.
+  const free = enabled === false;
+
+  async function quick(id: QuickId, label: string) {
+    if (busy) return;
+    const next: ChatMessage[] = [...messages, { role: "user", content: label }];
+    setMessages(next);
+    setBusy(true);
+    try {
+      const a = await quickAnswer(id, app.settings.currency);
+      setMessages([...next, { role: "assistant", content: a.text, links: a.links }]);
+    } catch (err) {
+      setMessages([...next, { role: "assistant", content: (err as Error).message, error: true }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function search(text: string) {
+    const q = text.trim();
+    if (!q) return;
+    const a = searchProperties(q, app.properties);
+    setMessages([...messages, { role: "user", content: q }, { role: "assistant", content: a.text, links: a.links }]);
+    setInput("");
+  }
 
   useEffect(() => {
     api<{ enabled: boolean }>("GET", "/api/assistant").then((d) => setEnabled(d.enabled)).catch(() => setEnabled(false));
@@ -80,7 +109,7 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
           onClick={() => setOpen(true)}
           className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-transform hover:scale-[1.03]"
         >
-          <Sparkles className="size-4" /> Ask
+          <Sparkles className="size-4" /> {free ? "Quick answers" : "Ask"}
         </button>
       )}
       {open && (
@@ -88,8 +117,8 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <Sparkles className="size-4 text-primary" />
             <div className="flex-1">
-              <div className="text-sm font-semibold">Ask about the portfolio</div>
-              <div className="text-[11px] text-muted-foreground">Answers from live data. Invoices are drafted, never sent without you.</div>
+              <div className="text-sm font-semibold">{free ? "Quick answers" : "Ask about the portfolio"}</div>
+              <div className="text-[11px] text-muted-foreground">{free ? "Straight from your live data. Free, nothing leaves the app." : "Answers from live data. Invoices are drafted, never sent without you."}</div>
             </div>
             {messages.length > 0 && (
               <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setMessages([])}>Clear</button>
@@ -98,12 +127,10 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
           </div>
 
           <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto px-4 py-3 text-sm">
-            {enabled === false && (
-              <p className="rounded-md bg-warning-tint px-3 py-2 text-xs text-warning">
-                The assistant isn't switched on yet. Add an ANTHROPIC_API_KEY in Render's environment settings.
-              </p>
+            {free && messages.length === 0 && (
+              <p className="text-muted-foreground">Tap a question, or search for a property below.</p>
             )}
-            {messages.length === 0 && enabled !== false && (
+            {messages.length === 0 && enabled === true && (
               <div className="space-y-2">
                 <p className="text-muted-foreground">Try:</p>
                 {SUGGESTIONS.map((s) => (
@@ -122,6 +149,16 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
                   )}
                 >
                   <Rich text={m.content} />
+                  {m.links?.map((l) => (
+                    <button
+                      key={l.to + l.label}
+                      type="button"
+                      onClick={() => { navigate(l.to); setOpen(false); }}
+                      className="mt-2 flex items-center gap-1.5 rounded-md bg-card px-2 py-1 text-left text-xs font-medium text-primary hover:underline"
+                    >
+                      <ArrowRight className="size-3.5 shrink-0" /> {l.label}
+                    </button>
+                  ))}
                   {m.invoices?.map((inv) => (
                     <button
                       key={inv.id}
@@ -138,19 +175,28 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
             {busy && <div className="w-fit rounded-lg bg-muted px-3 py-2 text-muted-foreground">Checking the portfolio…</div>}
           </div>
 
+          {free && (
+            <div className="flex gap-1.5 overflow-x-auto border-t px-3 pt-2 pb-1">
+              {QUICK_QUESTIONS.map((q) => (
+                <button key={q.id} type="button" disabled={busy} onClick={() => quick(q.id, q.label)} className="shrink-0 rounded-full border px-3 py-1 text-xs hover:bg-muted disabled:opacity-50">
+                  {q.label}
+                </button>
+              ))}
+            </div>
+          )}
           <form
-            className="flex gap-2 border-t p-3"
-            onSubmit={(e) => { e.preventDefault(); ask(input); }}
+            className={cn("flex gap-2 p-3", !free && "border-t")}
+            onSubmit={(e) => { e.preventDefault(); if (free) search(input); else ask(input); }}
           >
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={enabled === false ? "Assistant not set up yet" : "Ask anything about the properties…"}
-              disabled={busy || enabled === false}
+              placeholder={free ? "Find a property: ref, address, postcode or tenant" : "Ask anything about the properties…"}
+              disabled={busy || enabled === null}
               className="min-w-0 flex-1 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
-            <button type="submit" disabled={busy || !input.trim() || enabled === false} className="rounded-md bg-primary px-3 text-primary-foreground disabled:opacity-50" aria-label="Send question">
-              <Send className="size-4" />
+            <button type="submit" disabled={busy || !input.trim() || enabled === null} className="rounded-md bg-primary px-3 text-primary-foreground disabled:opacity-50" aria-label={free ? "Search" : "Send question"}>
+              {free ? <Search className="size-4" /> : <Send className="size-4" />}
             </button>
           </form>
         </div>
