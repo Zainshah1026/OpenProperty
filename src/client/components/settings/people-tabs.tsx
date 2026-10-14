@@ -56,6 +56,9 @@ export function MyAccountTab() {
           <div className="text-xs text-muted-foreground">{me.username} · {me.role === "admin" ? "Admin" : "Member"}</div>
         </div>
       </div>
+      <a href="/logout" className="mb-5 inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted">
+        Sign out
+      </a>
       <div className="mb-5">
         <div className="section-label mb-1">Mailboxes you can read</div>
         {me.mailboxes.length ? (
