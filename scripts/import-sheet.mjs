@@ -55,7 +55,7 @@ if (url) {
   const auth = Buffer.from(`${process.env.APP_USERNAME || "admin"}:${password}`).toString("base64");
   const res = await fetch(new URL("/api/import", url), {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}` },
+    headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}`, "X-Portfolio-Script": "1" },
     body: JSON.stringify(payload),
   });
   console.error(res.status, await res.text());

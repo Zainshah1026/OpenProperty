@@ -189,8 +189,11 @@ export async function currentUser(c: Context): Promise<SessionUser | null> {
     if (row && row.pw_version === t.pwVersion) return toSession(row);
     return null;
   }
+  // Username/password in the request itself is for scripts only. Browsers
+  // remember Basic logins from the site's first version and keep sending
+  // them, which would sign people straight back in after Sign out.
   const header = c.req.header("Authorization") ?? "";
-  if (header.startsWith("Basic ")) {
+  if (header.startsWith("Basic ") && c.req.header("X-Portfolio-Script") === "1") {
     try {
       const decoded = atob(header.slice(6));
       const sep = decoded.indexOf(":");
