@@ -252,6 +252,14 @@ export function registerAuth(app: Hono<any>, opts: { headExtra: string; publicPa
     const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
     const result = await checkLogin(env, String(form.username ?? ""), String(form.password ?? ""));
     if (!result) {
+      // Why it failed, without ever logging a password.
+      const tried = String(form.username ?? "").trim();
+      const known = await get<{ id: number; active: number }>("SELECT id, active FROM users WHERE username = ? COLLATE NOCASE", [tried]).catch(() => undefined);
+      console.log(
+        `Login failed for "${tried.slice(0, 80)}": ${known ? (known.active ? "account exists, wrong password" : "account is disabled") : "no account with that username"}` +
+          `; setup login ${(await setupAllowed(env)) ? "on" : "off"}` +
+          (tried.toLowerCase() === (env.APP_USERNAME || "admin").toLowerCase() ? " (setup username matched, so the setup password was wrong)" : ""),
+      );
       await new Promise((r) => setTimeout(r, 1000)); // slow down guessing
       return c.html(loginPage("That username and password don't match.", opts.headExtra), 401);
     }
