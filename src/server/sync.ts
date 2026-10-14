@@ -87,7 +87,7 @@ async function fetchTab(cfg: SyncConfig, gid: string | undefined): Promise<strin
 
 const PROPERTY_COLUMNS = [
   "ref", "name", "type", "address", "city", "state", "zip", "owner", "deal_type", "section", "tenure", "bedrooms", "hmo",
-  "occupancy", "tenant_label", "tenant_email", "energy", "rent_in", "rent_out", "other_costs",
+  "occupancy", "tenant_label", "tenant_email", "rent_in", "rent_out", "other_costs",
   "ground_rent_paid", "service_charge_paid", "ground_rent_received", "service_charge_received", "rent_in_day", "payment_out_day",
   "rent_status", "months_arrears", "arrears_amount", "gas_expiry", "epc_expiry", "eicr_expiry",
   "licence_expiry", "insurance_expiry", "notes",

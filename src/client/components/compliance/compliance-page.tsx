@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Flame, Paperclip, Upload, Zap } from "lucide-react";
+import { Paperclip, Upload } from "lucide-react";
 import { useApp } from "@/context";
 import { cn, daysBetween, formatDate, toIsoDate } from "@/lib/utils";
-import { CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, complianceState, type CertState } from "@/lib/portfolio";
+import { CERTIFICATES, CERT_LABEL, CERT_TONE, certNeeded, certState, complianceState, type CertState } from "@/lib/portfolio";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +12,7 @@ import { SyncBanner } from "@/components/sync-banner";
 import type { Property } from "@/types";
 import { DocumentsDialog } from "./documents";
 import { BulkUploadDialog } from "./bulk-upload";
+import { EnergyPicker } from "./energy-picker";
 import { Button } from "@/components/ui/button";
 
 const CERT_DOC_KIND: Record<string, string> = { gas_expiry: "gas", epc_expiry: "epc", eicr_expiry: "eicr", licence_expiry: "licence", insurance_expiry: "insurance" };
@@ -105,15 +106,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
                       </button>
                       <div className="truncate text-xs text-muted-foreground">{p.owner || "—"}{p.hmo ? " · HMO" : ""}</div>
                     </td>
-                    <td className="px-3 py-2.5">
-                      {p.energy ? (
-                        <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium", p.energy === "all_electric" ? "bg-info-tint text-info" : "bg-warning-tint text-warning")}>
-                          {p.energy === "all_electric" ? <Zap className="size-3.5" /> : <Flame className="size-3.5" />} {ENERGY_LABEL[p.energy]}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-faint" title="Fill in the Energy column in the sheet">Not set</span>
-                      )}
-                    </td>
+                    <td className="px-3 py-2.5"><EnergyPicker property={p} /></td>
                     {CERTIFICATES.map((c) => {
                       if (!certNeeded(p, c.key)) {
                         return (
@@ -160,7 +153,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
           </table>
         </div>
       </Card>
-      <p className="text-xs text-muted-foreground">Click a row to upload or open its certificates (gas safety, EICR, EPC, licence, insurance). A paperclip means a certificate is uploaded. Set Energy (All electric / Gas & electric) in the sheet; all-electric homes don't need a gas safety certificate. Licence only applies where the council requires one.</p>
+      <p className="text-xs text-muted-foreground">Click a row to upload or open its certificates (gas safety, EICR, EPC, licence, insurance). A paperclip means a certificate is uploaded. Choose Energy (All electric / Gas & electric) in the Energy column; all-electric homes don't need a gas safety certificate. Licence only applies where the council requires one.</p>
 
       <BulkUploadDialog open={bulkOpen} onClose={(changed) => { setBulkOpen(false); if (changed) loadCounts(); }} />
       <DocumentsDialog
