@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS properties (
   hmo INTEGER NOT NULL DEFAULT 0,              -- 1 if licensed / run as an HMO
   occupancy TEXT NOT NULL DEFAULT 'occupied',  -- 'occupied' | 'part_occupied' | 'vacant' | 'eviction'
   tenant_label TEXT,                           -- tenant or letting agent, as free text
+  tenant_email TEXT,                           -- where rent invoices go
   rent_in REAL NOT NULL DEFAULT 0,             -- monthly rent received
   rent_out REAL NOT NULL DEFAULT 0,            -- monthly rent or mortgage paid out
   other_costs REAL NOT NULL DEFAULT 0,         -- council tax, utilities, insurance, licences (monthly)
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   room TEXT,                                   -- 'Room 1', 'Top floor'
   tenant_name TEXT,
+  tenant_email TEXT,                           -- where rent invoices go
   rent REAL NOT NULL DEFAULT 0,                -- monthly rent this tenant pays
   pay_day INTEGER,                             -- day of month they pay (1–31)
   rent_status TEXT,                            -- 'on_time' | 'in_arrears' | 'empty'
@@ -252,6 +254,14 @@ CREATE TABLE IF NOT EXISTS invoices (
 );
 
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+
+-- Rent invoices already drafted automatically, one per rent per month, so a
+-- deleted draft is not recreated (see src/server/rent-invoices.ts).
+CREATE TABLE IF NOT EXISTS rent_invoice_log (
+  key TEXT PRIMARY KEY,                        -- 'rent:ref:12:room:room 2:2026-11'
+  invoice_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
 -- ── Sales leads ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sales_leads (

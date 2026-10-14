@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/page-shell";
+import { RentReady } from "./rent-ready";
 
 const LAST_FROM_KEY = "invoice-last-from";
 
@@ -67,6 +68,7 @@ export function InvoicesPage() {
       meta={`${invoices.length} invoices · ${money(outstanding)} awaiting payment${overdue.length ? ` · ${overdue.length} overdue` : ""}`}
       actions={<Button onClick={() => setOpen(null)}><Plus className="h-4 w-4" /> New invoice</Button>}
     >
+      <RentReady onChanged={load} />
       {loading ? (
         <div className="py-16 text-center text-muted-foreground">Loading invoices…</div>
       ) : invoices.length === 0 ? (
@@ -100,6 +102,7 @@ export function InvoicesPage() {
                       <td className="px-3 py-2.5 font-medium tabular-nums">
                         {i.number}
                         {i.created_by === "assistant" && <Sparkles className="ml-1 inline size-3 text-primary" aria-label="Drafted by the assistant" />}
+                        {i.created_by === "auto" && <span className="ml-1 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">auto</span>}
                       </td>
                       <td className="max-w-[12rem] truncate px-3 py-2.5">{i.bill_to_name}</td>
                       <td className="max-w-[14rem] truncate px-3 py-2.5 text-muted-foreground">{i.property_ref ? `${i.property_ref} · ` : ""}{i.property_name ?? "—"}</td>
@@ -242,6 +245,11 @@ function InvoiceDialog({ invoice, onClose }: { invoice: Invoice | null | undefin
           {invoice?.created_by === "assistant" && invoice.status === "draft" && (
             <p className="flex items-center gap-1.5 rounded-md bg-brand-tint px-3 py-2 text-xs text-brand-text">
               <Sparkles className="size-3.5" /> Drafted by the assistant. Check the details before sending.
+            </p>
+          )}
+          {invoice?.created_by === "auto" && invoice.status === "draft" && (
+            <p className="rounded-md bg-brand-tint px-3 py-2 text-xs text-brand-text">
+              Drafted automatically ahead of the rent due date. Check it, then send it here or with "Send" on the rent invoices list.
             </p>
           )}
           {invoice?.sent_at && (

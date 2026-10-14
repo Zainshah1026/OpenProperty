@@ -1,7 +1,8 @@
 // Invoices: drafts, a branded printable invoice, and sending by email.
 //
 // Nothing is ever emailed without a person pressing Send (POST
-// /api/invoices/:id/send). The assistant can only create drafts.
+// /api/invoices/:id/send, or /api/invoices/send-batch for the rent drafts
+// made ahead of each due date). The assistant can only create drafts.
 // Email goes out through Resend (https://resend.com) when RESEND_API_KEY and
 // INVOICE_FROM_EMAIL are set.
 
@@ -9,6 +10,7 @@ import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { get, initDB, query, run } from "./db";
 import { getUser } from "./auth";
+import { generateRentInvoices } from "./rent-invoices";
 
 export interface InvoiceEnv {
   RESEND_API_KEY?: string;
@@ -112,7 +114,7 @@ export const InvoiceInput = z.object({
 export type InvoiceInputT = z.infer<typeof InvoiceInput>;
 
 /** Create a draft. Used by the Invoices page and by the assistant. */
-export async function createInvoiceDraft(d: InvoiceInputT, createdBy: "you" | "assistant"): Promise<InvoiceRow> {
+export async function createInvoiceDraft(d: InvoiceInputT, createdBy: "you" | "assistant" | "auto"): Promise<InvoiceRow> {
   const { invoice_terms_days } = await companySettings();
   const issue = d.issue_date ?? today();
   const due = d.due_date ?? plusDays(issue, Number(invoice_terms_days) || 14);
@@ -269,6 +271,57 @@ export function registerInvoiceRoutes(app: Hono<any>) {
   });
 
   app.get("/api/invoices/senders", async (c) => c.json(await senderOptions(c.env as InvoiceEnv, getUser(c)?.mailboxes ?? [])));
+
+  // ── Rent invoices drafted ahead of the due date (rent-invoices.ts) ──
+
+  const rentFrom = async () =>
+    (await get<{ value: string }>("SELECT value FROM settings WHERE key = 'rent_invoice_from'").catch(() => undefined))?.value?.trim().toLowerCase() || "info@chistiandco.com";
+
+  /** Automatic rent drafts waiting for someone to press Send. */
+  app.get("/api/invoices/rent-ready", async (c) => {
+    const rows = await query<InvoiceRow>(`${INVOICE_SELECT} WHERE i.created_by = 'auto' AND i.status = 'draft' ORDER BY i.due_date, i.id`).catch(() => [] as InvoiceRow[]);
+    return c.json({
+      from: await rentFrom(),
+      invoices: rows.map((r) => ({ ...r, items: parseItems(r.items), total: invoiceTotal(r) })),
+    });
+  });
+
+  /** Draft any rent invoices due now, without waiting for the hourly check. */
+  app.post("/api/invoices/rent-check", async (c) => c.json(await generateRentInvoices()));
+
+  /**
+   * Send several drafts at once. Only reached by a person pressing
+   * "Send" after seeing the list; each goes to its own Bill-to email.
+   */
+  app.post("/api/invoices/send-batch", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { ids?: unknown; from?: string };
+    const ids = Array.isArray(body.ids) ? body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 200) : [];
+    if (!ids.length) return c.json({ error: "Nothing selected to send." }, 400);
+    const options = await senderOptions(c.env as InvoiceEnv, getUser(c)?.mailboxes ?? []);
+    const from = (body.from || (await rentFrom())).trim().toLowerCase();
+    if (!options.senders.includes(from)) {
+      return c.json({ error: `You can't send from ${from}. Choose one of: ${options.senders.join(", ") || "(none set up)"}.` }, 403);
+    }
+    const origin = new URL(c.req.url).origin;
+    const results: { id: number; number: string; ok: boolean; error?: string }[] = [];
+    for (const id of ids) {
+      const inv = await get<InvoiceRow>(`${INVOICE_SELECT} WHERE i.id = ?`, [id]);
+      if (!inv) continue;
+      if (inv.status !== "draft") { results.push({ id, number: inv.number, ok: false, error: "Already sent" }); continue; }
+      const to = (inv.bill_to_email || "").trim();
+      if (!EMAIL_RE.test(to)) { results.push({ id, number: inv.number, ok: false, error: "No email address" }); continue; }
+      try {
+        await sendInvoiceEmail(c.env as InvoiceEnv, inv, to, from, `${origin}/brand/chisti-logo.jpg`);
+        await run("UPDATE invoices SET status = 'sent', sent_at = ?, sent_to = ?, sent_from = ? WHERE id = ?", [new Date().toISOString(), to, from, id]);
+        results.push({ id, number: inv.number, ok: true });
+      } catch (err) {
+        results.push({ id, number: inv.number, ok: false, error: (err as Error).message });
+        // Email not set up at all: stop rather than repeat the same error.
+        if (/RESEND_API_KEY/.test((err as Error).message)) break;
+      }
+    }
+    return c.json({ sent: results.filter((r) => r.ok).length, results });
+  });
 
   app.get("/api/invoices/:id", async (c) => {
     const id = intId(c);

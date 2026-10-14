@@ -93,6 +93,17 @@ Each invoice can be sent from a different address: the Send step has a
 remembering the last one used. Any address on a domain verified in Resend
 works.
 
+### Rent invoices, a week ahead
+
+Every hour the app drafts a rent invoice for each rent falling due in the
+next 7 days (Settings → Invoicing changes the number of days and the
+send-from address, default `info@chistiandco.com`). Homes with rooms on the
+Tenants tab get one invoice per room; other homes one for the whole rent.
+Tenant emails come from the sheet's **Tenant Email** column. The drafts show
+on the dashboard and at the top of Invoices, where one **Send** (after a
+confirmation) emails them all. Each rent is drafted once per month, so a
+deleted draft does not come back.
+
 ## Ask (AI assistant)
 
 The **Ask** button on every page answers questions from the live data ("who's

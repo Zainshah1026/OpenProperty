@@ -14,6 +14,7 @@ import { setAdapter } from "./db";
 import { runSync, syncEnabled } from "./sync";
 import { setMailProvider } from "./mail";
 import { createImapProvider } from "./imap";
+import { generateRentInvoices } from "./rent-invoices";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
 setMailProvider(createImapProvider(process.env));
@@ -48,6 +49,8 @@ for (const ddl of [
   "ALTER TABLE properties ADD COLUMN service_charge_paid REAL NOT NULL DEFAULT 0",
   "ALTER TABLE properties ADD COLUMN ground_rent_received REAL NOT NULL DEFAULT 0",
   "ALTER TABLE properties ADD COLUMN service_charge_received REAL NOT NULL DEFAULT 0",
+  "ALTER TABLE properties ADD COLUMN tenant_email TEXT",
+  "ALTER TABLE rooms ADD COLUMN tenant_email TEXT",
 ]) {
   try { sqlite.exec(ddl); } catch { /* already there */ }
 }
@@ -208,6 +211,15 @@ async function syncOnce(when: string) {
   }
 }
 
+// Rent invoices: drafted ahead of each due date (never sent automatically).
+async function rentInvoicesOnce() {
+  try {
+    await generateRentInvoices();
+  } catch (err) {
+    console.error(`Rent invoices: ${(err as Error).message}`);
+  }
+}
+
 async function start() {
   if (syncEnabled(env)) {
     await syncOnce("start");
@@ -215,6 +227,8 @@ async function start() {
   } else {
     await seedIfEmpty().catch((err) => console.error("Seeding failed", err));
   }
+  await rentInvoicesOnce();
+  setInterval(rentInvoicesOnce, 60 * 60_000).unref();
   listen();
 }
 

@@ -342,6 +342,8 @@ const INVOICE_FIELDS: { key: string; label: string; placeholder?: string; multil
   { key: "invoice_prefix", label: "Invoice number prefix", placeholder: "CC-" },
   { key: "invoice_terms_days", label: "Payment terms (days)", placeholder: "14" },
   { key: "invoice_footer", label: "Footer note", multiline: true, placeholder: "e.g. company number, VAT number" },
+  { key: "rent_invoice_days_before", label: "Rent invoices: draft this many days before rent is due", placeholder: "7" },
+  { key: "rent_invoice_from", label: "Rent invoices: send from", placeholder: "info@chistiandco.com" },
 ];
 
 function InvoicingTab() {

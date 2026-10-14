@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { SyncBanner } from "@/components/sync-banner";
 import { CalendarCard } from "./calendar-card";
+import { RentReady } from "@/components/invoices/rent-ready";
 
 export function DashboardPage({ navigate }: { navigate: (to: string) => void }) {
   const { settings, setError } = useApp();
@@ -88,6 +89,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         />
       </section>
 
+      <RentReady compact navigate={navigate} />
       <CalendarCard navigate={navigate} currency={settings.currency} version={version} />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">

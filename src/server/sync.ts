@@ -87,7 +87,7 @@ async function fetchTab(cfg: SyncConfig, gid: string | undefined): Promise<strin
 
 const PROPERTY_COLUMNS = [
   "ref", "name", "type", "address", "city", "state", "zip", "owner", "deal_type", "section", "tenure", "bedrooms", "hmo",
-  "occupancy", "tenant_label", "rent_in", "rent_out", "other_costs",
+  "occupancy", "tenant_label", "tenant_email", "rent_in", "rent_out", "other_costs",
   "ground_rent_paid", "service_charge_paid", "ground_rent_received", "service_charge_received", "rent_in_day", "payment_out_day",
   "rent_status", "months_arrears", "arrears_amount", "gas_expiry", "epc_expiry", "eicr_expiry",
   "licence_expiry", "insurance_expiry", "notes",
@@ -99,7 +99,7 @@ const LEAD_COLUMNS = [
   "status", "next_action", "notes",
 ] as const;
 
-const ROOM_COLUMNS = ["room", "tenant_name", "rent", "pay_day", "rent_status", "start_date", "end_date", "notes", "sort"] as const;
+const ROOM_COLUMNS = ["room", "tenant_name", "tenant_email", "rent", "pay_day", "rent_status", "start_date", "end_date", "notes", "sort"] as const;
 
 const keyOf = (ref: unknown, address: unknown) =>
   ref ? `ref:${String(ref).trim().toLowerCase()}` : `addr:${String(address ?? "").trim().toLowerCase()}`;

@@ -54,6 +54,8 @@ const day = (v) => {
   return n && n >= 1 && n <= 31 ? n : null;
 };
 const text = (v) => (v && v !== "–" && v !== "-" ? v : null);
+/** The first email address in a cell, lower-cased, or null. */
+const email = (v) => String(v ?? "").match(/[^\s<>,;|]+@[^\s<>,;|]+\.[^\s<>,;|]+/)?.[0]?.toLowerCase() ?? null;
 
 /** dd/mm/yyyy, yyyy-mm-dd or a Sheets date → yyyy-mm-dd. */
 const date = (v) => {
@@ -115,6 +117,7 @@ export function toProperty(r, compliance, section = "owned") {
     hmo: /^y/i.test(pick(r, "HMO")) ? 1 : 0,
     occupancy: choose(pick(r, "Occupancy"), OCC, "occupied"),
     tenant_label: text(pick(r, "Tenant / Agent", "Tenant Name")),
+    tenant_email: email(pick(r, "Tenant Email", "Email")),
     rent_in: money(pick(r, "Rent In", "Monthly Gross Income")),
     rent_out: rentOut,
     other_costs: Math.max(0, totalCosts - rentOut),
@@ -165,7 +168,8 @@ export function toRoom(r, i) {
   return {
     ref: text(pick(r, "Ref")),
     room: text(pick(r, "Room")) ?? `Room ${i + 1}`,
-    tenant_name: text(pick(r, "Tenant")),
+    tenant_name: text(pick(r, "Tenant Name", "Tenant")),
+    tenant_email: email(pick(r, "Tenant Email", "Email")),
     rent: money(pick(r, "Rent")),
     pay_day: day(pick(r, "Pay Day", "Rent In Day")),
     rent_status: choose(pick(r, "Rent Paid", "Status"), ROOM_STATUS, null),

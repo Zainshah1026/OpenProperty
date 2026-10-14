@@ -66,6 +66,9 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   late_fee_amount: "0",
   late_fee_grace_days: "14",
   currency: "GBP",
+  rent_invoices_auto: "on",
+  rent_invoice_days_before: "7",
+  rent_invoice_from: "info@chistiandco.com",
 };
 
 let seeded = false;
