@@ -4,7 +4,8 @@ import { initDB, query, get, run } from "./db";
 import { runSync, syncStatus } from "./sync";
 import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
-import { registerMailRoutes } from "./mail";
+import { mailProvider, registerMailRoutes } from "./mail";
+import { getUser, registerAuth } from "./auth";
 
 type Env = {
   Bindings: {
@@ -17,6 +18,8 @@ type Env = {
     APP_USERNAME?: string;
     /** Set to "true" in .dev.vars to skip the login prompt on your own machine. */
     ALLOW_NO_AUTH?: string;
+    /** "true" re-enables the APP_USERNAME/APP_PASSWORD setup login even after an admin exists. */
+    ALLOW_SETUP_LOGIN?: string;
     /** Google Sheet sync (see src/server/sync.ts). */
     /** Invoice emails via Resend. */
     RESEND_API_KEY?: string;
@@ -38,135 +41,13 @@ type Env = {
 const app = new Hono<Env>();
 
 // ── Login ──────────────────────────────────────────────────────────
-// The portfolio holds tenant names, rents and arrears, so every request —
-// the pages as well as the API — sits behind a login. A normal sign-in page
-// (not the browser's Basic-auth pop-up, which in-app browsers such as
-// WhatsApp's never show) sets a signed session cookie for 30 days. A Basic
-// Authorization header is still accepted for scripts. It fails closed: with
-// no APP_PASSWORD set nothing is served (except on a dev machine that opts out
-// with ALLOW_NO_AUTH=true).
+// Personal logins with per-person mailbox access: see src/server/auth.ts.
+// Registered first so it guards every route below.
 
-const SESSION_COOKIE = "pf_session";
-const SESSION_DAYS = 30;
-
-function safeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const x = enc.encode(a);
-  const y = enc.encode(b);
-  let diff = x.length ^ y.length;
-  const n = Math.max(x.length, y.length);
-  for (let i = 0; i < n; i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  return diff === 0;
-}
-
-const b64url = (buf: ArrayBuffer) =>
-  btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
-/** HMAC-SHA256 keyed by the password, so changing it signs everyone out. */
-async function sign(secret: string, data: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(`portfolio-session:${secret}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return b64url(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data)));
-}
-
-async function makeSession(secret: string): Promise<string> {
-  const expires = String(Date.now() + SESSION_DAYS * 86_400_000);
-  return `${expires}.${await sign(secret, expires)}`;
-}
-
-async function validSession(secret: string, token: string | undefined): Promise<boolean> {
-  if (!token) return false;
-  const [expires, sig] = token.split(".");
-  if (!expires || !sig || Number(expires) < Date.now()) return false;
-  return safeEqual(sig, await sign(secret, expires));
-}
-
-function readCookie(header: string | undefined, name: string): string | undefined {
-  for (const part of (header ?? "").split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === name) return decodeURIComponent(v.join("="));
-  }
-  return undefined;
-}
-
-function loginPage(error = ""): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">
-<title>Sign in · Chisti &amp; Co.</title><link rel="icon" type="image/svg+xml" href="/brand/favicon.svg"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b7cc2"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Chisti &amp; Co."><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<style>
-  :root{color-scheme:light dark;--bg:#eef4f9;--card:#fff;--ink:#14212b;--muted:#5c6b77;--line:#d9e3ea;--brand:#0b7cc2;--err:#a1281f}
-  @media (prefers-color-scheme:dark){:root{--bg:#0d1720;--card:#16222c;--ink:#eef3f7;--muted:#9aaab6;--line:#2a3945;--brand:#4aa8e6;--err:#ff8a80}}
-  *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
-  .wrap{width:100%;max-width:380px}
-  .logo{display:block;width:100%;border-radius:12px 12px 0 0;background:#0b7cc2}
-  form{width:100%;background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:24px 28px 28px}
-  h1{font-size:20px;margin:0 0 4px}p{margin:0 0 20px;color:var(--muted);font-size:14px}
-  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
-  input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font-size:16px}
-  input:focus{outline:2px solid var(--brand);outline-offset:1px}
-  button{margin-top:22px;width:100%;padding:12px;border:0;border-radius:8px;background:var(--brand);color:#fff;font-size:16px;font-weight:600;cursor:pointer}
-  .err{color:var(--err);font-size:14px;margin:12px 0 0}
-</style></head><body>
-<div class="wrap"><img class="logo" src="/brand/chisti-logo.jpg" alt="Chisti &amp; Co., Ilford" width="380" height="236">
-<form method="post" action="/login">
-  <h1>Portfolio dashboard</h1><p>Sign in to see the properties, rents and compliance.</p>
-  <label for="u">Username</label><input id="u" name="username" autocomplete="username" autocapitalize="none" required>
-  <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
-  ${error ? `<div class="err" role="alert">${error}</div>` : ""}
-  <button type="submit">Sign in</button>
-</form></div>
-<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>
-</body></html>`;
-}
-
-app.post("/login", async (c) => {
-  const password = c.env.APP_PASSWORD;
-  if (!password) return c.text("Login is not set up yet: add an APP_PASSWORD setting.", 503);
-  const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
-  const user = String(form.username ?? "").trim();
-  const pass = String(form.password ?? "");
-  if (safeEqual(user.toLowerCase(), (c.env.APP_USERNAME || "admin").toLowerCase()) && safeEqual(pass, password)) {
-    const token = await makeSession(password);
-    const secure = new URL(c.req.url).protocol === "https:" || c.req.header("x-forwarded-proto") === "https";
-    c.header(
-      "Set-Cookie",
-      `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure ? "; Secure" : ""}`,
-    );
-    return c.redirect("/", 303);
-  }
-  await new Promise((r) => setTimeout(r, 1000)); // slow down guessing
-  return c.html(loginPage("That username and password don't match."), 401);
-});
-
-app.get("/logout", (c) => {
-  c.header("Set-Cookie", `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
-  return c.redirect("/", 303);
-});
-
-app.use("*", async (c, next) => {
-  // The health check and the brand images on the sign-in page are public.
-  // So are the app manifest and service worker, which phones fetch before sign-in.
-  const PUBLIC = ["/api/health", "/manifest.webmanifest", "/sw.js"];
-  if (PUBLIC.includes(c.req.path) || c.req.path.startsWith("/brand/")) return next();
-  if (c.env.ALLOW_NO_AUTH === "true") return next();
-  const password = c.env.APP_PASSWORD;
-  if (!password) {
-    return c.text("Login is not set up yet: add an APP_PASSWORD setting.", 503);
-  }
-  if (await validSession(password, readCookie(c.req.header("Cookie"), SESSION_COOKIE))) return next();
-  const header = c.req.header("Authorization") ?? "";
-  if (header.startsWith("Basic ")) {
-    try {
-      const decoded = atob(header.slice(6));
-      const sep = decoded.indexOf(":");
-      if (sep > -1 && safeEqual(decoded.slice(0, sep), c.env.APP_USERNAME || "admin") && safeEqual(decoded.slice(sep + 1), password)) {
-        return next();
-      }
-    } catch {
-      /* malformed header: treat as signed out */
-    }
-  }
-  if (c.req.path.startsWith("/api/")) return c.json({ error: "Signed out. Reload the page to sign in." }, 401);
-  return c.html(loginPage(), 401);
+registerAuth(app, {
+  headExtra: `<link rel="icon" type="image/svg+xml" href="/brand/favicon.svg"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b7cc2"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Chisti &amp; Co."><meta name="apple-mobile-web-app-status-bar-style" content="default">`,
+  publicPaths: ["/api/health", "/manifest.webmanifest", "/sw.js"],
+  allMailboxes: () => (mailProvider()?.accounts() ?? []).map((a) => a.toLowerCase()),
 });
 
 app.use("/api/*", async (c, next) => {
@@ -1087,6 +968,12 @@ app.put("/api/settings", async (c) => {
   try { body = await c.req.json(); } catch { return c.json({ error: "Invalid JSON" }, 400); }
   if (!body || typeof body !== "object") return c.json({ error: "Body must be an object" }, 400);
   const entries = Object.entries(body as Record<string, unknown>).filter(([, v]) => v !== undefined && v !== null);
+  // Shared send-from addresses decide who can send as whom: admins only.
+  if (entries.some(([k]) => k === "sender_emails") && getUser(c).role !== "admin") {
+    const current = await get<{ value: string }>("SELECT value FROM settings WHERE key = 'sender_emails'");
+    const incoming = String((body as Record<string, unknown>).sender_emails ?? "");
+    if ((current?.value ?? "") !== incoming) return c.json({ error: "Only admins can change the shared send-from addresses." }, 403);
+  }
   for (const [key, value] of entries) {
     await run(
       `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))

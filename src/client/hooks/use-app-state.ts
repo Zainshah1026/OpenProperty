@@ -15,6 +15,7 @@ import type {
   NewWorkOrder,
   NewVendor,
   SalesLead,
+  Me,
   NewSalesLead,
 } from "../types";
 
@@ -50,6 +51,7 @@ export function useAppState() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Lookup loaders ─────────────────────────────────────────────────
@@ -63,6 +65,7 @@ export function useAppState() {
     setProperties(props.properties);
     setVendors(vens.vendors);
     setSettings(parseSettings(st.settings));
+    api<{ user: Me }>("GET", "/api/me").then((d) => setMe(d.user)).catch(() => {});
   }, []);
 
   const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
@@ -277,7 +280,7 @@ export function useAppState() {
     // sales leads
     listLeads, createLead, updateLead, deleteLead,
     // data
-    properties, vendors, settings,
+    properties, vendors, settings, me,
     loading, error, setError,
     // refresh
     refreshLookups,

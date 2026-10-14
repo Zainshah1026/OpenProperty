@@ -8,6 +8,7 @@
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { get, initDB, query, run } from "./db";
+import { getUser } from "./auth";
 
 export interface InvoiceEnv {
   RESEND_API_KEY?: string;
@@ -210,14 +211,15 @@ const EMAIL_RE = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
 const domainOf = (email: string) => email.split("@")[1]?.toLowerCase() ?? "";
 
 /** Addresses offered in the From box: the saved list, then the default. */
-export async function senderOptions(env: InvoiceEnv): Promise<{ senders: string[]; default: string | null }> {
+export async function senderOptions(env: InvoiceEnv, personal: string[] = []): Promise<{ senders: string[]; default: string | null }> {
   const { sender_emails } = await companySettings();
   const saved = (sender_emails ?? "")
     .split(/[\n,;]+/)
     .map((s) => s.trim())
     .filter((s) => EMAIL_RE.test(s));
   const def = env.INVOICE_FROM_EMAIL?.trim() || saved[0] || null;
-  const all = [...new Set([...(def ? [def] : []), ...saved])];
+  // Company addresses (e.g. info@) plus this person's own mailboxes only.
+  const all = [...new Set([...(def ? [def] : []), ...saved, ...personal].map((a) => a.toLowerCase()))];
   return { senders: all, default: def };
 }
 
@@ -266,7 +268,7 @@ export function registerInvoiceRoutes(app: Hono<any>) {
     return c.json({ invoices: rows.map((r) => ({ ...r, items: parseItems(r.items), total: invoiceTotal(r) })) });
   });
 
-  app.get("/api/invoices/senders", async (c) => c.json(await senderOptions(c.env as InvoiceEnv)));
+  app.get("/api/invoices/senders", async (c) => c.json(await senderOptions(c.env as InvoiceEnv, getUser(c)?.mailboxes ?? [])));
 
   app.get("/api/invoices/:id", async (c) => {
     const id = intId(c);
@@ -330,8 +332,13 @@ export function registerInvoiceRoutes(app: Hono<any>) {
     const body = (await c.req.json().catch(() => ({}))) as { to?: string; from?: string };
     const to = (body.to || inv.bill_to_email || "").trim();
     if (!EMAIL_RE.test(to)) return c.json({ error: "Add a valid email address to send to." }, 400);
-    const from = (body.from || (await senderOptions(c.env as InvoiceEnv)).default || "").trim();
+    const options = await senderOptions(c.env as InvoiceEnv, getUser(c)?.mailboxes ?? []);
+    const from = (body.from || options.default || "").trim().toLowerCase();
     if (!EMAIL_RE.test(from)) return c.json({ error: "Add the email address to send from." }, 400);
+    // You can send as a company address or as yourself, not as a colleague.
+    if (!options.senders.includes(from)) {
+      return c.json({ error: `You can't send from ${from}. Choose one of: ${options.senders.join(", ") || "(none set up)"}.` }, 403);
+    }
     try {
       const origin = new URL(c.req.url).origin;
       await sendInvoiceEmail(c.env as InvoiceEnv, inv, to, from, `${origin}/brand/chisti-logo.jpg`);

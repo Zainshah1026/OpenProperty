@@ -1,3 +1,17 @@
+-- ── People who can sign in ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,                 -- pbkdf2$iterations$salt$hash
+  role TEXT NOT NULL DEFAULT 'member',         -- 'admin' | 'member'
+  mailboxes TEXT NOT NULL DEFAULT '[]',        -- JSON list of addresses this person may read
+  pw_version INTEGER NOT NULL DEFAULT 1,       -- bumped on password change: signs out old sessions
+  active INTEGER NOT NULL DEFAULT 1,
+  last_login TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- ── Settings (key/value) ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,

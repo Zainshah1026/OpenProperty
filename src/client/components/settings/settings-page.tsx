@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { Vendor, VendorCategory } from "@/types";
 import { PageShell } from "@/components/page-shell";
+import { MyAccountTab, UsersTab } from "./people-tabs";
 
 const COLORS = ["sky", "emerald", "amber", "rose", "violet", "fuchsia", "teal", "orange", "slate"];
 
@@ -38,12 +39,14 @@ export function SettingsPage() {
   return (
     <PageShell
       title="Settings"
-      meta="Contractors, rent policy and invoice details"
+      meta="Your account, users, contractors, rent policy and invoice details"
       width="max-w-5xl"
     >
 
-        <Tabs defaultValue={window.location.hash === "#invoicing" ? "invoicing" : "vendors"}>
-          <TabsList>
+        <Tabs defaultValue={({ "#invoicing": "invoicing", "#users": "users", "#account": "account" } as Record<string, string>)[window.location.hash] ?? "account"}>
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="account">My account</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="vendors">Contractors</TabsTrigger>
             <TabsTrigger value="policy">Rent policy</TabsTrigger>
             <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
@@ -54,6 +57,12 @@ export function SettingsPage() {
           </TabsContent>
           <TabsContent value="policy" className="mt-4">
             <PolicyTab />
+          </TabsContent>
+          <TabsContent value="account" className="mt-4">
+            <MyAccountTab />
+          </TabsContent>
+          <TabsContent value="users" className="mt-4">
+            <UsersTab />
           </TabsContent>
           <TabsContent value="invoicing" className="mt-4">
             <InvoicingTab />
@@ -324,7 +333,7 @@ const INVOICE_FIELDS: { key: string; label: string; placeholder?: string; multil
   { key: "company_name", label: "Company name", placeholder: "Chisti & Co." },
   { key: "company_address", label: "Company address", multiline: true },
   { key: "company_email", label: "Company email (shown on invoices)", placeholder: "accounts@chistiandco.com" },
-  { key: "sender_emails", label: "Addresses you send invoices from (one per line)", multiline: true, placeholder: "accounts@chistiandco.com\nnabeel@chistiandco.com" },
+  { key: "sender_emails", label: "Shared addresses anyone can send invoices from, e.g. info@ (one per line). People can always send from their own mailboxes too.", multiline: true, placeholder: "info@chistiandco.com" },
   { key: "company_phone", label: "Phone" },
   { key: "bank_account_name", label: "Bank account name" },
   { key: "bank_name", label: "Bank" },

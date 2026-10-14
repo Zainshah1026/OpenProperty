@@ -40,10 +40,18 @@ and a contractor directory.
 
 ## Login
 
-Set `APP_PASSWORD` (and optionally `APP_USERNAME`, default `admin`). The
-browser asks for them once. With no password set the app refuses to serve
-anything, so a forgotten variable never exposes the data. On your own machine
-you can skip the prompt with `ALLOW_NO_AUTH=true`.
+Everyone has their own username and password (Settings → Users, admins
+only). Company data is shared; **mailboxes are private**: each person sees
+only the mailboxes ticked for them, e.g. everyone gets `info@` and each
+person their own address. The Ask assistant and invoice "Send from" follow
+the same rule: you can send as a shared address (Settings → Invoicing) or
+as yourself, never as a colleague.
+
+Passwords are stored as PBKDF2 hashes; changing one signs that person out
+everywhere. `APP_PASSWORD` signs the session cookies and, together with
+`APP_USERNAME` (default `admin`), is a **setup login** that only works until
+the first admin account exists. Set `ALLOW_SETUP_LOGIN=true` to re-enable it
+if every admin is locked out. Locally, `ALLOW_NO_AUTH=true` skips sign-in.
 
 ## Deploy on Render
 

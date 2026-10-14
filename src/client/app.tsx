@@ -52,7 +52,6 @@ const GROWTH: AppNavItem[] = [
 ];
 const ADMIN: AppNavItem[] = [
   { id: "settings", label: "Settings", href: "/settings", icon: "settings" },
-  { id: "logout", label: "Sign out", href: "/logout", icon: "log-out" },
 ];
 
 /** A record page keeps its collection's row lit. */
@@ -73,11 +72,15 @@ export function App() {
     reportLocation(path);
   }, [path]);
 
+  const ADMIN_ITEMS: AppNavItem[] = [
+    ...ADMIN,
+    { id: "logout", label: state.me ? `Sign out (${state.me.name})` : "Sign out", href: "/logout", icon: "log-out" },
+  ];
   const groups = [
     { items: PORTFOLIO },
     { label: "Operations", items: OPERATIONS },
     { label: "Sales", items: GROWTH },
-    { label: "Admin", items: ADMIN },
+    { label: "Admin", items: ADMIN_ITEMS },
   ];
 
   return (

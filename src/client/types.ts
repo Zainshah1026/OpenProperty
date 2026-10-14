@@ -306,6 +306,15 @@ export interface CalendarData {
   compliance_missing: number;
 }
 
+export interface Me {
+  id: number;
+  username: string;
+  name: string;
+  role: "admin" | "member";
+  mailboxes: string[];
+  setup: boolean;
+}
+
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
 
 export interface InvoiceItem {

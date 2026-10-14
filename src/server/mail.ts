@@ -10,7 +10,8 @@
 //
 // Read-only apart from marking a message as read when it is opened.
 
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
+import { getUser } from "./auth";
 
 export interface MailSummary {
   uid: number;
@@ -50,6 +51,20 @@ export function mailProvider(): MailProvider | null {
   return provider && provider.accounts().length ? provider : null;
 }
 
+/**
+ * The mailboxes this person may read, in their own order, each mapped to the
+ * provider's index. Nobody sees a mailbox that isn't on their list.
+ */
+export function allowedMailboxes(c: Context): { address: string; index: number }[] {
+  const p = mailProvider();
+  if (!p) return [];
+  const mine = new Set(getUser(c)?.mailboxes ?? []);
+  return p
+    .accounts()
+    .map((address, index) => ({ address, index }))
+    .filter((m) => mine.has(m.address.toLowerCase()));
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerMailRoutes(app: Hono<any>) {
   const num = (v: string | undefined, d: number) => {
@@ -57,17 +72,26 @@ export function registerMailRoutes(app: Hono<any>) {
     return Number.isFinite(n) && n >= 0 ? n : d;
   };
   const notSetUp = { error: "The inbox isn't connected yet: add MAIL_USER and MAIL_PASSWORD in Render." };
+  const noAccess = { error: "You don't have access to that mailbox." };
+
+  /** ?account=N is an index into THIS person's allowed list, never the full list. */
+  const resolveAccount = (c: Context): number | null => {
+    const mine = allowedMailboxes(c);
+    return mine[num(c.req.query("account"), 0)]?.index ?? null;
+  };
 
   app.get("/api/mail/accounts", async (c) => {
     const p = mailProvider();
-    return c.json({ enabled: !!p, accounts: p ? p.accounts() : [] });
+    return c.json({ enabled: !!p, accounts: allowedMailboxes(c).map((m) => m.address) });
   });
 
   app.get("/api/mail/folders", async (c) => {
     const p = mailProvider();
     if (!p) return c.json(notSetUp, 503);
     try {
-      return c.json({ folders: await p.folders(num(c.req.query("account"), 0)) });
+      const acc = resolveAccount(c);
+      if (acc === null) return c.json(noAccess, 403);
+      return c.json({ folders: await p.folders(acc) });
     } catch (err) {
       return c.json({ error: friendly(err) }, 502);
     }
@@ -77,7 +101,9 @@ export function registerMailRoutes(app: Hono<any>) {
     const p = mailProvider();
     if (!p) return c.json(notSetUp, 503);
     try {
-      const out = await p.list(num(c.req.query("account"), 0), c.req.query("folder") || "INBOX", {
+      const acc = resolveAccount(c);
+      if (acc === null) return c.json(noAccess, 403);
+      const out = await p.list(acc, c.req.query("folder") || "INBOX", {
         page: Math.max(1, num(c.req.query("page"), 1)),
         pageSize: Math.min(100, Math.max(10, num(c.req.query("size"), 40))),
         query: c.req.query("q")?.trim() || undefined,
@@ -92,7 +118,9 @@ export function registerMailRoutes(app: Hono<any>) {
     const p = mailProvider();
     if (!p) return c.json(notSetUp, 503);
     try {
-      const msg = await p.read(num(c.req.query("account"), 0), c.req.query("folder") || "INBOX", num(c.req.param("uid"), 0), { markSeen: true });
+      const acc = resolveAccount(c);
+      if (acc === null) return c.json(noAccess, 403);
+      const msg = await p.read(acc, c.req.query("folder") || "INBOX", num(c.req.param("uid"), 0), { markSeen: true });
       if (!msg) return c.json({ error: "That email couldn't be found. It may have been moved or deleted." }, 404);
       return c.json({ message: msg });
     } catch (err) {
@@ -104,8 +132,10 @@ export function registerMailRoutes(app: Hono<any>) {
     const p = mailProvider();
     if (!p) return c.json(notSetUp, 503);
     try {
+      const acc = resolveAccount(c);
+      if (acc === null) return c.json(noAccess, 403);
       const a = await p.attachment(
-        num(c.req.query("account"), 0),
+        acc,
         c.req.query("folder") || "INBOX",
         num(c.req.param("uid"), 0),
         num(c.req.param("index"), 0),

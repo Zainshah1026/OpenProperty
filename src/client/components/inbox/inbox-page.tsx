@@ -143,6 +143,16 @@ export function InboxPage() {
     );
   }
 
+  if (enabled && accounts.length === 0) {
+    return (
+      <PageShell title="Inbox">
+        <Card className="mx-auto max-w-xl p-6 text-sm text-muted-foreground">
+          No mailboxes are shared with you yet. Ask an admin to tick them for you under Settings → Users.
+        </Card>
+      </PageShell>
+    );
+  }
+
   const reader = openUid !== null && (
     <Card className="flex min-h-[60vh] flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b px-4 py-2 lg:hidden">
