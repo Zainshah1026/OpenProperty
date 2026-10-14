@@ -17,6 +17,17 @@ import { createImapProvider } from "./imap";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
 setMailProvider(createImapProvider(process.env));
+{
+  // Names only, never values: helps spot a mistyped or unsaved setting.
+  const mailKeys = Object.keys(process.env).filter((k) => /mail/i.test(k)).sort();
+  const boxes = createImapProvider(process.env).accounts();
+  console.log(`Inbox: ${boxes.length} mailbox(es) connected${boxes.length ? `: ${boxes.join(", ")}` : ""}. Mail settings present: ${mailKeys.join(", ") || "none"}`);
+  for (const k of mailKeys) {
+    const v = process.env[k] ?? "";
+    if (v !== v.trim()) console.log(`Inbox: ${k} has spaces at the start or end.`);
+    if (!v) console.log(`Inbox: ${k} is empty.`);
+  }
+}
 
 const PORT = Number(process.env.PORT || 8787);
 const DB_PATH = resolve(process.env.DATABASE_PATH || "./data/portfolio.db");
