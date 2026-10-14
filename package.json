@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "mkdir -p dist && pnpm db:migrate && concurrently -n ui,api -c cyan,green \"vite\" \"wrangler dev --port 8787\"",
     "db:migrate": "wrangler d1 execute open-property-db --local --file=src/server/schema.sql",
-    "build": "vite build && vite build --ssr src/server/node.ts --outDir dist-server --emptyOutDir",
+    "build": "npm run build:mail-deps && vite build && vite build --ssr src/server/node.ts --outDir dist-server --emptyOutDir",
     "typecheck": "tsc --noEmit",
     "db:migrate:remote": "wrangler d1 execute open-property-db --remote --file=src/server/schema.sql",
     "import:sheet": "node scripts/import-sheet.mjs",
     "start": "node --disable-warning=ExperimentalWarning dist-server/node.js",
-    "deploy:cloudflare": "vite build && wrangler deploy"
+    "deploy:cloudflare": "vite build && wrangler deploy",
+    "build:mail-deps": "npm install --prefix server-deps --no-save --no-package-lock --no-audit --no-fund imapflow@^1 mailparser@^3"
   },
   "dependencies": {
     "@clawnify/app": "^0.2.1",

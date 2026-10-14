@@ -10,3 +10,4 @@ dist
 private/
 *.private.sql
 dist-server
+server-deps

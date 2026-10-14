@@ -28,6 +28,10 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
       # Optional Google Sheet sync — see README
       - key: SHEET_PUB_URL
         sync: false

@@ -4,6 +4,7 @@ import { initDB, query, get, run } from "./db";
 import { runSync, syncStatus } from "./sync";
 import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
+import { registerMailRoutes } from "./mail";
 
 type Env = {
   Bindings: {
@@ -1422,6 +1423,7 @@ app.post("/api/sync", async (c) => {
 
 registerInvoiceRoutes(app);
 registerAssistantRoutes(app);
+registerMailRoutes(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 

@@ -93,6 +93,23 @@ create drafts; sending is always a person's click. Set `ANTHROPIC_API_KEY`
 (from console.anthropic.com) to switch it on; `ASSISTANT_MODEL` optionally
 overrides the model (default `claude-sonnet-5-5`).
 
+## Inbox
+
+The **Inbox** page shows the company's existing mailboxes (read over IMAP;
+One.com by default), with search, folders and attachments. Opening an email
+marks it read; nothing is sent or deleted. Set in Render:
+
+| Variable | Value |
+|---|---|
+| `MAIL_USER` | full address, e.g. `nabeel@chistiandco.com` |
+| `MAIL_PASSWORD` | that mailbox's password |
+| `MAIL_USER_2` / `MAIL_PASSWORD_2` … `_5` | optional extra mailboxes |
+| `MAIL_HOST` / `MAIL_PORT` | optional, default `imap.one.com` / `993` |
+
+The IMAP libraries are installed at build time into `server-deps/`
+(`pnpm run build:mail-deps`). The Ask assistant can search the inbox too,
+read-only, and treats email content as information, never instructions.
+
 ## Keep it in sync with a Google Sheet
 
 Keep editing the spreadsheet and the dashboard follows. There are two ways to

@@ -12,6 +12,11 @@ import schema from "./schema.sql?raw";
 import app from "./index";
 import { setAdapter } from "./db";
 import { runSync, syncEnabled } from "./sync";
+import { setMailProvider } from "./mail";
+import { createImapProvider } from "./imap";
+
+// Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
+setMailProvider(createImapProvider(process.env));
 
 const PORT = Number(process.env.PORT || 8787);
 const DB_PATH = resolve(process.env.DATABASE_PATH || "./data/portfolio.db");

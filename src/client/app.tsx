@@ -16,6 +16,7 @@ import { SettingsPage } from "./components/settings/settings-page";
 import { CompliancePage } from "./components/compliance/compliance-page";
 import { SalesPage } from "./components/sales/sales-page";
 import { InvoicesPage } from "./components/invoices/invoices-page";
+import { InboxPage } from "./components/inbox/inbox-page";
 import { AssistantPanel } from "./components/assistant-panel";
 
 /**
@@ -40,6 +41,7 @@ const PORTFOLIO: AppNavItem[] = [
   { id: "leases", label: "Leases", href: "/leases", icon: "clipboard-list", color: "violet" },
 ];
 const OPERATIONS: AppNavItem[] = [
+  { id: "inbox", label: "Inbox", href: "/inbox", icon: "inbox", color: "sky" },
   { id: "invoices", label: "Invoices", href: "/invoices", icon: "file-text", color: "blue" },
   { id: "rent", label: "Rent ledger", href: "/rent", icon: "dollar-sign", color: "amber" },
   { id: "compliance", label: "Compliance", href: "/compliance", icon: "shield-check", color: "rose" },
@@ -126,6 +128,7 @@ export function App() {
               {route.name === "compliance" && <CompliancePage navigate={navigate} />}
               {route.name === "sales" && <SalesPage />}
               {route.name === "invoices" && <InvoicesPage />}
+              {route.name === "inbox" && <InboxPage />}
               {route.name === "settings" && <SettingsPage />}
               {route.name === "not-found" && (
                 <Placeholder title="Not found" message="That page doesn't exist." />
