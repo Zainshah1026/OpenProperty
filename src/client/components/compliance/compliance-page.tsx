@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Paperclip } from "lucide-react";
 import { useApp } from "@/context";
 import { cn, daysBetween, formatDate, toIsoDate } from "@/lib/utils";
 import { CERTIFICATES, CERT_LABEL, CERT_TONE, certState, complianceState, type CertState } from "@/lib/portfolio";
@@ -9,6 +10,9 @@ import { PropertyDialog } from "@/components/properties/property-dialog";
 import { PageShell } from "@/components/page-shell";
 import { SyncBanner } from "@/components/sync-banner";
 import type { Property } from "@/types";
+import { DocumentsDialog } from "./documents";
+
+const CERT_DOC_KIND: Record<string, string> = { gas_expiry: "gas", epc_expiry: "epc", eicr_expiry: "eicr", licence_expiry: "licence", insurance_expiry: "insurance" };
 
 type View = "attention" | "all" | CertState;
 
@@ -23,6 +27,16 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
   const { properties } = useApp();
   const [view, setView] = useState<View>("attention");
   const [editing, setEditing] = useState<Property | undefined>(undefined);
+  const [docsFor, setDocsFor] = useState<Property | null>(null);
+  const [docCounts, setDocCounts] = useState<Record<number, Record<string, number>>>({});
+
+  const loadCounts = useCallback(() => {
+    fetch("/api/documents/summary")
+      .then((r) => r.json())
+      .then((d: { counts: Record<number, Record<string, number>> }) => setDocCounts(d.counts ?? {}))
+      .catch(() => {});
+  }, []);
+  useEffect(() => { loadCounts(); }, [loadCounts]);
 
   const counts = useMemo(() => {
     const c: Record<CertState, number> = { expired: 0, due_soon: 0, ok: 0, missing: 0 };
@@ -67,6 +81,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
               <tr>
                 <th className="h-10 px-3 font-medium">Property</th>
                 {CERTIFICATES.map((c) => <th key={c.key} className="h-10 px-3 font-medium">{c.label}</th>)}
+                <th className="h-10 px-3 font-medium">Documents</th>
                 <th className="h-10 px-3 font-medium">Status</th>
               </tr>
             </thead>
@@ -74,7 +89,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
               {rows.map((p) => {
                 const st = complianceState(p);
                 return (
-                  <tr key={p.id} className="cursor-pointer transition-colors duration-150 hover:bg-muted" onClick={() => setEditing(p)}>
+                  <tr key={p.id} className="cursor-pointer transition-colors duration-150 hover:bg-muted" onClick={() => setDocsFor(p)}>
                     <td className="max-w-[16rem] px-3 py-2.5">
                       <button
                         type="button"
@@ -97,22 +112,40 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
                           >
                             {date ? formatDate(date) : "—"}
                           </span>
+                          {docCounts[p.id]?.[CERT_DOC_KIND[c.key]] ? (
+                            <Paperclip className="ml-1 inline size-3.5 text-primary" aria-label="Certificate uploaded" />
+                          ) : null}
                         </td>
                       );
                     })}
+                    <td className="px-3 py-2.5">
+                      {(() => {
+                        const n = Object.values(docCounts[p.id] ?? {}).reduce((a, b) => a + b, 0);
+                        return (
+                          <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium", n ? "text-primary" : "text-muted-foreground")}>
+                            <Paperclip className="size-3.5" /> {n ? n : "Add"}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-3 py-2.5"><Badge variant={CERT_TONE[st]}>{CERT_LABEL[st]}</Badge></td>
                   </tr>
                 );
               })}
               {rows.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">Nothing here.</td></tr>
+                <tr><td colSpan={8} className="px-3 py-10 text-center text-muted-foreground">Nothing here.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </Card>
-      <p className="text-xs text-muted-foreground">Click a row to enter or update its expiry dates. Licence only applies where the council requires one.</p>
+      <p className="text-xs text-muted-foreground">Click a row to upload or open its certificates (gas safety, EICR, EPC, licence, insurance). A paperclip means a certificate is uploaded. Licence only applies where the council requires one.</p>
 
+      <DocumentsDialog
+        property={docsFor}
+        onClose={(changed) => { setDocsFor(null); if (changed) loadCounts(); }}
+        onEditDates={(p) => { setDocsFor(null); setEditing(p); }}
+      />
       <PropertyDialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(undefined); }} property={editing} />
     </PageShell>
   );

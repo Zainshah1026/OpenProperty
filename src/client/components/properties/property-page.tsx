@@ -11,6 +11,7 @@ import { UnitDialog } from "./unit-dialog";
 import { WorkOrderDialog } from "../maintenance/work-order-dialog";
 import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
+import { DocumentsPanel } from "@/components/compliance/documents";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, certState, dealLabel, netProfit,
   hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
@@ -171,6 +172,8 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
                 );
               })}
             </div>
+            <h2 className="mb-3 mt-5 text-sm font-semibold">Certificates &amp; documents</h2>
+            <DocumentsPanel property={property} />
           </Card>
           <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold">Letting</h2>

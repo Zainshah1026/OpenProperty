@@ -255,6 +255,22 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 
+-- ── Compliance documents (files on disk; see src/server/documents.ts) ──
+CREATE TABLE IF NOT EXISTS compliance_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,                          -- 'gas' | 'eicr' | 'epc' | 'licence' | 'insurance' | 'other'
+  filename TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  size INTEGER NOT NULL DEFAULT 0,
+  stored_name TEXT NOT NULL,                   -- random name on disk
+  expiry_date TEXT,
+  uploaded_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_property ON compliance_documents(property_id);
+
 -- Rent invoices already drafted automatically, one per rent per month, so a
 -- deleted draft is not recreated (see src/server/rent-invoices.ts).
 CREATE TABLE IF NOT EXISTS rent_invoice_log (

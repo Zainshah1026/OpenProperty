@@ -25,6 +25,12 @@ units and work orders.
 every home. Expired certificates turn red, anything due within 60 days amber,
 and homes with no dates recorded are listed so they can be filled in.
 
+**Certificates & documents** — upload the actual gas safety certificate,
+EICR, EPC, licence and insurance (PDF, photo or Word, up to 20 MB) against
+each home, from the Compliance page or the home's own page. Files are kept
+on the server's disk next to the database (`DOCUMENTS_DIR` to change it),
+only signed-in users can open them, and they are never in the repository.
+
 **Sales leads** — landlords selling, with contact details, the property,
 asking price, offer, buyer/agent, solicitor, status and next action.
 

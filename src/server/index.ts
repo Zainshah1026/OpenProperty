@@ -5,6 +5,7 @@ import { runSync, syncStatus } from "./sync";
 import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
 import { mailProvider, registerMailRoutes } from "./mail";
+import { registerDocumentRoutes } from "./documents";
 import { getUser, registerAuth } from "./auth";
 
 type Env = {
@@ -1314,6 +1315,7 @@ app.post("/api/sync", async (c) => {
 registerInvoiceRoutes(app);
 registerAssistantRoutes(app);
 registerMailRoutes(app);
+registerDocumentRoutes(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 

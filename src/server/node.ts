@@ -6,6 +6,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { mkdirSync, readFileSync, statSync } from "node:fs";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import schema from "./schema.sql?raw";
@@ -15,6 +16,7 @@ import { runSync, syncEnabled } from "./sync";
 import { setMailProvider } from "./mail";
 import { createImapProvider } from "./imap";
 import { generateRentInvoices } from "./rent-invoices";
+import { setDocumentStore } from "./documents";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
 setMailProvider(createImapProvider(process.env));
@@ -58,6 +60,21 @@ for (const ddl of [
 ]) {
   try { sqlite.exec(ddl); } catch { /* already there */ }
 }
+
+// Compliance documents: files next to the database, on the same disk.
+const DOCS_DIR = resolve(process.env.DOCUMENTS_DIR || join(dirname(DB_PATH), "documents"));
+mkdirSync(DOCS_DIR, { recursive: true });
+const docPath = (name: string) => {
+  if (!/^[a-f0-9]{32}\.[a-z0-9]{2,5}$/.test(name)) throw new Error("Bad document name");
+  return join(DOCS_DIR, name);
+};
+setDocumentStore({
+  put: (name, bytes) => writeFile(docPath(name), bytes, { flag: "wx" }),
+  get: async (name) => {
+    try { return new Uint8Array(await readFile(docPath(name))); } catch { return null; }
+  },
+  remove: (name) => rm(docPath(name), { force: true }),
+});
 
 type SqlValue = null | number | bigint | string | Uint8Array;
 const bindable = (params: unknown[]): SqlValue[] =>
