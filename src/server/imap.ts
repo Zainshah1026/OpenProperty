@@ -97,6 +97,9 @@ export function createImapProvider(env: NodeJS.ProcessEnv): MailProvider {
       logger: false,
       socketTimeout: 30_000,
     });
+    // Without a listener, a dropped or timed-out connection to the mail
+    // server is an unhandled 'error' event that takes the whole app down.
+    client.on("error", (err: Error) => console.error(`Inbox connection error (${acc.user}): ${err?.message ?? err}`));
     await client.connect();
     try {
       return await fn(client);

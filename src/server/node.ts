@@ -30,6 +30,10 @@ setMailProvider(createImapProvider(process.env));
   }
 }
 
+// Names and on/off only, never values.
+console.log(`Assistant: ${process.env.ANTHROPIC_API_KEY?.trim() ? `on (model ${process.env.ASSISTANT_MODEL || "default"})` : "off: ANTHROPIC_API_KEY not set"}. Invoice email: ${process.env.RESEND_API_KEY?.trim() ? "on" : "off: RESEND_API_KEY not set"}.`);
+if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== process.env.ANTHROPIC_API_KEY.trim()) console.log("Assistant: ANTHROPIC_API_KEY has spaces at the start or end.");
+
 const PORT = Number(process.env.PORT || 8787);
 const DB_PATH = resolve(process.env.DATABASE_PATH || "./data/portfolio.db");
 const DIST = resolve(process.env.STATIC_DIR || "./dist");

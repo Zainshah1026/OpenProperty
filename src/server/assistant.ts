@@ -240,7 +240,7 @@ async function callClaude(env: Record<string, unknown>, messages: Msg[], who: st
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
-      "x-api-key": String(env.ANTHROPIC_API_KEY),
+      "x-api-key": String(env.ANTHROPIC_API_KEY).trim(),
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
@@ -303,6 +303,7 @@ export function registerAssistantRoutes(app: AnyApp) {
       }
       return c.json({ reply: "That needed more steps than I allow in one go. Could you narrow the question?", invoices: created });
     } catch (err) {
+      console.error(`Assistant error: ${(err as Error).message}`);
       return c.json({ error: (err as Error).message, invoices: created }, 502);
     }
   });
