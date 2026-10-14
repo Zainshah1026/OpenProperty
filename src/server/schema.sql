@@ -231,6 +231,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   status TEXT NOT NULL DEFAULT 'draft',        -- 'draft' | 'sent' | 'paid' | 'void'
   sent_at TEXT,
   sent_to TEXT,
+  sent_from TEXT,
   paid_at TEXT,
   created_by TEXT,                             -- 'you' | 'assistant'
   created_at TEXT NOT NULL DEFAULT (datetime('now'))

@@ -15,6 +15,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/page-shell";
 
+const LAST_FROM_KEY = "invoice-last-from";
+
+function readLastFrom(): string {
+  try { return localStorage.getItem(LAST_FROM_KEY) ?? ""; } catch { return ""; }
+}
+function saveLastFrom(v: string) {
+  try { localStorage.setItem(LAST_FROM_KEY, v); } catch { /* private mode */ }
+}
+
 const STATUS: Record<InvoiceStatus, { label: string; tone: "neutral" | "info" | "success" | "warning" }> = {
   draft: { label: "Draft", tone: "warning" },
   sent: { label: "Sent", tone: "info" },
@@ -126,6 +135,8 @@ function InvoiceDialog({ invoice, onClose }: { invoice: Invoice | null | undefin
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
+  const [from, setFrom] = useState("");
+  const [senders, setSenders] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -141,6 +152,12 @@ function InvoiceDialog({ invoice, onClose }: { invoice: Invoice | null | undefin
     setNotes(invoice?.notes ?? "");
     setMessage(null);
     setConfirmSend(false);
+    api<{ senders: string[]; default: string | null }>("GET", "/api/invoices/senders")
+      .then((d) => {
+        setSenders(d.senders);
+        setFrom(invoice?.sent_from || readLastFrom() || d.default || "");
+      })
+      .catch(() => setFrom(readLastFrom()));
   }, [open, invoice]);
 
   const total = useMemo(() => items.reduce((a, i) => a + (parseFloat(i.amount.replace(/[£,]/g, "")) || 0), 0), [items]);
@@ -198,7 +215,8 @@ function InvoiceDialog({ invoice, onClose }: { invoice: Invoice | null | undefin
   const doSend = () => act(async () => {
     const saved = editable ? await save() : invoice!;
     if (!saved) return;
-    await api("POST", `/api/invoices/${saved.id}/send`, { to: email.trim() });
+    await api("POST", `/api/invoices/${saved.id}/send`, { to: email.trim(), from: from.trim() });
+    saveLastFrom(from.trim());
     onClose(true);
   });
   const setStatus = (status: InvoiceStatus) => act(async () => {
@@ -227,7 +245,7 @@ function InvoiceDialog({ invoice, onClose }: { invoice: Invoice | null | undefin
             </p>
           )}
           {invoice?.sent_at && (
-            <p className="text-xs text-muted-foreground">Sent to {invoice.sent_to} on {formatDate(invoice.sent_at)}{invoice.paid_at ? ` · paid ${formatDate(invoice.paid_at)}` : ""}</p>
+            <p className="text-xs text-muted-foreground">Sent to {invoice.sent_to}{invoice.sent_from ? ` from ${invoice.sent_from}` : ""} on {formatDate(invoice.sent_at)}{invoice.paid_at ? ` · paid ${formatDate(invoice.paid_at)}` : ""}</p>
           )}
 
           <fieldset disabled={!editable || busy} className="grid gap-3">
@@ -278,9 +296,26 @@ function InvoiceDialog({ invoice, onClose }: { invoice: Invoice | null | undefin
 
           {confirmSend && (
             <div className="rounded-md border border-primary/40 bg-brand-tint p-3 text-sm">
-              Send invoice{invoice ? ` ${invoice.number}` : ""} for <b>{money(total)}</b> to <b>{email || "(no email)"}</b>?
+              <Label htmlFor="inv-from" className="mb-1 block">Send from</Label>
+              <Input
+                id="inv-from"
+                type="email"
+                list="inv-from-options"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                placeholder="e.g. accounts@chistiandco.com"
+                className="mb-1 bg-card"
+              />
+              <datalist id="inv-from-options">
+                {senders.map((s) => <option key={s} value={s} />)}
+              </datalist>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Pick a saved address or type any address on a domain verified in Resend. Replies go to this address.
+              </p>
+              Send invoice{invoice ? ` ${invoice.number}` : ""} for <b>{money(total)}</b> to <b>{email || "(no email)"}</b>
+              {from.trim() ? <> from <b>{from.trim()}</b></> : null}?
               <div className="mt-2 flex gap-2">
-                <Button size="sm" onClick={doSend} disabled={busy || !email.trim()}><Send className="h-4 w-4" /> Yes, send it</Button>
+                <Button size="sm" onClick={doSend} disabled={busy || !email.trim() || !from.trim()}><Send className="h-4 w-4" /> Yes, send it</Button>
                 <Button size="sm" variant="ghost" onClick={() => setConfirmSend(false)}>Cancel</Button>
               </div>
             </div>

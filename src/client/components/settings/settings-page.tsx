@@ -323,7 +323,8 @@ function PolicyTab() {
 const INVOICE_FIELDS: { key: string; label: string; placeholder?: string; multiline?: boolean }[] = [
   { key: "company_name", label: "Company name", placeholder: "Chisti & Co." },
   { key: "company_address", label: "Company address", multiline: true },
-  { key: "company_email", label: "Reply-to email", placeholder: "accounts@chistiandco.com" },
+  { key: "company_email", label: "Company email (shown on invoices)", placeholder: "accounts@chistiandco.com" },
+  { key: "sender_emails", label: "Addresses you send invoices from (one per line)", multiline: true, placeholder: "accounts@chistiandco.com\nnabeel@chistiandco.com" },
   { key: "company_phone", label: "Phone" },
   { key: "bank_account_name", label: "Bank account name" },
   { key: "bank_name", label: "Bank" },

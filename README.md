@@ -78,7 +78,12 @@ sending domain (DNS records for e.g. chistiandco.com), and set:
 | Variable | Value |
 |---|---|
 | `RESEND_API_KEY` | from Resend → API Keys |
-| `INVOICE_FROM_EMAIL` | an address on the verified domain, e.g. `accounts@chistiandco.com` |
+| `INVOICE_FROM_EMAIL` | optional default "from" address, e.g. `accounts@chistiandco.com` |
+
+Each invoice can be sent from a different address: the Send step has a
+**Send from** box, filled from the list in Settings → Invoicing and
+remembering the last one used. Any address on a domain verified in Resend
+works.
 
 ## Ask (AI assistant)
 

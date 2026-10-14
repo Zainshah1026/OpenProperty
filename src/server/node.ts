@@ -27,6 +27,7 @@ sqlite.exec(schema);
 for (const ddl of [
   "ALTER TABLE properties ADD COLUMN section TEXT NOT NULL DEFAULT 'owned'",
   "ALTER TABLE properties ADD COLUMN tenure TEXT",
+  "ALTER TABLE invoices ADD COLUMN sent_from TEXT",
   "ALTER TABLE properties ADD COLUMN ground_rent_paid REAL NOT NULL DEFAULT 0",
   "ALTER TABLE properties ADD COLUMN service_charge_paid REAL NOT NULL DEFAULT 0",
   "ALTER TABLE properties ADD COLUMN ground_rent_received REAL NOT NULL DEFAULT 0",

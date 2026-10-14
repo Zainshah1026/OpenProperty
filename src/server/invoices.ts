@@ -33,6 +33,7 @@ export interface InvoiceRow {
   status: string;
   sent_at: string | null;
   sent_to: string | null;
+  sent_from: string | null;
   paid_at: string | null;
   created_by: string | null;
   created_at: string;
@@ -44,7 +45,7 @@ export interface InvoiceRow {
 export const COMPANY_KEYS = [
   "company_name", "company_address", "company_email", "company_phone",
   "bank_account_name", "bank_name", "bank_sort_code", "bank_account_number",
-  "invoice_prefix", "invoice_terms_days", "invoice_footer",
+  "invoice_prefix", "invoice_terms_days", "invoice_footer", "sender_emails",
 ] as const;
 
 const COMPANY_DEFAULTS: Record<string, string> = {
@@ -205,24 +206,48 @@ export function renderInvoiceHtml(inv: InvoiceRow, co: Record<string, string>, o
 
 // ── Email ──────────────────────────────────────────────────────────
 
-export async function sendInvoiceEmail(env: InvoiceEnv, inv: InvoiceRow, to: string, logoUrl: string): Promise<void> {
-  if (!env.RESEND_API_KEY || !env.INVOICE_FROM_EMAIL) {
-    throw new Error("Email isn't set up yet: add RESEND_API_KEY and INVOICE_FROM_EMAIL in Render.");
+const EMAIL_RE = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
+const domainOf = (email: string) => email.split("@")[1]?.toLowerCase() ?? "";
+
+/** Addresses offered in the From box: the saved list, then the default. */
+export async function senderOptions(env: InvoiceEnv): Promise<{ senders: string[]; default: string | null }> {
+  const { sender_emails } = await companySettings();
+  const saved = (sender_emails ?? "")
+    .split(/[\n,;]+/)
+    .map((s) => s.trim())
+    .filter((s) => EMAIL_RE.test(s));
+  const def = env.INVOICE_FROM_EMAIL?.trim() || saved[0] || null;
+  const all = [...new Set([...(def ? [def] : []), ...saved])];
+  return { senders: all, default: def };
+}
+
+/**
+ * Email an invoice from `from`. Resend only sends from domains verified in
+ * your Resend account, so `from` must be on one of those (e.g. any
+ * @chistiandco.com address once chistiandco.com is verified).
+ */
+export async function sendInvoiceEmail(env: InvoiceEnv, inv: InvoiceRow, to: string, from: string, logoUrl: string): Promise<void> {
+  if (!env.RESEND_API_KEY) {
+    throw new Error("Email isn't set up yet: add RESEND_API_KEY in Render.");
   }
   const co = await companySettings();
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: `${co.company_name} <${env.INVOICE_FROM_EMAIL}>`,
+      from: `${co.company_name} <${from}>`,
       to: [to],
-      reply_to: co.company_email || undefined,
+      // Replies go back to whoever it was sent from.
+      reply_to: from,
       subject: `Invoice ${inv.number} from ${co.company_name} · ${gbp(invoiceTotal(inv))} due ${ukDate(inv.due_date)}`,
       html: renderInvoiceHtml(inv, co, { forEmail: true, logoUrl }),
     }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (/domain/i.test(text) && /verif/i.test(text)) {
+      throw new Error(`Can't send from ${from}: the domain ${domainOf(from)} isn't verified in Resend. Use an address on a verified domain, or add ${domainOf(from)} in Resend → Domains.`);
+    }
     throw new Error(`The email service refused it (${res.status}): ${text.slice(0, 200)}`);
   }
 }
@@ -240,6 +265,8 @@ export function registerInvoiceRoutes(app: Hono<any>) {
     const rows = await query<InvoiceRow>(`${INVOICE_SELECT} ORDER BY i.id DESC`).catch(() => [] as InvoiceRow[]);
     return c.json({ invoices: rows.map((r) => ({ ...r, items: parseItems(r.items), total: invoiceTotal(r) })) });
   });
+
+  app.get("/api/invoices/senders", async (c) => c.json(await senderOptions(c.env as InvoiceEnv)));
 
   app.get("/api/invoices/:id", async (c) => {
     const id = intId(c);
@@ -300,16 +327,21 @@ export function registerInvoiceRoutes(app: Hono<any>) {
     const inv = id ? await get<InvoiceRow>(`${INVOICE_SELECT} WHERE i.id = ?`, [id]) : undefined;
     if (!inv) return c.json({ error: "Not found" }, 404);
     if (inv.status === "void") return c.json({ error: "This invoice is void." }, 400);
-    const body = (await c.req.json().catch(() => ({}))) as { to?: string };
+    const body = (await c.req.json().catch(() => ({}))) as { to?: string; from?: string };
     const to = (body.to || inv.bill_to_email || "").trim();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return c.json({ error: "Add a valid email address to send to." }, 400);
+    if (!EMAIL_RE.test(to)) return c.json({ error: "Add a valid email address to send to." }, 400);
+    const from = (body.from || (await senderOptions(c.env as InvoiceEnv)).default || "").trim();
+    if (!EMAIL_RE.test(from)) return c.json({ error: "Add the email address to send from." }, 400);
     try {
       const origin = new URL(c.req.url).origin;
-      await sendInvoiceEmail(c.env as InvoiceEnv, inv, to, `${origin}/brand/chisti-logo.jpg`);
+      await sendInvoiceEmail(c.env as InvoiceEnv, inv, to, from, `${origin}/brand/chisti-logo.jpg`);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 502);
     }
-    await run("UPDATE invoices SET status = CASE WHEN status = 'paid' THEN 'paid' ELSE 'sent' END, sent_at = ?, sent_to = ? WHERE id = ?", [new Date().toISOString(), to, inv.id]);
+    await run(
+      "UPDATE invoices SET status = CASE WHEN status = 'paid' THEN 'paid' ELSE 'sent' END, sent_at = ?, sent_to = ?, sent_from = ? WHERE id = ?",
+      [new Date().toISOString(), to, from, inv.id],
+    );
     const updated = (await get<InvoiceRow>(`${INVOICE_SELECT} WHERE i.id = ?`, [inv.id]))!;
     return c.json({ invoice: { ...updated, items: parseItems(updated.items), total: invoiceTotal(updated) } });
   });
