@@ -21,6 +21,7 @@ const KIND_WORDS: [RegExp, DocKind][] = [
   [/epc|energy performance/i, "epc"],
   [/licen[cs]e/i, "licence"],
   [/insurance/i, "insurance"],
+  [/\bother\b|fire risk|\bfra\b/i, "other"],
 ];
 
 /**
@@ -30,7 +31,10 @@ const KIND_WORDS: [RegExp, DocKind][] = [
 function parseName(name: string, refToId: Map<string, number>): Pick<Row, "propertyId" | "kind" | "expiry"> {
   const ref = name.match(/^\s*ref\s*([a-z0-9]+)\b/i)?.[1]?.toLowerCase();
   const id = ref ? refToId.get(ref) : undefined;
-  const kind = KIND_WORDS.find(([re]) => re.test(name))?.[1] ?? "";
+  // "Ref 15 - Gas Safety - …": read the type from its own part first, so an
+  // address can't be mistaken for one.
+  const typePart = /^\s*ref\s*[a-z0-9]+\s*-\s*([^-]+)/i.exec(name)?.[1] ?? "";
+  const kind = KIND_WORDS.find(([re]) => re.test(typePart))?.[1] ?? KIND_WORDS.find(([re]) => re.test(name))?.[1] ?? "";
   const iso = name.match(/expires?\s*(\d{4}-\d{2}-\d{2})/i)?.[1] ?? "";
   return { propertyId: id ? String(id) : "", kind, expiry: iso };
 }
