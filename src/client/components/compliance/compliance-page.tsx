@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Flame, Paperclip, Zap } from "lucide-react";
+import { Flame, Paperclip, Upload, Zap } from "lucide-react";
 import { useApp } from "@/context";
 import { cn, daysBetween, formatDate, toIsoDate } from "@/lib/utils";
 import { CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, complianceState, type CertState } from "@/lib/portfolio";
@@ -11,6 +11,8 @@ import { PageShell } from "@/components/page-shell";
 import { SyncBanner } from "@/components/sync-banner";
 import type { Property } from "@/types";
 import { DocumentsDialog } from "./documents";
+import { BulkUploadDialog } from "./bulk-upload";
+import { Button } from "@/components/ui/button";
 
 const CERT_DOC_KIND: Record<string, string> = { gas_expiry: "gas", epc_expiry: "epc", eicr_expiry: "eicr", licence_expiry: "licence", insurance_expiry: "insurance" };
 
@@ -28,6 +30,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
   const [view, setView] = useState<View>("attention");
   const [editing, setEditing] = useState<Property | undefined>(undefined);
   const [docsFor, setDocsFor] = useState<Property | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [docCounts, setDocCounts] = useState<Record<number, Record<string, number>>>({});
 
   const loadCounts = useCallback(() => {
@@ -61,6 +64,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
   return (
     <PageShell
       title="Compliance"
+      actions={<Button onClick={() => setBulkOpen(true)}><Upload className="h-4 w-4" /> Upload certificates</Button>}
       meta={`${counts.expired} expired · ${counts.due_soon} due within 60 days · ${counts.missing} with no dates recorded`}
     >
       <SyncBanner />
@@ -158,6 +162,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
       </Card>
       <p className="text-xs text-muted-foreground">Click a row to upload or open its certificates (gas safety, EICR, EPC, licence, insurance). A paperclip means a certificate is uploaded. Set Energy (All electric / Gas & electric) in the sheet; all-electric homes don't need a gas safety certificate. Licence only applies where the council requires one.</p>
 
+      <BulkUploadDialog open={bulkOpen} onClose={(changed) => { setBulkOpen(false); if (changed) loadCounts(); }} />
       <DocumentsDialog
         property={docsFor}
         onClose={(changed) => { setDocsFor(null); if (changed) loadCounts(); }}

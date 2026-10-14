@@ -110,6 +110,14 @@ export function registerDocumentRoutes(app: Hono<any>) {
     const type = TYPES[ext];
     if (!type) return c.json({ error: "Upload a PDF, photo (JPG, PNG, HEIC) or Word document." }, 415);
 
+    // The same file uploaded twice (e.g. a bulk upload run again) is kept once.
+    const cleanFirst = file.name.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").slice(0, 150) || `document.${ext}`;
+    const dupe = await get<DocRow>(
+      "SELECT * FROM compliance_documents WHERE property_id = ? AND kind = ? AND filename = ? AND size = ?",
+      [pid, kind, cleanFirst, file.size],
+    );
+    if (dupe) return c.json({ document: publicRow(dupe), duplicate: true });
+
     const stored = randomName(ext);
     await store.put(stored, new Uint8Array(await file.arrayBuffer()));
     const cleanName = file.name.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").slice(0, 150) || `document.${ext}`;

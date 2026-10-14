@@ -35,7 +35,7 @@ const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,application/pdf,imag
 const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /** Upload with a plain multipart POST (the JSON api helper can't send files). */
-async function upload(propertyId: number, kind: DocKind, file: File, expiry: string): Promise<void> {
+export async function upload(propertyId: number, kind: DocKind, file: File, expiry: string): Promise<{ duplicate?: boolean }> {
   const form = new FormData();
   form.append("file", file);
   form.append("property_id", String(propertyId));
@@ -47,6 +47,7 @@ async function upload(propertyId: number, kind: DocKind, file: File, expiry: str
     const d = (await r.json().catch(() => null)) as { error?: string } | null;
     throw new Error(d?.error || `Upload failed (${r.status})`);
   }
+  return (await r.json().catch(() => ({}))) as { duplicate?: boolean };
 }
 
 /** All of one property's certificates and documents, with upload per type. */
