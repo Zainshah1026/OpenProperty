@@ -107,7 +107,10 @@ const ASSETS = {
   },
 };
 
+// Every environment setting reaches the app, so a new one can't be
+// silently dropped here (as ALLOW_SETUP_LOGIN once was).
 const env = {
+  ...(process.env as Record<string, string | undefined>),
   ASSETS: ASSETS as unknown as Fetcher,
   APP_PASSWORD: process.env.APP_PASSWORD,
   APP_USERNAME: process.env.APP_USERNAME,
