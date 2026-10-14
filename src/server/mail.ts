@@ -157,7 +157,20 @@ export function registerMailRoutes(app: Hono<any>) {
 }
 
 function friendly(err: unknown): string {
-  const msg = (err as Error)?.message ?? String(err);
+  // imapflow puts the server's own words in responseText; "Command failed"
+  // alone says nothing, so log the detail (never credentials) and use it.
+  const e = err as { message?: string; responseText?: string; serverResponseCode?: string; authenticationFailed?: boolean; code?: string };
+  console.error(
+    `Inbox error: ${e?.message ?? err}` +
+      (e?.responseText ? ` | server said: ${e.responseText}` : "") +
+      (e?.serverResponseCode ? ` | code: ${e.serverResponseCode}` : "") +
+      (e?.code ? ` | ${e.code}` : "") +
+      (e?.authenticationFailed ? " | authentication failed" : ""),
+  );
+  if (e?.authenticationFailed || /AUTHENTICATIONFAILED/i.test(`${e?.serverResponseCode ?? ""} ${e?.responseText ?? ""}`)) {
+    return "One.com refused the login for this mailbox. Check its MAIL_USER and MAIL_PASSWORD in Render (the full email address and the password you use for One.com webmail).";
+  }
+  const msg = [e?.message, e?.responseText].filter(Boolean).join(": ") || String(err);
   if (/auth|login|credential|password/i.test(msg)) {
     return "One.com refused the login. Check MAIL_USER and MAIL_PASSWORD in Render (the full email address and its mailbox password).";
   }
