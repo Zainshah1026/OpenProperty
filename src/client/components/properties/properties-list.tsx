@@ -64,7 +64,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
       if (occ !== ALL && p.occupancy !== occ) return false;
       if (rent !== ALL && p.rent_status !== rent) return false;
       if (!needle) return true;
-      return [p.ref, p.name, p.address, p.city, p.zip, p.owner, p.tenant_label]
+      return [p.ref, p.name, p.address, p.city, p.zip, p.owner, p.tenant_label, p.tenant_name]
         .some((v) => v?.toLowerCase().includes(needle));
     });
   }, [properties, q, owner, deal, occ, rent]);

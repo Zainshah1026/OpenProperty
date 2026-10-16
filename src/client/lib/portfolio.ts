@@ -150,3 +150,9 @@ export function ordinal(n: number | null | undefined): string {
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
+
+/** How a tenant is shown everywhere: the company for a company let, else the person. */
+export function tenantDisplayName(t: { tenant_type?: string | null; company_name?: string | null; first_name: string; last_name: string }): string {
+  if (t.tenant_type === "company" && t.company_name?.trim()) return t.company_name.trim();
+  return `${t.first_name} ${t.last_name}`.trim() || t.company_name?.trim() || "Unnamed tenant";
+}

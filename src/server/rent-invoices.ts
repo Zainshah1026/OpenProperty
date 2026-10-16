@@ -94,7 +94,17 @@ export async function generateRentInvoices(now = new Date()): Promise<RentRunRes
     const today = londonToday(now);
     const horizon = addDays(today, daysBefore);
 
-    const props = await query<Prop>("SELECT * FROM properties");
+    const props = await query<Prop & { tenant_id: number | null }>("SELECT * FROM properties");
+    // Tenants picked from the Tenants list take priority for names and emails.
+    const tenants = new Map(
+      (await query<{ id: number; first_name: string; last_name: string; company_name: string | null; email: string | null }>(
+        "SELECT id, first_name, last_name, company_name, email FROM tenants",
+      ).catch(() => [])).map((t) => [t.id, { name: t.company_name?.trim() || `${t.first_name} ${t.last_name}`.trim(), email: t.email }]),
+    );
+    const roomLinks = new Map(
+      (await query<{ property_id: number; room: string; tenant_id: number }>("SELECT property_id, room, tenant_id FROM room_tenants").catch(() => []))
+        .map((r) => [`${r.property_id}|${r.room}`, r.tenant_id]),
+    );
     const rooms = await query<Room>("SELECT * FROM rooms ORDER BY sort");
     const roomsBy = new Map<number, Room[]>();
     for (const r of rooms) roomsBy.set(r.property_id, [...(roomsBy.get(r.property_id) ?? []), r]);
@@ -109,10 +119,11 @@ export async function generateRentInvoices(now = new Date()): Promise<RentRunRes
       const paying = (roomsBy.get(p.id) ?? []).filter((r) => r.rent > 0 && r.rent_status !== "empty" && r.tenant_name);
       if (paying.length) {
         for (const r of paying) {
+          const linked = tenants.get(roomLinks.get(`${p.id}|${slug(r.room)}`) ?? -1);
           payers.push({
             key: `${propKey}:room:${slug(r.room) || slug(r.tenant_name)}`,
-            name: r.tenant_name!,
-            email: r.tenant_email,
+            name: linked?.name || r.tenant_name!,
+            email: r.tenant_email || linked?.email || null,
             amount: r.rent,
             day: r.pay_day ?? p.rent_in_day,
             label: r.room ? `${r.room}, ${p.name}` : p.name,
@@ -120,8 +131,9 @@ export async function generateRentInvoices(now = new Date()): Promise<RentRunRes
             end: r.end_date,
           });
         }
-      } else if (p.rent_in > 0 && p.occupancy !== "vacant" && p.tenant_label) {
-        payers.push({ key: `${propKey}:whole`, name: p.tenant_label, email: p.tenant_email, amount: p.rent_in, day: p.rent_in_day, label: p.name, start: null, end: null });
+      } else if (p.rent_in > 0 && p.occupancy !== "vacant" && (p.tenant_label || p.tenant_id)) {
+        const linked = p.tenant_id ? tenants.get(p.tenant_id) : undefined;
+        payers.push({ key: `${propKey}:whole`, name: linked?.name || p.tenant_label!, email: p.tenant_email || linked?.email || null, amount: p.rent_in, day: p.rent_in_day, label: p.name, start: null, end: null });
       }
 
       for (const payer of payers) {

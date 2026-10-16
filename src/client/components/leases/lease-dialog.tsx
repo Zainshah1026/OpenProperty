@@ -91,7 +91,7 @@ export function LeaseDialog({ open, onOpenChange, lease, defaults, onSaved }: Pr
         unit_id: Number(unitId),
         primary_tenant_id: tenantId ? Number(tenantId) : null,
         start_date: start,
-        end_date: end,
+        end_date: end || null,
         monthly_rent: parseFloat(rent) || 0,
         deposit: parseFloat(deposit) || 0,
         rent_due_day: Math.min(31, Math.max(1, parseInt(dueDay, 10) || 1)),
@@ -187,7 +187,7 @@ export function LeaseDialog({ open, onOpenChange, lease, defaults, onSaved }: Pr
               <Input id="l-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="l-end">End</Label>
+              <Label htmlFor="l-end">End (leave blank if rolling)</Label>
               <Input id="l-end" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
             </div>
           </div>
@@ -232,7 +232,7 @@ export function LeaseDialog({ open, onOpenChange, lease, defaults, onSaved }: Pr
             </Button>
           )}
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="button" onClick={save} disabled={saving || !unitId || !start || !end}>
+          <Button type="button" onClick={save} disabled={saving || !unitId || !start}>
             {lease ? "Save changes" : "Create lease"}
           </Button>
         </DialogFooter>

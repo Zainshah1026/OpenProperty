@@ -24,6 +24,8 @@ export interface Property {
   occupancy: Occupancy;
   tenant_label: string | null;
   energy?: "all_electric" | "gas_electric" | null;
+  tenant_id?: number | null;
+  tenant_name?: string | null;
   rent_in: number;
   rent_out: number;
   other_costs: number;
@@ -79,6 +81,13 @@ export interface Tenant {
   id: number;
   first_name: string;
   last_name: string;
+  tenant_type?: "person" | "company" | null;
+  company_name?: string | null;
+  company_number?: string | null;
+  /** For company lets: what they use the property for. */
+  purpose?: string | null;
+  /** Homes and rooms they're linked to, e.g. "15 · Flat D; 4 · 116 Kendall Road (Room 2)". */
+  linked_homes?: string | null;
   email: string | null;
   phone: string | null;
   date_of_birth: string | null;
@@ -291,6 +300,8 @@ export interface Room {
   start_date: string | null;
   end_date: string | null;
   notes: string | null;
+  linked_tenant_id?: number | null;
+  linked_tenant_name?: string | null;
 }
 
 export interface CalendarEvent {

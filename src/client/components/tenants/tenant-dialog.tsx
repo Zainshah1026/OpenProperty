@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Tenant } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -27,6 +28,10 @@ export function TenantDialog({ open, onOpenChange, tenant, onSaved }: Props) {
   const [income, setIncome] = useState("");
   const [emergency, setEmergency] = useState("");
   const [notes, setNotes] = useState("");
+  const [kind, setKind] = useState<"person" | "company">("person");
+  const [company, setCompany] = useState("");
+  const [companyNo, setCompanyNo] = useState("");
+  const [purpose, setPurpose] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -40,13 +45,24 @@ export function TenantDialog({ open, onOpenChange, tenant, onSaved }: Props) {
     setIncome(tenant?.monthly_income ? String(tenant.monthly_income) : "");
     setEmergency(tenant?.emergency_contact ?? "");
     setNotes(tenant?.notes ?? "");
+    setKind(tenant?.tenant_type === "company" ? "company" : "person");
+    setCompany(tenant?.company_name ?? "");
+    setCompanyNo(tenant?.company_number ?? "");
+    setPurpose(tenant?.purpose ?? "");
   }, [open, tenant]);
 
+  const isCompany = kind === "company";
+  const canSave = isCompany ? !!company.trim() : !!(firstName.trim() && lastName.trim());
+
   async function save() {
-    if (!firstName.trim() || !lastName.trim()) return;
+    if (!canSave) return;
     setSaving(true);
     try {
       const payload = {
+        tenant_type: kind,
+        company_name: isCompany ? company.trim() : null,
+        company_number: isCompany ? companyNo.trim() || null : null,
+        purpose: purpose.trim() || null,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: email.trim() || null,
@@ -87,6 +103,39 @@ export function TenantDialog({ open, onOpenChange, tenant, onSaved }: Props) {
           <DialogTitle>{tenant ? "Edit tenant" : "New tenant"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
+          <div className="flex gap-2" role="radiogroup" aria-label="Tenant type">
+            {(["person", "company"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={kind === k}
+                onClick={() => setKind(k)}
+                className={cn("flex-1 rounded-lg border px-3 py-2 text-sm font-medium", kind === k ? "border-primary bg-brand-tint text-brand-text" : "text-muted-foreground hover:bg-muted")}
+              >
+                {k === "person" ? "A person" : "A company (company let)"}
+              </button>
+            ))}
+          </div>
+          {isCompany && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="t-co">Company name</Label>
+                  <Input id="t-co" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. NACCS Ltd" />
+                </div>
+                <div>
+                  <Label htmlFor="t-cono">Company number (optional)</Label>
+                  <Input id="t-cono" value={companyNo} onChange={(e) => setCompanyNo(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="t-purpose">What are they using the property for?</Label>
+                <Textarea id="t-purpose" rows={2} value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="e.g. Housing their site contractors on the Barking job, 3 staff, until March" />
+              </div>
+              <p className="-mb-1 text-xs font-medium text-muted-foreground">Main contact at the company</p>
+            </>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="t-first">First name</Label>
@@ -107,6 +156,8 @@ export function TenantDialog({ open, onOpenChange, tenant, onSaved }: Props) {
               <Input id="t-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
           </div>
+          {!isCompany && (
+            <>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="t-dob">Date of birth</Label>
@@ -127,6 +178,8 @@ export function TenantDialog({ open, onOpenChange, tenant, onSaved }: Props) {
               <Input id="t-inc" type="number" value={income} onChange={(e) => setIncome(e.target.value)} />
             </div>
           </div>
+            </>
+          )}
           <div>
             <Label htmlFor="t-notes">Notes</Label>
             <Textarea id="t-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
@@ -139,7 +192,7 @@ export function TenantDialog({ open, onOpenChange, tenant, onSaved }: Props) {
             </Button>
           )}
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="button" onClick={save} disabled={saving || !firstName.trim() || !lastName.trim()}>
+          <Button type="button" onClick={save} disabled={saving || !canSave}>
             {tenant ? "Save changes" : "Create tenant"}
           </Button>
         </DialogFooter>
@@ -150,7 +203,7 @@ export function TenantDialog({ open, onOpenChange, tenant, onSaved }: Props) {
         <ConfirmDelete
           open={confirming}
           onOpenChange={setConfirming}
-          title={`Delete ${tenant.first_name} ${tenant.last_name}?`}
+          title={`Delete ${tenant.company_name || `${tenant.first_name} ${tenant.last_name}`}?`}
           description="Their leases and rent history go with them. This cannot be undone."
           onConfirm={remove}
         />

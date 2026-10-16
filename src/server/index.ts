@@ -140,6 +140,8 @@ const PropertyInput = z.object({
   section: z.enum(["owned", "managed"]).optional(),
   tenure: z.enum(["freehold", "leasehold", "share_of_freehold", "freehold_and_leasehold"]).optional().nullable(),
   energy: z.enum(["all_electric", "gas_electric"]).optional().nullable(),
+  /** The tenant chosen from the Tenants list (kept in the app, not the sheet). */
+  tenant_id: z.number().int().optional().nullable(),
   bedrooms: z.number().int().min(0).optional().nullable(),
   hmo: z.number().int().min(0).max(1).optional(),
   occupancy: z.enum(OCCUPANCY).optional(),
@@ -172,7 +174,8 @@ const PROPERTY_SELECT = `
     (SELECT COUNT(*) FROM rooms r WHERE r.property_id = p.id AND r.tenant_name IS NOT NULL AND COALESCE(r.rent_status, '') != 'empty') as rooms_let,
     (SELECT COALESCE(SUM(r.rent), 0) FROM rooms r WHERE r.property_id = p.id) as rooms_rent,
     (SELECT COUNT(*) FROM units u WHERE u.property_id = p.id) as unit_count,
-    (SELECT COUNT(*) FROM units u WHERE u.property_id = p.id AND u.status = 'occupied') as occupied_count
+    (SELECT COUNT(*) FROM units u WHERE u.property_id = p.id AND u.status = 'occupied') as occupied_count,
+    (SELECT COALESCE(NULLIF(t.company_name, ''), TRIM(t.first_name || ' ' || t.last_name)) FROM tenants t WHERE t.id = p.tenant_id) as tenant_name
   FROM properties p
 `;
 
@@ -318,8 +321,14 @@ app.delete("/api/units/:id", async (c) => {
 // ── Tenants ────────────────────────────────────────────────────────
 
 const TenantInput = z.object({
-  first_name: z.string().min(1),
-  last_name: z.string().min(1),
+  // For a company let these are the contact person, and may be left blank.
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  tenant_type: z.enum(["person", "company"]).optional(),
+  company_name: z.string().optional().nullable(),
+  company_number: z.string().optional().nullable(),
+  /** What a company uses the property for, e.g. staff accommodation for contractors. */
+  purpose: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   date_of_birth: z.string().optional().nullable(),
@@ -328,6 +337,13 @@ const TenantInput = z.object({
   monthly_income: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
+
+/** The homes and rooms a tenant has been linked to, as "15 · Flat D; 4 · 116 Kendall Road (Room 2)". */
+const TENANT_HOMES = `(SELECT GROUP_CONCAT(x, '; ') FROM (
+    SELECT COALESCE(p.ref || ' · ', '') || p.name AS x FROM properties p WHERE p.tenant_id = t.id
+    UNION ALL
+    SELECT COALESCE(p.ref || ' · ', '') || p.name || ' (' || rt.room || ')' FROM room_tenants rt JOIN properties p ON p.id = rt.property_id WHERE rt.tenant_id = t.id
+  )) as linked_homes`;
 
 app.get("/api/tenants", async (c) => {
   const search = c.req.query("q")?.trim();
@@ -340,11 +356,12 @@ app.get("/api/tenants", async (c) => {
          (SELECT u.name FROM leases l LEFT JOIN units u ON u.id = l.unit_id
             WHERE l.primary_tenant_id = t.id AND l.status = 'active' LIMIT 1) as active_unit_name,
          (SELECT p.name FROM leases l LEFT JOIN units u ON u.id = l.unit_id LEFT JOIN properties p ON p.id = u.property_id
-            WHERE l.primary_tenant_id = t.id AND l.status = 'active' LIMIT 1) as active_property_name
+            WHERE l.primary_tenant_id = t.id AND l.status = 'active' LIMIT 1) as active_property_name,
+         ${TENANT_HOMES}
        FROM tenants t
-       WHERE t.last_name LIKE ? OR t.first_name LIKE ? OR t.email LIKE ? OR t.phone LIKE ?
+       WHERE t.last_name LIKE ? OR t.first_name LIKE ? OR t.email LIKE ? OR t.phone LIKE ? OR t.company_name LIKE ?
        ORDER BY t.last_name, t.first_name LIMIT 200`,
-      [like, like, like, like],
+      [like, like, like, like, like],
     );
     return c.json({ tenants: rows });
   }
@@ -355,8 +372,9 @@ app.get("/api/tenants", async (c) => {
        (SELECT u.name FROM leases l LEFT JOIN units u ON u.id = l.unit_id
           WHERE l.primary_tenant_id = t.id AND l.status = 'active' LIMIT 1) as active_unit_name,
        (SELECT p.name FROM leases l LEFT JOIN units u ON u.id = l.unit_id LEFT JOIN properties p ON p.id = u.property_id
-          WHERE l.primary_tenant_id = t.id AND l.status = 'active' LIMIT 1) as active_property_name
-     FROM tenants t ORDER BY t.last_name, t.first_name LIMIT 500`,
+          WHERE l.primary_tenant_id = t.id AND l.status = 'active' LIMIT 1) as active_property_name,
+       ${TENANT_HOMES}
+     FROM tenants t ORDER BY COALESCE(NULLIF(t.company_name, ''), t.last_name), t.first_name LIMIT 500`,
   );
   return c.json({ tenants: rows });
 });
@@ -373,10 +391,15 @@ app.post("/api/tenants", async (c) => {
   const parsed = await parseJson(c, TenantInput);
   if (!parsed.ok) return c.json({ error: parsed.error }, 400);
   const d = parsed.data;
+  const isCompany = d.tenant_type === "company";
+  if (isCompany ? !d.company_name?.trim() : !(d.first_name?.trim() && d.last_name?.trim())) {
+    return c.json({ error: isCompany ? "Add the company's name." : "Add the tenant's first and last name." }, 400);
+  }
   const result = await run(
-    `INSERT INTO tenants (first_name, last_name, email, phone, date_of_birth, emergency_contact, employer, monthly_income, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [d.first_name, d.last_name, d.email ?? null, d.phone ?? null, d.date_of_birth ?? null, d.emergency_contact ?? null, d.employer ?? null, d.monthly_income ?? null, d.notes ?? null],
+    `INSERT INTO tenants (first_name, last_name, tenant_type, company_name, company_number, purpose, email, phone, date_of_birth, emergency_contact, employer, monthly_income, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [d.first_name?.trim() ?? "", d.last_name?.trim() ?? "", isCompany ? "company" : "person", d.company_name?.trim() || null, d.company_number?.trim() || null, d.purpose?.trim() || null,
+     d.email ?? null, d.phone ?? null, d.date_of_birth ?? null, d.emergency_contact ?? null, d.employer ?? null, d.monthly_income ?? null, d.notes ?? null],
   );
   const row = await get("SELECT * FROM tenants WHERE id = ?", [result.lastInsertRowid]);
   return c.json({ tenant: row }, 201);
@@ -399,6 +422,7 @@ app.put("/api/tenants/:id", async (c) => {
 app.delete("/api/tenants/:id", async (c) => {
   const id = intParam(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid ID" }, 400);
+  await run("UPDATE properties SET tenant_id = NULL WHERE tenant_id = ?", [id]);
   const r = await run("DELETE FROM tenants WHERE id = ?", [id]);
   if (!r.changes) return c.json({ error: "Not found" }, 404);
   return c.json({ ok: true });
@@ -410,7 +434,8 @@ const LeaseInput = z.object({
   unit_id: z.number().int(),
   primary_tenant_id: z.number().int().nullable().optional(),
   start_date: z.string(),
-  end_date: z.string(),
+  /** Blank for a rolling (periodic) tenancy. */
+  end_date: z.string().optional().nullable(),
   monthly_rent: z.number().min(0).optional(),
   deposit: z.number().min(0).optional(),
   rent_due_day: z.number().int().min(1).max(31).optional(),
@@ -460,7 +485,7 @@ app.post("/api/leases", async (c) => {
   const result = await run(
     `INSERT INTO leases (unit_id, primary_tenant_id, start_date, end_date, monthly_rent, deposit, rent_due_day, late_fee, status, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [d.unit_id, d.primary_tenant_id ?? null, d.start_date, d.end_date, d.monthly_rent ?? 0, d.deposit ?? 0, d.rent_due_day ?? 1, d.late_fee ?? 0, d.status ?? "active", d.notes ?? null],
+    [d.unit_id, d.primary_tenant_id ?? null, d.start_date, d.end_date || "", d.monthly_rent ?? 0, d.deposit ?? 0, d.rent_due_day ?? 1, d.late_fee ?? 0, d.status ?? "active", d.notes ?? null],
   );
   // Mark the unit as occupied if the new lease is active.
   if ((d.status ?? "active") === "active") {
@@ -1001,8 +1026,32 @@ app.put("/api/settings", async (c) => {
 app.get("/api/properties/:id/rooms", async (c) => {
   const id = intParam(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid ID" }, 400);
-  const rows = await query("SELECT * FROM rooms WHERE property_id = ? ORDER BY sort, id", [id]).catch(() => []);
+  const rows = await query(
+    `SELECT r.*, rt.tenant_id AS linked_tenant_id,
+       (SELECT COALESCE(NULLIF(t.company_name, ''), TRIM(t.first_name || ' ' || t.last_name)) FROM tenants t WHERE t.id = rt.tenant_id) AS linked_tenant_name
+     FROM rooms r LEFT JOIN room_tenants rt ON rt.property_id = r.property_id AND LOWER(rt.room) = LOWER(r.room)
+     WHERE r.property_id = ? ORDER BY r.sort, r.id`,
+    [id],
+  ).catch(() => []);
   return c.json({ rooms: rows });
+});
+
+/** Link a room (by its name, which survives the sheet sync) to a tenant from the Tenants list. */
+app.put("/api/properties/:id/room-tenant", async (c) => {
+  const id = intParam(c.req.param("id"));
+  const b = (await c.req.json().catch(() => ({}))) as { room?: string; tenant_id?: number | null };
+  const room = String(b.room ?? "").trim();
+  if (!id || !room) return c.json({ error: "Choose a room." }, 400);
+  if (b.tenant_id) {
+    if (!(await get("SELECT id FROM tenants WHERE id = ?", [b.tenant_id]))) return c.json({ error: "Unknown tenant." }, 400);
+    await run(
+      "INSERT INTO room_tenants (property_id, room, tenant_id) VALUES (?, ?, ?) ON CONFLICT(property_id, room) DO UPDATE SET tenant_id = excluded.tenant_id",
+      [id, room.toLowerCase(), b.tenant_id],
+    );
+  } else {
+    await run("DELETE FROM room_tenants WHERE property_id = ? AND room = ?", [id, room.toLowerCase()]);
+  }
+  return c.json({ ok: true });
 });
 
 // ── Calendar: money in, money out, certificates due ────────────────

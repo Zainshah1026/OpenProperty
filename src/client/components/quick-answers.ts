@@ -107,7 +107,7 @@ export async function quickAnswer(id: QuickId, currency: string): Promise<QuickA
 export function searchProperties(q: string, properties: Property[]): QuickAnswer {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const hits = properties.filter((p) => {
-    const hay = [p.ref, p.name, p.address, p.zip, p.city, p.owner, p.tenant_label].filter(Boolean).join(" ").toLowerCase();
+    const hay = [p.ref, p.name, p.address, p.zip, p.city, p.owner, p.tenant_label, p.tenant_name].filter(Boolean).join(" ").toLowerCase();
     return words.every((w) => hay.includes(w) || (p.ref && String(p.ref).toLowerCase() === w));
   });
   if (!hits.length) return { text: `No property matches "${q}". Try a ref number, part of the address, a postcode or a tenant's name.` };

@@ -256,6 +256,15 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 
+-- A room (named as on the sheet's Tenants tab) linked to a tenant from the
+-- app's Tenants list. Keyed by name because the sync rebuilds rooms.
+CREATE TABLE IF NOT EXISTS room_tenants (
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  room TEXT NOT NULL,                          -- lower-cased room name
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  PRIMARY KEY (property_id, room)
+);
+
 -- What the sheet said for each property field at the last sync, so a change
 -- made in the app is only replaced when the sheet itself changes.
 CREATE TABLE IF NOT EXISTS sheet_seen (

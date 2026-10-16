@@ -110,7 +110,7 @@ export function LeasesPage({ navigate }: { navigate: (to: string) => void }) {
               <TableBody>
                 {filtered.map((l) => {
                   const today = toIsoDate(new Date());
-                  const daysToEnd = daysBetween(today, l.end_date);
+                  const daysToEnd = l.end_date ? daysBetween(today, l.end_date) : Infinity;
                   const ending = l.status === "active" && daysToEnd >= 0 && daysToEnd <= 30;
                   return (
                     <TableRow
@@ -139,7 +139,7 @@ export function LeasesPage({ navigate }: { navigate: (to: string) => void }) {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">{formatDate(l.start_date)} → {formatDate(l.end_date)}</div>
+                        <div className="text-sm">{formatDate(l.start_date)} → {l.end_date ? formatDate(l.end_date) : "rolling"}</div>
                         {ending && <div className="text-xs text-warning">Ends in {daysToEnd} day{daysToEnd === 1 ? "" : "s"}</div>}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatMoney(l.monthly_rent, app.settings.currency)}/mo</TableCell>

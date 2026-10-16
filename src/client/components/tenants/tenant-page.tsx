@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { TenantDialog } from "./tenant-dialog";
 import type { Lease, Tenant } from "@/types";
 import { PageShell } from "@/components/page-shell";
+import { tenantDisplayName } from "@/lib/portfolio";
 
 export function TenantPage({ id, navigate }: { id: number; navigate: (to: string) => void }) {
   const app = useApp();
@@ -72,7 +73,12 @@ export function TenantPage({ id, navigate }: { id: number; navigate: (to: string
               <User className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-[1.375rem] font-semibold leading-tight tracking-[-0.01em]">{tenant.first_name} {tenant.last_name}</h1>
+              <h1 className="display text-[1.75rem] font-medium leading-tight">{tenantDisplayName(tenant)}</h1>
+              {tenant.tenant_type === "company" && (
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Company let{tenant.company_number ? ` · Company no. ${tenant.company_number}` : ""}{(tenant.first_name || tenant.last_name) ? ` · Contact: ${`${tenant.first_name} ${tenant.last_name}`.trim()}` : ""}
+                </p>
+              )}
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 {tenant.email && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> {tenant.email}</span>}
                 {tenant.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {tenant.phone}</span>}
@@ -95,6 +101,13 @@ export function TenantPage({ id, navigate }: { id: number; navigate: (to: string
               </Field>
               <Field label="Monthly rent">{formatMoney(activeLease.monthly_rent, app.settings.currency)}</Field>
             </div>
+          </Card>
+        )}
+
+        {tenant.purpose && (
+          <Card className="p-5">
+            <h2 className="mb-1 text-[1.0625rem] font-semibold leading-tight">What they use it for</h2>
+            <p className="whitespace-pre-line text-sm">{tenant.purpose}</p>
           </Card>
         )}
 

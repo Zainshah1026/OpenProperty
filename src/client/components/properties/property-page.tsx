@@ -13,6 +13,7 @@ import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
 import { DocumentsPanel } from "@/components/compliance/documents";
 import { EnergyPicker } from "@/components/compliance/energy-picker";
+import { TenantPicker } from "@/components/tenants/tenant-picker";
 import { AccessCard, MediaCard, RepairQrCard, VoidsCard } from "./property-extras";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, dealLabel, netProfit,
@@ -192,7 +193,26 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
           <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold">Letting</h2>
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Tenant / agent</dt><dd className="text-right font-medium">{property.tenant_label || "—"}</dd></div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <dt className="text-muted-foreground">Tenant</dt>
+                <dd className="text-right">
+                  <TenantPicker
+                    value={property.tenant_id}
+                    placeholder={property.tenant_label ? `${property.tenant_label} (from sheet)` : "Choose tenant…"}
+                    onChange={async (tid) => {
+                      await api("PUT", `/api/properties/${property.id}`, { tenant_id: tid });
+                      const { property: p } = await api<{ property: Property }>("GET", `/api/properties/${property.id}`);
+                      setProperty(p);
+                    }}
+                  />
+                </dd>
+              </div>
+              {property.tenant_id && property.tenant_label && property.tenant_label !== property.tenant_name && (
+                <div className="flex justify-between gap-3 text-xs"><dt className="text-muted-foreground">Sheet says</dt><dd className="text-right text-muted-foreground">{property.tenant_label}</dd></div>
+              )}
+              {property.tenant_id && (
+                <div className="text-right text-xs"><button type="button" className="text-primary hover:underline" onClick={() => navigate(`/tenants/${property.tenant_id}`)}>Open tenant</button></div>
+              )}
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Energy</dt><dd className="text-right font-medium">{property.energy ? ENERGY_LABEL[property.energy] : "—"}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Owner</dt><dd className="text-right font-medium">{property.owner || "—"}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Open work orders</dt><dd className="text-right font-medium">{openWorkOrders.length}</dd></div>
@@ -202,7 +222,16 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
         </section>
 
         {(rooms.length > 0 || property.hmo === 1 || property.occupancy === "part_occupied") && (
-          <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} />
+          <RoomsSection
+            rooms={rooms}
+            property={property}
+            currency={app.settings.currency}
+            onLink={async (room, tid) => {
+              await api("PUT", `/api/properties/${property.id}/room-tenant`, { room, tenant_id: tid });
+              const r = await api<{ rooms: Room[] }>("GET", `/api/properties/${property.id}/rooms`);
+              setRooms(r.rooms);
+            }}
+          />
         )}
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -323,7 +352,7 @@ const ROOM_STATUS: Record<string, { label: string; tone: "success" | "destructiv
 };
 
 /** One row per room or tenant, from the Tenants tab of the sheet. */
-function RoomsSection({ rooms, property, currency }: { rooms: Room[]; property: Property; currency: string }) {
+function RoomsSection({ rooms, property, currency, onLink }: { rooms: Room[]; property: Property; currency: string; onLink: (room: string, tenantId: number | null) => Promise<void> }) {
   const let_ = rooms.filter((r) => r.tenant_name && r.rent_status !== "empty");
   const total = rooms.reduce((a, r) => a + (r.rent || 0), 0);
   const diff = total - (property.rent_in || 0);
@@ -341,7 +370,7 @@ function RoomsSection({ rooms, property, currency }: { rooms: Room[]; property: 
             )}
           </p>
         </div>
-        <span className="text-xs text-muted-foreground">Edit on the Tenants tab of the Google Sheet</span>
+        <span className="text-xs text-muted-foreground">Pick each room's tenant from your Tenants list; rents and pay days come from the sheet's Tenants tab</span>
       </div>
       {rooms.length === 0 ? (
         <Card className="p-6 text-center text-sm text-muted-foreground">
@@ -367,7 +396,16 @@ function RoomsSection({ rooms, property, currency }: { rooms: Room[]; property: 
                   return (
                     <tr key={r.id}>
                       <td className="px-3 py-2.5 font-medium">{r.room || "—"}</td>
-                      <td className="px-3 py-2.5">{r.tenant_name || <span className="text-muted-foreground">Empty</span>}</td>
+                      <td className="px-3 py-2.5">
+                        {r.room ? (
+                          <TenantPicker
+                            className="h-8 w-52"
+                            value={r.linked_tenant_id}
+                            placeholder={r.tenant_name ? `${r.tenant_name} (from sheet)` : "Empty · choose tenant…"}
+                            onChange={(tid) => onLink(r.room!, tid)}
+                          />
+                        ) : (r.tenant_name || <span className="text-muted-foreground">Empty</span>)}
+                      </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{r.rent ? formatMoney(r.rent, currency) : <span className="text-warning">Not set</span>}</td>
                       <td className="px-3 py-2.5">{r.pay_day ? `the ${ordinal(r.pay_day)}` : "—"}</td>
                       <td className="px-3 py-2.5">{st ? <Badge variant={st.tone}>{st.label}</Badge> : <span className="text-muted-foreground">—</span>}</td>

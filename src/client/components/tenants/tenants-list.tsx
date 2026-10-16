@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TenantDialog } from "./tenant-dialog";
 import type { Tenant } from "@/types";
 import { PageShell } from "@/components/page-shell";
+import { tenantDisplayName } from "@/lib/portfolio";
 
 export function TenantsList({ navigate }: { navigate: (to: string) => void }) {
   const app = useApp();
@@ -34,7 +35,7 @@ export function TenantsList({ navigate }: { navigate: (to: string) => void }) {
     if (!q.trim()) return tenants;
     const needle = q.toLowerCase();
     return tenants.filter((t) =>
-      `${t.first_name} ${t.last_name} ${t.email ?? ""} ${t.phone ?? ""} ${t.active_property_name ?? ""} ${t.active_unit_name ?? ""}`.toLowerCase().includes(needle),
+      `${t.first_name} ${t.last_name} ${t.company_name ?? ""} ${t.purpose ?? ""} ${t.linked_homes ?? ""} ${t.email ?? ""} ${t.phone ?? ""} ${t.active_property_name ?? ""} ${t.active_unit_name ?? ""}`.toLowerCase().includes(needle),
     );
   }, [tenants, q]);
 
@@ -55,7 +56,7 @@ export function TenantsList({ navigate }: { navigate: (to: string) => void }) {
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, phone, property, or unit"
+            placeholder="Search by name, company, email, phone or property"
             className="pl-9"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -81,7 +82,7 @@ export function TenantsList({ navigate }: { navigate: (to: string) => void }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Active unit</TableHead>
+                  <TableHead>Lives at / rents</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                 </TableRow>
@@ -89,11 +90,20 @@ export function TenantsList({ navigate }: { navigate: (to: string) => void }) {
               <TableBody>
                 {filtered.map((t) => (
                   <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate(`/tenants/${t.id}`)}>
-                    <TableCell className="font-medium">
-                      {t.first_name} {t.last_name}
+                    <TableCell>
+                      <div className="flex items-center gap-2 font-medium">
+                        {tenantDisplayName(t)}
+                        {t.tenant_type === "company" && <span className="badge-tone tone-info">Company let</span>}
+                      </div>
+                      {t.tenant_type === "company" && (t.first_name || t.last_name) && (
+                        <div className="text-xs text-muted-foreground">Contact: {`${t.first_name} ${t.last_name}`.trim()}</div>
+                      )}
+                      {t.purpose && <div className="max-w-xs truncate text-xs text-muted-foreground" title={t.purpose}>Use: {t.purpose}</div>}
                     </TableCell>
                     <TableCell>
-                      {t.active_unit_name ? (
+                      {t.linked_homes ? (
+                        <span className="text-sm">{t.linked_homes}</span>
+                      ) : t.active_unit_name ? (
                         <span className="text-sm">
                           {t.active_property_name && <span className="text-muted-foreground">{t.active_property_name} · </span>}
                           {t.active_unit_name}
