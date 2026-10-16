@@ -88,13 +88,17 @@ export async function recordVoids(): Promise<void> {
   }
   for (const r of rooms) {
     if (!r.room) continue;
-    if (r.rent_status === "empty" || !r.tenant_name) emptyNow.set(key(r.property_id, r.room), { pid: r.property_id, room: r.room, rent: r.rent || 0 });
+    // Only rooms the sheet marks as empty: a blank tenant name often just means "not filled in yet".
+    if (r.rent_status === "empty") emptyNow.set(key(r.property_id, r.room), { pid: r.property_id, room: r.room, rent: r.rent || 0 });
   }
   for (const [k, e] of emptyNow) {
     if (!openBy.has(k)) await run("INSERT INTO voids (property_id, room, start_date, monthly_rent) VALUES (?, ?, ?, ?)", [e.pid, e.room, today, e.rent]);
   }
   for (const [k, v] of openBy) {
-    if (!emptyNow.has(k)) await run("UPDATE voids SET end_date = ? WHERE id = ?", [today, v.id]);
+    if (emptyNow.has(k)) continue;
+    // Opened and closed on the same day is noise (e.g. a sheet being edited), not an empty period.
+    if (v.start_date === today) await run("DELETE FROM voids WHERE id = ?", [v.id]);
+    else await run("UPDATE voids SET end_date = ? WHERE id = ?", [today, v.id]);
   }
 }
 
@@ -175,6 +179,13 @@ function registerVoids(app: AnyApp) {
 
 // ── Tenant repair requests ─────────────────────────────────────────
 
+/** The public address of the site; Render terminates HTTPS in front of us. */
+function origin(c: Context): string {
+  const u = new URL(c.req.url);
+  const proto = c.req.header("x-forwarded-proto")?.split(",")[0]?.trim() || (/^(localhost|127\.)/.test(u.hostname) ? u.protocol.replace(":", "") : "https");
+  return `${proto}://${u.host}`;
+}
+
 const newToken = () => {
   const b = new Uint8Array(12);
   crypto.getRandomValues(b);
@@ -251,14 +262,14 @@ function registerRepairs(app: AnyApp) {
     const id = intId(c);
     const t = id ? await tokenFor(id) : null;
     if (!t) return c.json({ error: "Unknown property" }, 404);
-    return c.json({ url: `${new URL(c.req.url).origin}/r/${t}` });
+    return c.json({ url: `${origin(c)}/r/${t}` });
   });
 
   app.post("/api/properties/:id/report-link/reset", async (c) => {
     const id = intId(c);
     const t = id ? await tokenFor(id, true) : null;
     if (!t) return c.json({ error: "Unknown property" }, 404);
-    return c.json({ url: `${new URL(c.req.url).origin}/r/${t}` });
+    return c.json({ url: `${origin(c)}/r/${t}` });
   });
 
   app.get("/properties/:id/qr.svg", async (c) => {
@@ -267,7 +278,7 @@ function registerRepairs(app: AnyApp) {
     if (!t) return c.text("Unknown property", 404);
     const lib = qrLib();
     if (!lib) return c.text("QR codes aren't available on this server.", 503);
-    const svg = await lib.toString(`${new URL(c.req.url).origin}/r/${t}`, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#0e2133", light: "#ffffff" } });
+    const svg = await lib.toString(`${origin(c)}/r/${t}`, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#0e2133", light: "#ffffff" } });
     return c.body(svg, 200, { "Content-Type": "image/svg+xml", "Cache-Control": "private, no-store" });
   });
 
@@ -277,7 +288,7 @@ function registerRepairs(app: AnyApp) {
     const p = id ? await get<{ id: number; name: string; address: string | null }>("SELECT id, name, address FROM properties WHERE id = ?", [id]) : undefined;
     const t = p ? await tokenFor(p.id) : null;
     if (!p || !t) return c.text("Unknown property", 404);
-    const url = `${new URL(c.req.url).origin}/r/${t}`;
+    const url = `${origin(c)}/r/${t}`;
     return c.html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Repair poster · ${esc(homeName(p))}</title>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&family=Newsreader:opsz,wght@6..72,500&display=swap" rel="stylesheet">
 <style>@page{size:A4;margin:18mm}body{margin:0;font-family:Figtree,sans-serif;color:#13202e;text-align:center}
