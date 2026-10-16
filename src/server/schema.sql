@@ -256,6 +256,15 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 
+-- What the sheet said for each property field at the last sync, so a change
+-- made in the app is only replaced when the sheet itself changes.
+CREATE TABLE IF NOT EXISTS sheet_seen (
+  prop_key TEXT NOT NULL,                      -- 'ref:15' or 'addr:…'
+  field TEXT NOT NULL,
+  value TEXT,
+  PRIMARY KEY (prop_key, field)
+);
+
 -- ── Compliance documents (files on disk; see src/server/documents.ts) ──
 CREATE TABLE IF NOT EXISTS compliance_documents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -63,6 +63,7 @@ for (const ddl of [
   "ALTER TABLE compliance_documents ADD COLUMN taken_on TEXT",
   "ALTER TABLE compliance_documents ADD COLUMN work_order_id INTEGER",
   "ALTER TABLE properties ADD COLUMN report_token TEXT",
+  "ALTER TABLE properties ADD COLUMN origin TEXT",
   "ALTER TABLE work_orders ADD COLUMN reported_by TEXT",
   "ALTER TABLE work_orders ADD COLUMN reporter_contact TEXT",
   "ALTER TABLE work_orders ADD COLUMN source TEXT",

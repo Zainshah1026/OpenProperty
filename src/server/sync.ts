@@ -12,7 +12,10 @@
 //   anyone who obtains that link can read the sheet.
 // Properties are
 // matched by Ref (or address), so their units, leases and work orders survive
-// a sync; homes removed from the sheet are removed here. Leads are replaced.
+// a sync. A field is only written when the sheet's value for it changed since
+// the last sync, so edits made in the app aren't undone every five minutes.
+// Homes removed from the sheet are removed here, except ones added in the app.
+// Leads are replaced.
 
 import { buildPayload } from "./sheet-mapping.js";
 import { get, query, run } from "./db";
@@ -126,36 +129,66 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
 
     if (cfg.SHEET_PROPERTIES_GID) {
       const existing = new Map<string, number>();
-      const rows = await query<{ id: number; ref: string | null; address: string | null }>(
-        "SELECT id, ref, address FROM properties",
+      const rows = await query<{ id: number; ref: string | null; address: string | null; origin: string | null }>(
+        "SELECT id, ref, address, origin FROM properties",
       );
       for (const r of rows) existing.set(keyOf(r.ref, r.address), r.id);
-      const seen = new Set<number>();
+      // Fallback: the same address, in case a ref was changed on one side.
+      const byAddress = new Map(rows.filter((r) => r.address).map((r) => [String(r.address).trim().toLowerCase(), r.id]));
+      const fromApp = new Set(rows.filter((r) => r.origin === "app").map((r) => r.id));
+      const seenRows = await query<{ prop_key: string; field: string; value: string | null }>("SELECT prop_key, field, value FROM sheet_seen");
+      const seen = new Map(seenRows.map((r) => [`${r.prop_key}|${r.field}`, r.value]));
+      const remember = (k: string, field: string, v: string) =>
+        run("INSERT INTO sheet_seen (prop_key, field, value) VALUES (?, ?, ?) ON CONFLICT(prop_key, field) DO UPDATE SET value = excluded.value", [k, field, v]);
+      const inSheet = new Set<number>();
 
       for (const p of payload.properties) {
-        const vals = PROPERTY_COLUMNS.map((c) => (p[c] === undefined ? null : p[c]));
-        const id = existing.get(keyOf(p.ref, p.address));
-        if (id) {
-          seen.add(id);
-          await run(`UPDATE properties SET ${PROPERTY_COLUMNS.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`, [...vals, id]);
-          await run(
-            "UPDATE units SET market_rent = ?, status = CASE WHEN ? = 'vacant' THEN 'vacant' ELSE 'occupied' END WHERE property_id = ? AND name = 'Whole property'",
-            [p.rent_in ?? 0, p.occupancy ?? "occupied", id],
-          );
+        const k = keyOf(p.ref, p.address);
+        const addr = String(p.address ?? "").trim().toLowerCase();
+        const id = existing.get(k) ?? (addr ? byAddress.get(addr) : undefined);
+        if (id && !inSheet.has(id)) {
+          inSheet.add(id);
+          // Only fields the SHEET changed since last time are written, so an
+          // edit made in the app stays until someone changes that cell.
+          const sets: string[] = [];
+          const params: unknown[] = [];
+          for (const col of PROPERTY_COLUMNS) {
+            const v = p[col] === undefined ? null : p[col];
+            const sv = JSON.stringify(v);
+            if (seen.get(`${k}|${col}`) === sv) continue;
+            sets.push(`${col} = ?`);
+            params.push(v);
+            await remember(k, col, sv);
+          }
+          if (sets.length || fromApp.has(id)) {
+            await run(`UPDATE properties SET ${[...sets, "origin = 'sheet'"].join(", ")} WHERE id = ?`, [...params, id]);
+          }
+          if (sets.some((x) => x.startsWith("rent_in") || x.startsWith("occupancy"))) {
+            await run(
+              "UPDATE units SET market_rent = ?, status = CASE WHEN ? = 'vacant' THEN 'vacant' ELSE 'occupied' END WHERE property_id = ? AND name = 'Whole property'",
+              [p.rent_in ?? 0, p.occupancy ?? "occupied", id],
+            );
+          }
         } else {
+          const vals = PROPERTY_COLUMNS.map((c) => (p[c] === undefined ? null : p[c]));
           const r = await run(
-            `INSERT INTO properties (${PROPERTY_COLUMNS.join(", ")}) VALUES (${PROPERTY_COLUMNS.map(() => "?").join(", ")})`,
+            `INSERT INTO properties (${PROPERTY_COLUMNS.join(", ")}, origin) VALUES (${PROPERTY_COLUMNS.map(() => "?").join(", ")}, 'sheet')`,
             vals,
           );
-          seen.add(r.lastInsertRowid);
+          inSheet.add(r.lastInsertRowid);
+          for (const col of PROPERTY_COLUMNS) await remember(k, col, JSON.stringify(p[col] === undefined ? null : p[col]));
           await run(
             "INSERT INTO units (property_id, name, bedrooms, bathrooms, market_rent, status) VALUES (?, 'Whole property', ?, 1, ?, ?)",
             [r.lastInsertRowid, p.bedrooms ?? 1, p.rent_in ?? 0, p.occupancy === "vacant" ? "vacant" : "occupied"],
           );
         }
       }
-      for (const id of existing.values()) {
-        if (!seen.has(id)) await run("DELETE FROM properties WHERE id = ?", [id]);
+      // Homes taken out of the sheet go; homes added in the app stay.
+      for (const r of rows) {
+        if (!inSheet.has(r.id) && r.origin !== "app") {
+          await run("DELETE FROM properties WHERE id = ?", [r.id]);
+          await run("DELETE FROM sheet_seen WHERE prop_key = ?", [keyOf(r.ref, r.address)]);
+        }
       }
     }
 

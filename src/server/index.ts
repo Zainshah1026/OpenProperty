@@ -201,6 +201,8 @@ app.post("/api/properties", async (c) => {
     deal_type: d.deal_type ?? "owned",
     occupancy: d.occupancy ?? "occupied",
     color: d.color ?? "sky",
+    // Added here, not in the sheet: the sheet sync must never delete it.
+    origin: "app",
   };
   const cols = Object.keys(fields).filter((k) => fields[k] !== undefined);
   const result = await run(
