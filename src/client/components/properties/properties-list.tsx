@@ -178,7 +178,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                         <td className="max-w-[18rem] px-3 py-2.5">
                           <div className="truncate font-medium">{p.name}</div>
                           <div className="truncate text-xs text-muted-foreground">
-                            {[p.city, p.zip, p.bedrooms ? `${p.bedrooms} bed` : null, p.hmo ? "HMO" : null, p.room_count ? `${p.rooms_let ?? 0}/${p.room_count} rooms let` : null, isFreehold(p.tenure) ? "Freehold" : null].filter(Boolean).join(" · ")}
+                            {[p.city, p.zip, p.bedrooms ? `${p.bedrooms} bed` : null, p.hmo ? "HMO" : null, p.room_count ? `${p.rooms_let ?? 0}/${p.room_count} rooms let` : null, isFreehold(p.tenure) ? (p.tenure === "freehold_and_leasehold" ? "Freehold & leasehold" : "Freehold") : null].filter(Boolean).join(" · ")}
                           </div>
                         </td>
                         <td className="max-w-[10rem] truncate px-3 py-2.5">{p.owner || "—"}</td>

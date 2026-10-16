@@ -26,13 +26,16 @@ export const OCCUPANCY: { value: Occupancy; label: string }[] = [
   { value: "eviction", label: "Eviction in process" },
 ];
 
-export const TENURES: { value: "freehold" | "leasehold" | "share_of_freehold"; label: string }[] = [
+export const TENURES: { value: "freehold" | "leasehold" | "share_of_freehold" | "freehold_and_leasehold"; label: string }[] = [
   { value: "freehold", label: "Freehold" },
+  { value: "freehold_and_leasehold", label: "Freehold & leasehold (we hold both)" },
   { value: "share_of_freehold", label: "Share of freehold" },
   { value: "leasehold", label: "Leasehold" },
 ];
 
-export const isFreehold = (t: string | null | undefined) => t === "freehold" || t === "share_of_freehold";
+/** We own the freehold, whether or not we also hold the lease(s). */
+export const isFreehold = (t: string | null | undefined) =>
+  t === "freehold" || t === "share_of_freehold" || t === "freehold_and_leasehold";
 
 export const RENT_STATUS: { value: RentStatus; label: string }[] = [
   { value: "on_time", label: "On time" },

@@ -80,7 +80,7 @@ const DEAL = { jointventure: "joint_venture", jv: "joint_venture", owned: "owned
 const TYPE = { flat: "flat", apartment: "flat", maisonette: "maisonette", terrace: "terraced", semi: "semi_detached", detached: "detached", bungalow: "bungalow", commercial: "commercial", shop: "commercial", office: "commercial" };
 const OCC = { occupied: "occupied", partoccupied: "part_occupied", part: "part_occupied", vacant: "vacant", empty: "vacant", eviction: "eviction" };
 const RENT = { ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", advance: "in_advance", inadvance: "in_advance", groundrent: "ground_rent" };
-const TENURE = { freehold: "freehold", fh: "freehold", leasehold: "leasehold", lh: "leasehold", shareoffreehold: "share_of_freehold", share: "share_of_freehold", sof: "share_of_freehold" };
+const TENURE = { freeholdandleasehold: "freehold_and_leasehold", freeholdleasehold: "freehold_and_leasehold", both: "freehold_and_leasehold", freehold: "freehold", fh: "freehold", leasehold: "leasehold", lh: "leasehold", shareoffreehold: "share_of_freehold", share: "share_of_freehold", sof: "share_of_freehold" };
 const ENERGY = { allelectric: "all_electric", electriconly: "all_electric", electric: "all_electric", gas: "gas_electric", both: "gas_electric", dual: "gas_electric" };
 const LEAD = { new: "new", contacted: "contacted", viewing: "viewing", offer: "offer_made", underoffer: "under_offer", sstc: "under_offer", completed: "completed", sold: "completed", withdrawn: "withdrawn", dead: "withdrawn" };
 

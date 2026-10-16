@@ -145,7 +145,7 @@ async function runTool(
       if (input.section) { where.push("section = ?"); params.push(input.section); }
       if (input.rent_status) { where.push("rent_status = ?"); params.push(input.rent_status); }
       if (input.occupancy) { where.push("occupancy = ?"); params.push(input.occupancy); }
-      if (input.freehold_only) where.push("tenure IN ('freehold', 'share_of_freehold')");
+      if (input.freehold_only) where.push("tenure IN ('freehold', 'share_of_freehold', 'freehold_and_leasehold')");
       return query(
         `SELECT id, ref, name, owner, deal_type, section, tenure, occupancy, tenant_label, rent_in, rent_out, other_costs,
                 rent_in_day, payment_out_day, rent_status, months_arrears, arrears_amount

@@ -18,7 +18,7 @@ export interface Property {
   owner: string | null;
   deal_type: DealType;
   section: "owned" | "managed";
-  tenure: "freehold" | "leasehold" | "share_of_freehold" | null;
+  tenure: "freehold" | "leasehold" | "share_of_freehold" | "freehold_and_leasehold" | null;
   bedrooms: number | null;
   hmo: number;
   occupancy: Occupancy;
