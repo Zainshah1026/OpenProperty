@@ -342,7 +342,7 @@ const TenantInput = z.object({
 const TENANT_HOMES = `(SELECT GROUP_CONCAT(x, '; ') FROM (
     SELECT COALESCE(p.ref || ' · ', '') || p.name AS x FROM properties p WHERE p.tenant_id = t.id
     UNION ALL
-    SELECT COALESCE(p.ref || ' · ', '') || p.name || ' (' || rt.room || ')' FROM room_tenants rt JOIN properties p ON p.id = rt.property_id WHERE rt.tenant_id = t.id
+    SELECT COALESCE(p.ref || ' · ', '') || p.name || ' (' || COALESCE((SELECT r.room FROM rooms r WHERE r.property_id = rt.property_id AND LOWER(r.room) = rt.room LIMIT 1), rt.room) || ')' FROM room_tenants rt JOIN properties p ON p.id = rt.property_id WHERE rt.tenant_id = t.id
   )) as linked_homes`;
 
 app.get("/api/tenants", async (c) => {
