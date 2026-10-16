@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CircleAlert, Plus, Wrench } from "lucide-react";
+import { Check, CircleAlert, Plus, Wrench } from "lucide-react";
 import { useApp } from "@/context";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,21 @@ export function MaintenancePage() {
   }
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  /** Tick a job off (or un-tick it) straight from its card. */
+  async function toggleDone(w: WorkOrder) {
+    const done = w.status === "completed";
+    const patch = done
+      ? { title: w.title, status: "open" as WorkOrderStatus, completed_at: null }
+      : { title: w.title, status: "completed" as WorkOrderStatus, completed_at: new Date().toISOString().slice(0, 10) };
+    setOrders((list) => list.map((x) => (x.id === w.id ? { ...x, ...patch } : x)));
+    try {
+      await app.updateWorkOrder(w.id, patch);
+    } catch (err) {
+      app.setError((err as Error).message);
+      load();
+    }
+  }
 
   const counts = useMemo(() => {
     const c = { all: orders.length, open: 0, assigned: 0, in_progress: 0, completed: 0, urgent: 0 };
@@ -120,8 +135,20 @@ export function MaintenancePage() {
                 onClick={() => { setEditing(w); setDialogOpen(true); }}
               >
                 <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); toggleDone(w); }}
+                    aria-label={w.status === "completed" ? "Mark as not done" : "Mark as done"}
+                    title={w.status === "completed" ? "Mark as not done" : "Mark as done"}
+                    className={cn(
+                      "mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                      w.status === "completed" ? "border-success-solid bg-success-solid text-white" : "border-input text-transparent hover:border-success-solid hover:text-success-solid",
+                    )}
+                  >
+                    <Check className="size-3.5" strokeWidth={3} />
+                  </button>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-semibold">{w.title}</h3>
+                    <h3 className={cn("truncate font-semibold", w.status === "completed" && "text-muted-foreground line-through")}>{w.title}</h3>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {[w.property_name, w.unit_name].filter(Boolean).join(" · ") || "Unassigned"}
                     </p>
