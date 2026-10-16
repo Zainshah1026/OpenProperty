@@ -3,9 +3,8 @@ import { cn } from "@/lib/utils";
 /**
  * The page toolbar and the pane under it.
  *
- * The band is 56px with a rule beneath it — the same height as the sidebar's
- * brand row, so the two bottoms form one continuous line across the shell.
- * It sits OUTSIDE the scroll container: the title and the page's one action
+ * A generous title in the display serif with its meta underneath, on the
+ * canvas rather than in a ruled band. It sits OUTSIDE the scroll container: the title and the page's one action
  * stay put while the content moves, which is what makes a long table readable
  * (DESIGN.md → Layout, "The shell").
  *
@@ -28,19 +27,15 @@ export function PageShell({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-6">
-        <h1 className="shrink-0 truncate text-[1.375rem] font-semibold leading-tight tracking-[-0.01em]">
-          {title}
-        </h1>
-        {meta ? (
-          <div className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{meta}</div>
-        ) : (
-          <div className="flex-1" />
-        )}
+      <header className={cn("flex w-full shrink-0 flex-wrap items-end gap-x-4 gap-y-2 px-4 pb-4 pt-6 md:px-8 md:pt-8", width)}>
+        <div className="min-w-0 flex-1">
+          <h1 className="display truncate text-[1.875rem] font-medium leading-tight md:text-[2.125rem]">{title}</h1>
+          {meta ? <div className="mt-1 truncate text-sm text-muted-foreground">{meta}</div> : null}
+        </div>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </header>
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className={cn("mx-auto w-full space-y-6 p-6", width)}>{children}</div>
+        <div className={cn("w-full space-y-6 px-4 pb-10 pt-2 md:px-8", width)}>{children}</div>
       </div>
     </div>
   );

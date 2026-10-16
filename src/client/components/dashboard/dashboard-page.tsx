@@ -13,7 +13,7 @@ import { CalendarCard } from "./calendar-card";
 import { RentReady } from "@/components/invoices/rent-ready";
 
 export function DashboardPage({ navigate }: { navigate: (to: string) => void }) {
-  const { settings, setError } = useApp();
+  const { settings, setError, me } = useApp();
   const [s, setS] = useState<PortfolioSummary | null>(null);
   const [version, setVersion] = useState(0);
 
@@ -53,8 +53,8 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
 
   return (
     <PageShell
-      title="Dashboard"
-      meta={`${s.properties} properties · ${s.occupied} let · rents per calendar month`}
+      title={greeting(me?.name)}
+      meta={`${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })}. ${s.properties} properties, ${s.occupied} let. Figures are per calendar month.`}
     >
       <SyncBanner onSynced={() => setVersion((v) => v + 1)} />
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -187,8 +187,8 @@ function CardTitle({ title, sub, action }: { title: string; sub?: string; action
   return (
     <div className="mb-4 flex items-start justify-between gap-3">
       <div>
-        <h2 className="text-sm font-semibold">{title}</h2>
-        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+        <h2 className="text-[1.0625rem] font-semibold">{title}</h2>
+        {sub && <p className="mt-0.5 text-sm text-muted-foreground">{sub}</p>}
       </div>
       {action && (
         <button type="button" onClick={action.onClick} className="shrink-0 text-xs font-medium text-primary hover:underline">
@@ -209,26 +209,40 @@ function Kpi({
   tone?: "default" | "warn" | "danger";
   onClick?: () => void;
 }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <Card
-      className={cn(
-        "relative px-3 py-2.5",
-        tone === "warn" && "bg-warning-tint",
-        tone === "danger" && "bg-destructive-tint",
-        onClick && "cursor-pointer transition-colors duration-150 hover:bg-muted",
-      )}
-      onClick={onClick}
-    >
-      <span className={cn("absolute right-3 top-2.5 opacity-60", tone === "warn" ? "text-warning" : tone === "danger" ? "text-destructive" : "text-muted-foreground")} aria-hidden>
-        {icon}
-      </span>
-      <div className={cn("data text-[1.375rem] font-semibold leading-tight tracking-[-0.01em]", tone === "danger" && "text-destructive", tone === "warn" && "text-warning")}>
-        {value}
-      </div>
-      <div className="section-label mt-0.5">{label}</div>
-      <div className="mt-1 h-4 truncate text-xs text-muted-foreground">{sub}</div>
+    <Card className={cn("p-0", onClick && "transition-shadow duration-150 hover:shadow-float")}>
+      <Tag
+        {...(onClick ? { type: "button" as const, onClick } : {})}
+        className="flex h-full w-full flex-col items-start gap-1 rounded-md p-5 text-left focus-visible:outline-2"
+      >
+        <span className="flex w-full items-center gap-2 text-sm text-muted-foreground">
+          <span
+            className={cn(
+              "inline-flex size-7 items-center justify-center rounded-full",
+              tone === "danger" ? "bg-destructive-tint text-destructive" : tone === "warn" ? "bg-warning-tint text-warning" : "bg-brand-tint text-brand-text",
+            )}
+            aria-hidden
+          >
+            {icon}
+          </span>
+          {label}
+        </span>
+        <span className={cn("display data mt-2 text-[2rem] font-medium leading-none", tone === "danger" && "text-destructive", tone === "warn" && "text-warning")}>
+          {value}
+        </span>
+        <span className="mt-1 min-h-4 text-xs text-muted-foreground">{sub}</span>
+      </Tag>
     </Card>
   );
+}
+
+/** "Good morning, Zain" by the UK clock. */
+function greeting(name?: string | null): string {
+  const hour = Number(new Date().toLocaleString("en-GB", { hour: "numeric", hour12: false, timeZone: "Europe/London" }));
+  const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const first = (name ?? "").trim().split(/\s+/)[0];
+  return first ? `${part}, ${first}` : part;
 }
 
 /**
