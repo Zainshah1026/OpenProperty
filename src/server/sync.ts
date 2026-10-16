@@ -67,7 +67,19 @@ function tabUrl(base: string, gid: string): string {
   return `${root}?gid=${encodeURIComponent(gid)}&single=true&output=csv`;
 }
 
+/** Google's script endpoint now and then answers 403/404/500 for a moment: try again before giving up. */
 async function fetchTab(cfg: SyncConfig, gid: string | undefined): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fetchTabOnce(cfg, gid);
+    } catch (err) {
+      if (attempt >= 3 || /web page instead/.test((err as Error).message)) throw err;
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
+  }
+}
+
+async function fetchTabOnce(cfg: SyncConfig, gid: string | undefined): Promise<string> {
   if (!gid) return "";
   let url: string;
   let init: RequestInit = { redirect: "follow" };
