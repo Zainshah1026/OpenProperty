@@ -277,7 +277,8 @@ export function registerAuth(app: Hono<any>, opts: { headExtra: string; publicPa
 
   // Every other request needs a signed-in user.
   app.use("*", async (c, next) => {
-    if (opts.publicPaths.includes(c.req.path) || c.req.path.startsWith("/brand/")) return next();
+    // /r/<token> is the tenant repair form: it can only create a work order for that one home.
+    if (opts.publicPaths.includes(c.req.path) || c.req.path.startsWith("/brand/") || /^\/r\/[A-Za-z0-9_-]{8,}$/.test(c.req.path)) return next();
     const env = c.env as AuthEnv;
     if (env.ALLOW_NO_AUTH === "true") {
       c.set("user" as never, { id: 0, username: "local", name: "Local", role: "admin", mailboxes: opts.allMailboxes(), setup: false } as never);

@@ -134,6 +134,21 @@ export function MaintenancePage() {
                 {w.description && (
                   <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{w.description}</p>
                 )}
+                {w.source === "tenant" && (
+                  <p className="mt-2 text-xs">
+                    <span className="badge-tone tone-info">Reported by tenant</span>{" "}
+                    <span className="text-muted-foreground">{[w.reported_by, w.reporter_contact].filter(Boolean).join(", ")}</span>
+                  </p>
+                )}
+                {w.photo_ids && (
+                  <div className="mt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    {w.photo_ids.split(",").slice(0, 4).map((id) => (
+                      <a key={id} href={`/api/documents/${id}/file`} target="_blank" rel="noreferrer" className="block size-16 overflow-hidden rounded-lg bg-muted">
+                        <img src={`/api/documents/${id}/file`} alt="Photo sent with the report" className="size-full object-cover" loading="lazy" />
+                      </a>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-3 flex items-center justify-between border-t pt-3 text-xs">
                   <div className="flex items-center gap-2">
                     <Badge variant={STATUS_VARIANT[w.status] ?? "secondary"} className="capitalize">{w.status.replace("_", " ")}</Badge>

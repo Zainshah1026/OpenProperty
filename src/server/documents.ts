@@ -23,7 +23,10 @@ export function setDocumentStore(s: DocumentStore): void {
   store = s;
 }
 
-export const DOC_KINDS = ["gas", "eicr", "epc", "licence", "insurance", "other"] as const;
+export const COMPLIANCE_KINDS = ["gas", "eicr", "epc", "licence", "insurance", "other"] as const;
+/** Photos and reports kept for each home, plus photos tenants send with a repair request. */
+export const MEDIA_KINDS = ["photo", "inventory", "checkin", "checkout", "repair"] as const;
+export const DOC_KINDS = [...COMPLIANCE_KINDS, ...MEDIA_KINDS] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -51,11 +54,49 @@ export interface DocRow {
   size: number;
   stored_name: string;
   expiry_date: string | null;
+  label: string | null;
+  taken_on: string | null;
+  work_order_id: number | null;
   uploaded_by: string | null;
   created_at: string;
 }
 
-const publicRow = ({ stored_name: _s, ...rest }: DocRow) => rest;
+export const publicRow = ({ stored_name: _s, ...rest }: DocRow) => rest;
+
+/**
+ * Check and store one uploaded file. Shared by the signed-in upload and the
+ * public repair form; returns an error message instead of throwing.
+ */
+export async function saveUpload(
+  file: File,
+  row: { property_id: number; kind: DocKind; expiry_date?: string | null; label?: string | null; taken_on?: string | null; work_order_id?: number | null; uploaded_by?: string | null },
+  opts: { maxBytes?: number; imagesOnly?: boolean } = {},
+): Promise<{ ok: true; document: DocRow; duplicate?: boolean } | { ok: false; status: 400 | 413 | 415 | 503; error: string }> {
+  if (!store) return { ok: false, status: 503, error: "Uploads aren't available on this server." };
+  const max = opts.maxBytes ?? MAX_BYTES;
+  if (file.size > max) return { ok: false, status: 413, error: `That file is over ${Math.round(max / 1024 / 1024)} MB. Try a smaller photo or scan.` };
+  if (file.size === 0) return { ok: false, status: 400, error: "That file is empty." };
+  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+  const type = TYPES[ext];
+  if (!type || (opts.imagesOnly && !type.startsWith("image/"))) {
+    return { ok: false, status: 415, error: opts.imagesOnly ? "Send a photo (JPG, PNG or HEIC)." : "Upload a PDF, photo (JPG, PNG, HEIC) or Word document." };
+  }
+  const cleanName = file.name.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").slice(0, 150) || `document.${ext}`;
+  // The same file uploaded twice (e.g. a bulk upload run again) is kept once.
+  const dupe = await get<DocRow>(
+    "SELECT * FROM compliance_documents WHERE property_id = ? AND kind = ? AND filename = ? AND size = ?",
+    [row.property_id, row.kind, cleanName, file.size],
+  );
+  if (dupe && !row.work_order_id) return { ok: true, document: dupe, duplicate: true };
+  const stored = randomName(ext);
+  await store.put(stored, new Uint8Array(await file.arrayBuffer()));
+  const r = await run(
+    `INSERT INTO compliance_documents (property_id, kind, filename, content_type, size, stored_name, expiry_date, label, taken_on, work_order_id, uploaded_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.property_id, row.kind, cleanName, type, file.size, stored, row.expiry_date || null, row.label || null, row.taken_on || null, row.work_order_id ?? null, row.uploaded_by ?? null],
+  );
+  return { ok: true, document: (await get<DocRow>("SELECT * FROM compliance_documents WHERE id = ?", [r.lastInsertRowid]))! };
+}
 
 const randomName = (ext: string) => {
   const b = new Uint8Array(16);
@@ -69,16 +110,21 @@ export function registerDocumentRoutes(app: Hono<any>) {
 
   /** Documents for one property, newest first. */
   app.get("/api/documents", async (c) => {
+    const wo = parseInt(c.req.query("work_order_id") ?? "", 10);
+    if (Number.isFinite(wo)) {
+      const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE work_order_id = ? ORDER BY id", [wo]).catch(() => [] as DocRow[]);
+      return c.json({ enabled: !!store, documents: rows.map(publicRow) });
+    }
     const pid = parseInt(c.req.query("property_id") ?? "", 10);
     if (!Number.isFinite(pid)) return c.json({ error: "property_id is required" }, 400);
-    const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE property_id = ? ORDER BY created_at DESC, id DESC", [pid]).catch(() => [] as DocRow[]);
+    const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE property_id = ? ORDER BY COALESCE(taken_on, created_at) DESC, id DESC", [pid]).catch(() => [] as DocRow[]);
     return c.json({ enabled: !!store, documents: rows.map(publicRow) });
   });
 
   /** How many documents each property has, per kind (for the Compliance table). */
   app.get("/api/documents/summary", async (c) => {
     const rows = await query<{ property_id: number; kind: string; n: number }>(
-      "SELECT property_id, kind, COUNT(*) AS n FROM compliance_documents GROUP BY property_id, kind",
+      `SELECT property_id, kind, COUNT(*) AS n FROM compliance_documents WHERE kind IN (${COMPLIANCE_KINDS.map((k) => `'${k}'`).join(", ")}) GROUP BY property_id, kind`,
     ).catch(() => []);
     const out: Record<number, Record<string, number>> = {};
     for (const r of rows) (out[r.property_id] ??= {})[r.kind] = Number(r.n);
@@ -103,31 +149,18 @@ export function registerDocumentRoutes(app: Hono<any>) {
     if (!DOC_KINDS.includes(kind)) return c.json({ error: "Choose what kind of document it is." }, 400);
     const expiry = String(body.expiry_date ?? "").trim();
     if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return c.json({ error: "Expiry date must be a date." }, 400);
-    if (file.size > MAX_BYTES) return c.json({ error: "That file is over 20 MB. Try a smaller scan or a PDF." }, 413);
-    if (file.size === 0) return c.json({ error: "That file is empty." }, 400);
-
-    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-    const type = TYPES[ext];
-    if (!type) return c.json({ error: "Upload a PDF, photo (JPG, PNG, HEIC) or Word document." }, 415);
-
-    // The same file uploaded twice (e.g. a bulk upload run again) is kept once.
-    const cleanFirst = file.name.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").slice(0, 150) || `document.${ext}`;
-    const dupe = await get<DocRow>(
-      "SELECT * FROM compliance_documents WHERE property_id = ? AND kind = ? AND filename = ? AND size = ?",
-      [pid, kind, cleanFirst, file.size],
-    );
-    if (dupe) return c.json({ document: publicRow(dupe), duplicate: true });
-
-    const stored = randomName(ext);
-    await store.put(stored, new Uint8Array(await file.arrayBuffer()));
-    const cleanName = file.name.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").slice(0, 150) || `document.${ext}`;
-    const r = await run(
-      `INSERT INTO compliance_documents (property_id, kind, filename, content_type, size, stored_name, expiry_date, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [pid, kind, cleanName, type, file.size, stored, expiry || null, getUser(c)?.name ?? null],
-    );
-    const row = await get<DocRow>("SELECT * FROM compliance_documents WHERE id = ?", [r.lastInsertRowid]);
-    return c.json({ document: row ? publicRow(row) : null }, 201);
+    const takenOn = String(body.taken_on ?? "").trim();
+    if (takenOn && !/^\d{4}-\d{2}-\d{2}$/.test(takenOn)) return c.json({ error: "The date must be a date." }, 400);
+    const res = await saveUpload(file, {
+      property_id: pid,
+      kind,
+      expiry_date: expiry || null,
+      label: String(body.label ?? "").trim().slice(0, 200) || null,
+      taken_on: takenOn || null,
+      uploaded_by: getUser(c)?.name ?? null,
+    });
+    if (!res.ok) return c.json({ error: res.error }, res.status);
+    return c.json({ document: publicRow(res.document), ...(res.duplicate ? { duplicate: true } : {}) }, res.duplicate ? 200 : 201);
   });
 
   app.get("/api/documents/:id/file", async (c) => {

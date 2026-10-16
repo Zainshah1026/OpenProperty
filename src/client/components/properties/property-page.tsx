@@ -13,6 +13,7 @@ import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
 import { DocumentsPanel } from "@/components/compliance/documents";
 import { EnergyPicker } from "@/components/compliance/energy-picker";
+import { AccessCard, MediaCard, RepairQrCard, VoidsCard } from "./property-extras";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, dealLabel, netProfit,
   hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
@@ -203,6 +204,14 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
         {(rooms.length > 0 || property.hmo === 1 || property.occupancy === "part_occupied") && (
           <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} />
         )}
+
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AccessCard property={property} />
+          <RepairQrCard property={property} />
+        </section>
+
+        <VoidsCard property={property} />
+        <MediaCard property={property} />
 
         <section>
           <div className="mb-3 flex items-center justify-between">

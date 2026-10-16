@@ -266,11 +266,39 @@ CREATE TABLE IF NOT EXISTS compliance_documents (
   size INTEGER NOT NULL DEFAULT 0,
   stored_name TEXT NOT NULL,                   -- random name on disk
   expiry_date TEXT,
+  label TEXT,                                  -- e.g. the tenant for a check-in report
+  taken_on TEXT,                               -- date the photos / report were taken
+  work_order_id INTEGER,                       -- photos sent with a repair request
   uploaded_by TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_documents_property ON compliance_documents(property_id);
+
+-- ── Keys and access (signed-in users only; never in the sheet) ──
+CREATE TABLE IF NOT EXISTS property_access (
+  property_id INTEGER PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE,
+  key_safe_location TEXT,
+  key_safe_code TEXT,
+  keys_held_by TEXT,
+  alarm_code TEXT,
+  access_notes TEXT,
+  updated_by TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ── Empty periods, for a whole home or one room (room = NULL for the home) ──
+CREATE TABLE IF NOT EXISTS voids (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  room TEXT,
+  start_date TEXT NOT NULL,                    -- 'YYYY-MM-DD'
+  end_date TEXT,                               -- NULL while still empty
+  monthly_rent REAL NOT NULL DEFAULT 0,        -- the rent it would earn, for lost-rent figures
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_voids_property ON voids(property_id);
 
 -- Rent invoices already drafted automatically, one per rent per month, so a
 -- deleted draft is not recreated (see src/server/rent-invoices.ts).

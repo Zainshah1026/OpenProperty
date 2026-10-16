@@ -17,6 +17,7 @@ import { setMailProvider } from "./mail";
 import { createImapProvider } from "./imap";
 import { generateRentInvoices } from "./rent-invoices";
 import { setDocumentStore } from "./documents";
+import { recordVoids } from "./extras";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
 setMailProvider(createImapProvider(process.env));
@@ -58,6 +59,13 @@ for (const ddl of [
   "ALTER TABLE properties ADD COLUMN tenant_email TEXT",
   "ALTER TABLE rooms ADD COLUMN tenant_email TEXT",
   "ALTER TABLE properties ADD COLUMN energy TEXT",
+  "ALTER TABLE compliance_documents ADD COLUMN label TEXT",
+  "ALTER TABLE compliance_documents ADD COLUMN taken_on TEXT",
+  "ALTER TABLE compliance_documents ADD COLUMN work_order_id INTEGER",
+  "ALTER TABLE properties ADD COLUMN report_token TEXT",
+  "ALTER TABLE work_orders ADD COLUMN reported_by TEXT",
+  "ALTER TABLE work_orders ADD COLUMN reporter_contact TEXT",
+  "ALTER TABLE work_orders ADD COLUMN source TEXT",
 ]) {
   try { sqlite.exec(ddl); } catch { /* already there */ }
 }
@@ -228,6 +236,7 @@ async function syncOnce(when: string) {
   try {
     const s = await runSync(env);
     console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.rooms} rooms, ${s.leads} leads`);
+    await recordVoids().catch((err) => console.error(`Empty periods: ${(err as Error).message}`));
   } catch (err) {
     console.error(`Sheet sync (${when}) failed: ${(err as Error).message}`);
   }

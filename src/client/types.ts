@@ -187,6 +187,12 @@ export interface WorkOrder {
   cost: number | null;
   notes: string | null;
   created_at: string;
+  /** "tenant" when it came in through the repair QR code. */
+  source?: string | null;
+  reported_by?: string | null;
+  reporter_contact?: string | null;
+  /** Comma-separated document ids of photos sent with it. */
+  photo_ids?: string | null;
   // Joined
   property_name?: string | null;
   property_color?: string | null;

@@ -27,6 +27,8 @@ export interface DocumentRow {
   content_type: string;
   size: number;
   expiry_date: string | null;
+  label?: string | null;
+  taken_on?: string | null;
   uploaded_by: string | null;
   created_at: string;
 }
@@ -35,12 +37,14 @@ const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,application/pdf,imag
 const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /** Upload with a plain multipart POST (the JSON api helper can't send files). */
-export async function upload(propertyId: number, kind: DocKind, file: File, expiry: string): Promise<{ duplicate?: boolean }> {
+export async function upload(propertyId: number, kind: DocKind, file: File, expiry: string, extra: { label?: string; taken_on?: string } = {}): Promise<{ duplicate?: boolean }> {
   const form = new FormData();
   form.append("file", file);
   form.append("property_id", String(propertyId));
   form.append("kind", kind);
   if (expiry) form.append("expiry_date", expiry);
+  if (extra.label) form.append("label", extra.label);
+  if (extra.taken_on) form.append("taken_on", extra.taken_on);
   const r = await fetch("/api/documents", { method: "POST", body: form });
   if (r.status === 401) window.location.reload();
   if (!r.ok) {

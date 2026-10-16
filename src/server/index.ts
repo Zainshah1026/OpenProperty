@@ -6,6 +6,7 @@ import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
 import { mailProvider, registerMailRoutes } from "./mail";
 import { registerDocumentRoutes } from "./documents";
+import { registerExtras } from "./extras";
 import { getUser, registerAuth } from "./auth";
 
 type Env = {
@@ -722,7 +723,8 @@ const WO_SELECT = `
     p.name as property_name, p.color as property_color,
     u.name as unit_name,
     t.first_name as tenant_first_name, t.last_name as tenant_last_name,
-    v.name as vendor_name, v.color as vendor_color
+    v.name as vendor_name, v.color as vendor_color,
+    (SELECT GROUP_CONCAT(d.id) FROM compliance_documents d WHERE d.work_order_id = w.id) as photo_ids
   FROM work_orders w
   LEFT JOIN properties p ON p.id = w.property_id
   LEFT JOIN units u ON u.id = w.unit_id
@@ -1322,6 +1324,7 @@ registerInvoiceRoutes(app);
 registerAssistantRoutes(app);
 registerMailRoutes(app);
 registerDocumentRoutes(app);
+registerExtras(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 
