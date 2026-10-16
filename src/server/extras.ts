@@ -256,6 +256,63 @@ function tooMany(key: string): boolean {
   return false;
 }
 
+// ── Triage: the system, not the tenant, decides how urgent a report is ──
+
+const CATEGORIES = [
+  { id: "heating", label: "Heating or hot water" },
+  { id: "leak", label: "Water leak, plumbing or toilet" },
+  { id: "electrics", label: "Electrics, lights or sockets" },
+  { id: "gas", label: "Gas or boiler" },
+  { id: "security", label: "Doors, windows or locks" },
+  { id: "damp", label: "Damp or mould" },
+  { id: "alarms", label: "Smoke or carbon monoxide alarm" },
+  { id: "appliance", label: "Oven, hob, fridge or washing machine" },
+  { id: "pests", label: "Pests (mice, rats, insects)" },
+  { id: "other", label: "Something else" },
+] as const;
+
+// Words that point to a real emergency or a quick-fix job, wherever they appear.
+const URGENT_WORDS: [RegExp, string][] = [
+  [/\b(smell(s|ing)? of gas|gas smell|smell gas|gas leak|leaking gas)\b/i, "possible gas leak"],
+  [/\b(carbon monoxide|co alarm (is )?(going off|sounding|beeping))\b/i, "carbon monoxide alarm"],
+  [/\b(flood(ed|ing)?|pouring|gushing|burst (pipe|tank)|water (coming|pouring) through (the )?ceiling|ceiling (is )?(leaking|collaps))/i, "flooding or a burst pipe"],
+  [/\b(no (power|electric(ity|s)?)|power cut|tripp?(ed|ing)? (and|&)? ?(won'?t|will not) reset|sparks?|sparking|burning smell|smoke from|exposed wires?)\b/i, "loss of power or an electrical hazard"],
+  [/\b(no (heating|hot water)|(heating|boiler|hot water) (not working|broken|doesn'?t work|stopped|won'?t (come on|turn on|work))|boiler (is )?(down|off|dead))\b/i, "no heating or hot water"],
+  [/\b(can'?t (lock|close|secure)|won'?t (lock|close)|broken (front|back)? ?door( lock)?|lock(ed)? out|broken window|smashed|break[- ]?in|burgl)/i, "the home can't be secured"],
+  [/\b(only toilet|toilet (is )?(blocked|overflowing|not flushing)|sewage)\b/i, "toilet blocked or sewage"],
+];
+const HIGH_WORDS: [RegExp, string][] = [
+  [/\b(leak(ing|s)?|water (damage|stain)|water coming (in|through))\b/i, "a leak"],
+  [/\b(damp|mou?ld|condensation)\b/i, "damp or mould"],
+  [/\b(smoke alarm|fire alarm|alarm (beeping|chirping|not working))\b/i, "a faulty alarm"],
+  [/\b(mice|mouse|rats?|cockroach(es)?|bed ?bugs|infestation)\b/i, "pests"],
+  [/\b(fridge|freezer|oven|cooker|hob|washing machine)\b.*\b(not working|broken|stopped|won'?t)\b/i, "an appliance not working"],
+];
+
+/** Heating matters more in the cold months (October to April). */
+const coldMonths = () => {
+  const m = Number(new Intl.DateTimeFormat("en-GB", { month: "numeric", timeZone: "Europe/London" }).format(new Date()));
+  return m >= 10 || m <= 4;
+};
+
+export function triage(category: string, text: string): { priority: "urgent" | "high" | "normal"; reason: string } {
+  for (const [re, why] of URGENT_WORDS) {
+    if (re.test(text)) {
+      if (why === "no heating or hot water" && !coldMonths() && !/hot water/i.test(text)) return { priority: "high", reason: "no heating (outside the cold months)" };
+      return { priority: "urgent", reason: `mentions ${why}` };
+    }
+  }
+  if (category === "gas") return { priority: "urgent", reason: "gas or boiler problem" };
+  if (category === "heating") return coldMonths() ? { priority: "urgent", reason: "heating or hot water problem in the cold months" } : { priority: "high", reason: "heating or hot water problem" };
+  for (const [re, why] of HIGH_WORDS) if (re.test(text)) return { priority: "high", reason: `mentions ${why}` };
+  if (category === "alarms") return { priority: "high", reason: "smoke or carbon monoxide alarm problem" };
+  // A dripping tap or a stiff window can wait; electrics, damp and pests shouldn't.
+  if (["electrics", "damp", "pests"].includes(category)) {
+    return { priority: "high", reason: `${CATEGORIES.find((c) => c.id === category)!.label.toLowerCase()} problem` };
+  }
+  return { priority: "normal", reason: "nothing in the report suggests it's urgent" };
+}
+
 function registerRepairs(app: AnyApp) {
   // Signed-in: the link and QR code for a home.
   app.get("/api/properties/:id/report-link", async (c) => {
@@ -322,8 +379,11 @@ h1{font-family:Newsreader,serif;font-weight:500;font-size:46px;margin:34px 0 8px
 <textarea id="what" name="description" required maxlength="3000" placeholder="e.g. The kitchen tap is dripping and won't turn off fully."></textarea>
 <label for="where">Where in the home?</label>
 <input id="where" name="location" maxlength="120" placeholder="e.g. Kitchen, Room 3, bathroom">
-<label for="urg">How urgent is it?</label>
-<select id="urg" name="priority"><option value="normal">It can wait a few days</option><option value="high">It needs doing soon</option><option value="urgent">It's urgent (no heating, hot water, leak…)</option></select>
+<label for="cat">What kind of problem is it?</label>
+<select id="cat" name="category" required>
+<option value="" disabled selected>Choose one</option>
+${CATEGORIES.map((c) => `<option value="${c.id}">${esc(c.label)}</option>`).join("")}
+</select>
 <label for="photos">Photos (optional)</label>
 <input id="photos" name="photos" type="file" accept="image/*" multiple>
 <div class="hint">Up to 4 photos.</div>
@@ -354,12 +414,13 @@ h1{font-family:Newsreader,serif;font-weight:500;font-size:46px;margin:34px 0 8px
       return c.html(page("Please wait", `<div class="card"><h1>We've had a few reports already</h1><p class="sub">Please try again in an hour, or call us if it's urgent.</p></div>`), 429);
     }
     const location = one("location").slice(0, 120);
-    const priority = ["normal", "high", "urgent"].includes(one("priority")) ? one("priority") : "normal";
+    const category = CATEGORIES.find((x) => x.id === one("category"));
+    const { priority, reason } = triage(category?.id ?? "other", `${location} ${description}`);
     const title = `${location ? `${location}: ` : ""}${description.replace(/\s+/g, " ").slice(0, 80)}${description.length > 80 ? "…" : ""}`;
     const r = await run(
-      `INSERT INTO work_orders (property_id, title, description, priority, status, source, reported_by, reporter_contact)
-       VALUES (?, ?, ?, ?, 'open', 'tenant', ?, ?)`,
-      [p.id, title, description, priority, name, contact],
+      `INSERT INTO work_orders (property_id, title, description, priority, status, source, reported_by, reporter_contact, notes)
+       VALUES (?, ?, ?, ?, 'open', 'tenant', ?, ?, ?)`,
+      [p.id, title, description, priority, name, contact, `${category ? `Type: ${category.label}. ` : ""}Priority set automatically: ${reason}`],
     );
     const files = (Array.isArray(f.photos) ? f.photos : [f.photos]).filter((x): x is File => x instanceof File && x.size > 0).slice(0, 4);
     let saved = 0;

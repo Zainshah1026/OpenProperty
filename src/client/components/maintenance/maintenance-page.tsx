@@ -140,6 +140,9 @@ export function MaintenancePage() {
                     <span className="text-muted-foreground">{[w.reported_by, w.reporter_contact].filter(Boolean).join(", ")}</span>
                   </p>
                 )}
+                {w.source === "tenant" && w.notes && (
+                  <p className="mt-1 text-xs text-muted-foreground">{w.notes}</p>
+                )}
                 {w.photo_ids && (
                   <div className="mt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
                     {w.photo_ids.split(",").slice(0, 4).map((id) => (
