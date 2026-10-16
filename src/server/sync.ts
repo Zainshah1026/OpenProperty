@@ -221,12 +221,49 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
     }
 
     if (cfg.SHEET_SALES_GID) {
-      await run("DELETE FROM sales_leads");
+      // Same rules as properties: leads added in the app stay, and an edit
+      // made in the app is only replaced when that cell changes in the sheet.
+      const rows = await query<{ id: number; sheet_key: string | null; origin: string | null }>("SELECT id, sheet_key, origin FROM sales_leads");
+      const byKey = new Map(rows.filter((r) => r.sheet_key).map((r) => [r.sheet_key!, r.id]));
+      const seenRows = await query<{ prop_key: string; field: string; value: string | null }>("SELECT prop_key, field, value FROM sheet_seen WHERE prop_key LIKE 'lead:%'");
+      const seen = new Map(seenRows.map((r) => [`${r.prop_key}|${r.field}`, r.value]));
+      const occurrences = new Map<string, number>();
+      const keep = new Set<number>();
       for (const l of payload.leads) {
-        await run(
-          `INSERT INTO sales_leads (${LEAD_COLUMNS.join(", ")}) VALUES (${LEAD_COLUMNS.map(() => "?").join(", ")})`,
-          LEAD_COLUMNS.map((c) => (l[c] === undefined ? null : l[c])),
-        );
+        const base = `lead:${[l.landlord_name, l.address, l.postcode].map((x) => String(x ?? "").trim().toLowerCase()).join("|")}`;
+        const n = (occurrences.get(base) ?? 0) + 1;
+        occurrences.set(base, n);
+        const k = n > 1 ? `${base}#${n}` : base;
+        const id = byKey.get(k);
+        if (id) {
+          keep.add(id);
+          const sets: string[] = [];
+          const params: unknown[] = [];
+          for (const col of LEAD_COLUMNS) {
+            const v = l[col] === undefined ? null : l[col];
+            const sv = JSON.stringify(v);
+            if (seen.get(`${k}|${col}`) === sv) continue;
+            sets.push(`${col} = ?`);
+            params.push(v);
+            await run("INSERT INTO sheet_seen (prop_key, field, value) VALUES (?, ?, ?) ON CONFLICT(prop_key, field) DO UPDATE SET value = excluded.value", [k, col, sv]);
+          }
+          if (sets.length) await run(`UPDATE sales_leads SET ${sets.join(", ")} WHERE id = ?`, [...params, id]);
+        } else {
+          const r = await run(
+            `INSERT INTO sales_leads (${LEAD_COLUMNS.join(", ")}, origin, sheet_key) VALUES (${LEAD_COLUMNS.map(() => "?").join(", ")}, 'sheet', ?)`,
+            [...LEAD_COLUMNS.map((c) => (l[c] === undefined ? null : l[c])), k],
+          );
+          keep.add(r.lastInsertRowid);
+          for (const col of LEAD_COLUMNS) {
+            await run("INSERT INTO sheet_seen (prop_key, field, value) VALUES (?, ?, ?) ON CONFLICT(prop_key, field) DO UPDATE SET value = excluded.value", [k, col, JSON.stringify(l[col] === undefined ? null : l[col])]);
+          }
+        }
+      }
+      for (const r of rows) {
+        if (!keep.has(r.id) && r.origin !== "app") {
+          await run("DELETE FROM sales_leads WHERE id = ?", [r.id]);
+          if (r.sheet_key) await run("DELETE FROM sheet_seen WHERE prop_key = ?", [r.sheet_key]);
+        }
       }
     }
 

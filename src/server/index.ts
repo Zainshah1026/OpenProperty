@@ -1231,7 +1231,7 @@ app.get("/api/sales-leads", async (c) => {
 app.post("/api/sales-leads", async (c) => {
   const parsed = await parseJson(c, LeadInput);
   if (!parsed.ok) return c.json({ error: parsed.error }, 400);
-  const fields: Record<string, unknown> = { ...parsed.data, status: parsed.data.status ?? "new" };
+  const fields: Record<string, unknown> = { ...parsed.data, status: parsed.data.status ?? "new", origin: "app" };
   const cols = Object.keys(fields).filter((k) => fields[k] !== undefined);
   const result = await run(
     `INSERT INTO sales_leads (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`,
