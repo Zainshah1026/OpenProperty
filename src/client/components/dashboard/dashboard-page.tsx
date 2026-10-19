@@ -158,7 +158,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
                 {s.paid_behind.map((r) => (
                   <tr key={r.id} className="cursor-pointer hover:bg-muted" onClick={() => navigate(`/properties/${r.id}`)}>
                     <td className="max-w-[14rem] truncate py-2 pr-2 font-medium">{r.ref ? `${r.ref} · ` : ""}{r.name}</td>
-                    <td className="max-w-[10rem] truncate py-2 pr-2 text-muted-foreground">{r.tenant_label || r.owner || "—"}</td>
+                    <td className="max-w-[10rem] truncate py-2 pr-2 text-muted-foreground">{r.tenant_label || "—"}</td>
                     <td className="py-2 text-right tabular-nums">{monthsLabel(r.months_arrears)}</td>
                     <td className="py-2 text-right tabular-nums">{money(r.rent_in)}</td>
                     <td className="py-2 text-right tabular-nums">{money(r.behind_amount)}</td>
