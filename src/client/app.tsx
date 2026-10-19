@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { reportLocation } from "@clawnify/app/client";
 import { Sidebar } from "./components/sidebar";
 import { useAppState } from "./hooks/use-app-state";
@@ -19,6 +19,9 @@ import { SalesPage } from "./components/sales/sales-page";
 import { InvoicesPage } from "./components/invoices/invoices-page";
 import { InboxPage } from "./components/inbox/inbox-page";
 import { AssistantPanel } from "./components/assistant-panel";
+import { LettersPage } from "./components/letters/letters-page";
+import { CommandPalette } from "./components/command-palette";
+import { LetterPage } from "./components/letters/letter-page";
 
 /** A record page keeps its collection's row lit. */
 function activeFor(route: Route, path: string): string {
@@ -26,12 +29,25 @@ function activeFor(route: Route, path: string): string {
   if (route.name === "properties" && path.includes("section=freehold")) return "freehold";
   if (route.name === "property") return "properties";
   if (route.name === "tenant") return "tenants";
+  if (route.name === "letter") return "letters";
   if (route.name === "properties") return "properties";
   return route.name;
 }
 
 export function App() {
   const state = useAppState();
+  const [searching, setSearching] = useState(false);
+  // Ctrl+K / ⌘K opens search from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearching((s) => !s);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const { path, route, navigate } = useRouter();
 
   // Lets the dashboard restore this exact screen on reload.
@@ -42,7 +58,7 @@ export function App() {
   return (
     <AppContext.Provider value={state}>
       <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-background text-foreground md:flex-row">
-        <Sidebar active={activeFor(route, path)} userName={state.me?.name} onNavigate={(href) => navigate(href)} />
+        <Sidebar active={activeFor(route, path)} userName={state.me?.name} onNavigate={(href) => navigate(href)} onSearch={() => setSearching(true)} />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {state.loading ? (
             <div className="flex flex-1 items-center justify-center text-muted-foreground">
@@ -74,6 +90,8 @@ export function App() {
               {route.name === "invoices" && <InvoicesPage />}
               {route.name === "inbox" && <InboxPage />}
               {route.name === "settings" && <SettingsPage />}
+              {route.name === "letters" && <LettersPage navigate={navigate} />}
+              {route.name === "letter" && <LetterPage key={route.id} id={route.id} navigate={navigate} />}
               {route.name === "not-found" && (
                 <Placeholder title="Not found" message="That page doesn't exist." />
               )}
@@ -81,6 +99,7 @@ export function App() {
           )}
         </main>
         <ErrorBanner />
+        <CommandPalette open={searching} onOpenChange={setSearching} navigate={navigate} />
         <AssistantPanel navigate={navigate} />
       </div>
     </AppContext.Provider>

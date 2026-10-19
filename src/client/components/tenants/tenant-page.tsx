@@ -6,6 +6,7 @@ import { formatDate, formatMoney } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { LettersCard } from "@/components/letters/letters-card";
 import { TenantDialog } from "./tenant-dialog";
 import type { Lease, Tenant } from "@/types";
 import { PageShell } from "@/components/page-shell";
@@ -151,6 +152,8 @@ export function TenantPage({ id, navigate }: { id: number; navigate: (to: string
             </ul>
           )}
         </Card>
+
+      <LettersCard tenantId={tenant.id} navigate={navigate} />
 
       <TenantDialog
         open={editing}

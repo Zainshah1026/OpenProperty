@@ -83,7 +83,7 @@ const choose = (v, map, fallback) => {
   return fallback;
 };
 
-const DEAL = { jointventure: "joint_venture", jv: "joint_venture", owned: "owned", renttorent: "rent_to_rent", rtr: "rent_to_rent", groundrent: "ground_rent" };
+const DEAL = { managed: "managed", managementonly: "managed", manage: "managed", jointventure: "joint_venture", jv: "joint_venture", owned: "owned", renttorent: "rent_to_rent", rtr: "rent_to_rent", groundrent: "ground_rent" };
 const TYPE = { flat: "flat", apartment: "flat", maisonette: "maisonette", terrace: "terraced", semi: "semi_detached", detached: "detached", bungalow: "bungalow", commercial: "commercial", shop: "commercial", office: "commercial" };
 const OCC = { occupied: "occupied", partoccupied: "part_occupied", part: "part_occupied", vacant: "vacant", empty: "vacant", eviction: "eviction" };
 const RENT = { missed: "missed", unpaid: "missed", notpaid: "missed", owed: "missed", paidinarrears: "in_arrears", agreed: "in_arrears", ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", weeksarrears: "in_arrears", weekarrears: "in_arrears", advance: "in_advance", inadvance: "in_advance", groundrent: "ground_rent" };
@@ -104,6 +104,9 @@ export function toProperty(r, compliance, section = "owned") {
   const totalCosts = money(pick(r, "Total Costs", "Total Monthly Costs"));
   const rentStatusRaw = pick(r, "Rent Paid", "Arrears");
   const c = compliance.get(ref) ?? {};
+  const deal = choose(pick(r, "Deal Type"), DEAL, section === "managed" ? "rent_to_rent" : "owned");
+  // Homes we only manage for their owner sit with rent to rent, whichever tab they are on.
+  if (deal === "managed") section = "managed";
 
   return {
     ref: text(ref),
@@ -114,7 +117,7 @@ export function toProperty(r, compliance, section = "owned") {
     state: county,
     zip: text(pick(r, "Postcode")),
     owner: text(pick(r, "Owner", "Landlord")),
-    deal_type: choose(pick(r, "Deal Type"), DEAL, section === "managed" ? "rent_to_rent" : "owned"),
+    deal_type: deal,
     section,
     tenure: choose(pick(r, "Tenure"), TENURE, null),
     ground_rent_paid: money(pick(r, "Ground Rent Paid")),

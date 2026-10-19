@@ -90,8 +90,6 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         />
       </section>
 
-      {s.finance && <FinanceSection f={s.finance} navigate={navigate} />}
-
       <RentReady compact navigate={navigate} />
       <CalendarCard navigate={navigate} currency={settings.currency} version={version} />
 
@@ -177,16 +175,24 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         </Card>
       )}
 
+      {s.finance && (
+        <>
+          <SectionHeading title="Portfolio & finance" sub="Value, mortgages and equity for the homes we own. Rent to rent homes are left out." />
+          <FinanceSection f={s.finance} navigate={navigate} />
+        </>
+      )}
+
+      <SectionHeading title="Income by company" />
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <CardTitle title="By owner" sub="Monthly totals for each company" />
           <GroupTable rows={s.by_owner} label={(k) => k} money={money} />
         </Card>
         <Card className="p-5">
-          <CardTitle title="Ours vs rent to rent" sub="Homes we own (with joint ventures) and homes we manage for landlords" />
-          <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "Rent to rent (managed)" : "Our properties")} money={money} />
+          <CardTitle title="Ours vs rent to rent" sub="Homes we own (with joint ventures) and homes we manage or rent from landlords" />
+          <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "Rent to rent" : "Our properties")} money={money} />
           <div className="mt-5">
-            <CardTitle title="By deal type" sub="Owned, joint venture, rent to rent, ground rent" />
+            <CardTitle title="By deal type" sub="Owned, joint venture, managed, rent to rent, ground rent" />
             <GroupTable rows={s.by_deal} label={dealLabel} money={money} />
           </div>
         </Card>
@@ -215,6 +221,18 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         </Card>
       )}
     </PageShell>
+  );
+}
+
+function SectionHeading({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div className="flex items-end gap-4 pt-4">
+      <div>
+        <h2 className="display text-[1.5rem] font-medium leading-tight">{title}</h2>
+        {sub && <p className="mt-0.5 text-sm text-muted-foreground">{sub}</p>}
+      </div>
+      <div className="mb-2 h-px flex-1 bg-border" aria-hidden />
+    </div>
   );
 }
 

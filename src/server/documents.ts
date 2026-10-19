@@ -26,7 +26,9 @@ export function setDocumentStore(s: DocumentStore): void {
 export const COMPLIANCE_KINDS = ["gas", "eicr", "epc", "licence", "insurance", "other"] as const;
 /** Photos and reports kept for each home, plus photos tenants send with a repair request. */
 export const MEDIA_KINDS = ["photo", "inventory", "checkin", "checkout", "repair"] as const;
-export const DOC_KINDS = [...COMPLIANCE_KINDS, ...MEDIA_KINDS] as const;
+/** Signed tenancy agreements, notices and letters (Letters & contracts). */
+export const LEGAL_KINDS = ["agreement", "notice", "letter"] as const;
+export const DOC_KINDS = [...COMPLIANCE_KINDS, ...MEDIA_KINDS, ...LEGAL_KINDS] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -57,6 +59,7 @@ export interface DocRow {
   label: string | null;
   taken_on: string | null;
   work_order_id: number | null;
+  letter_id?: number | null;
   uploaded_by: string | null;
   created_at: string;
 }
@@ -69,7 +72,7 @@ export const publicRow = ({ stored_name: _s, ...rest }: DocRow) => rest;
  */
 export async function saveUpload(
   file: File,
-  row: { property_id: number; kind: DocKind; expiry_date?: string | null; label?: string | null; taken_on?: string | null; work_order_id?: number | null; uploaded_by?: string | null },
+  row: { property_id: number; kind: DocKind; expiry_date?: string | null; label?: string | null; taken_on?: string | null; work_order_id?: number | null; letter_id?: number | null; uploaded_by?: string | null },
   opts: { maxBytes?: number; imagesOnly?: boolean } = {},
 ): Promise<{ ok: true; document: DocRow; duplicate?: boolean } | { ok: false; status: 400 | 413 | 415 | 503; error: string }> {
   if (!store) return { ok: false, status: 503, error: "Uploads aren't available on this server." };
@@ -87,13 +90,13 @@ export async function saveUpload(
     "SELECT * FROM compliance_documents WHERE property_id = ? AND kind = ? AND filename = ? AND size = ?",
     [row.property_id, row.kind, cleanName, file.size],
   );
-  if (dupe && !row.work_order_id) return { ok: true, document: dupe, duplicate: true };
+  if (dupe && !row.work_order_id && !row.letter_id) return { ok: true, document: dupe, duplicate: true };
   const stored = randomName(ext);
   await store.put(stored, new Uint8Array(await file.arrayBuffer()));
   const r = await run(
-    `INSERT INTO compliance_documents (property_id, kind, filename, content_type, size, stored_name, expiry_date, label, taken_on, work_order_id, uploaded_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [row.property_id, row.kind, cleanName, type, file.size, stored, row.expiry_date || null, row.label || null, row.taken_on || null, row.work_order_id ?? null, row.uploaded_by ?? null],
+    `INSERT INTO compliance_documents (property_id, kind, filename, content_type, size, stored_name, expiry_date, label, taken_on, work_order_id, letter_id, uploaded_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.property_id, row.kind, cleanName, type, file.size, stored, row.expiry_date || null, row.label || null, row.taken_on || null, row.work_order_id ?? null, row.letter_id ?? null, row.uploaded_by ?? null],
   );
   return { ok: true, document: (await get<DocRow>("SELECT * FROM compliance_documents WHERE id = ?", [r.lastInsertRowid]))! };
 }
@@ -110,6 +113,11 @@ export function registerDocumentRoutes(app: Hono<any>) {
 
   /** Documents for one property, newest first. */
   app.get("/api/documents", async (c) => {
+    const letter = parseInt(c.req.query("letter_id") ?? "", 10);
+    if (Number.isFinite(letter)) {
+      const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE letter_id = ? ORDER BY id", [letter]).catch(() => [] as DocRow[]);
+      return c.json({ enabled: true, documents: rows.map(publicRow) });
+    }
     const wo = parseInt(c.req.query("work_order_id") ?? "", 10);
     if (Number.isFinite(wo)) {
       const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE work_order_id = ? ORDER BY id", [wo]).catch(() => [] as DocRow[]);
@@ -157,6 +165,7 @@ export function registerDocumentRoutes(app: Hono<any>) {
       expiry_date: expiry || null,
       label: String(body.label ?? "").trim().slice(0, 200) || null,
       taken_on: takenOn || null,
+      letter_id: Number.isFinite(parseInt(String(body.letter_id ?? ""), 10)) ? parseInt(String(body.letter_id), 10) : null,
       uploaded_by: getUser(c)?.name ?? null,
     });
     if (!res.ok) return c.json({ error: res.error }, res.status);

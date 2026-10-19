@@ -354,3 +354,26 @@ CREATE INDEX IF NOT EXISTS idx_leads_status ON sales_leads(status);
 
 -- Demo data is seeded by the app on first read (ensureSeeded in
 -- src/server/index.ts), never here: this file is applied as DDL only.
+
+-- ── Letters & contracts ────────────────────────────────────────────
+-- Letters, notices and tenancy agreements made from templates (the text is
+-- kept, editable, as HTML) and signed copies uploaded against them.
+CREATE TABLE IF NOT EXISTS letters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template TEXT NOT NULL,                      -- template id, or 'upload' for a document made elsewhere
+  category TEXT NOT NULL,                      -- 'tenancy' | 'company' | 'arrears'
+  title TEXT NOT NULL,
+  property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL,
+  tenant_id INTEGER REFERENCES tenants(id) ON DELETE SET NULL,
+  room TEXT,
+  body TEXT,                                   -- the letter itself (HTML)
+  fields TEXT,                                 -- JSON of the answers used to fill it
+  status TEXT NOT NULL DEFAULT 'draft',        -- 'draft' | 'sent' | 'signed' | 'void'
+  sent_on TEXT,
+  signed_on TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_letters_property ON letters(property_id);
+CREATE INDEX IF NOT EXISTS idx_letters_tenant ON letters(tenant_id);

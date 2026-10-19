@@ -16,6 +16,7 @@ import { EnergyPicker } from "@/components/compliance/energy-picker";
 import { TenantPicker } from "@/components/tenants/tenant-picker";
 import { AccessCard, MediaCard, RepairQrCard, VoidsCard } from "./property-extras";
 import { FinanceCard } from "./finance-card";
+import { LettersCard } from "@/components/letters/letters-card";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, dealLabel, netProfit,
   hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
@@ -241,6 +242,8 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
           <AccessCard property={property} />
           <RepairQrCard property={property} />
         </section>
+
+        <LettersCard propertyId={property.id} navigate={navigate} />
 
         <VoidsCard property={property} />
         <MediaCard property={property} />

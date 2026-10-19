@@ -16,6 +16,7 @@ export const DEAL_TYPES: { value: DealType; label: string }[] = [
   { value: "owned", label: "Owned" },
   { value: "joint_venture", label: "Joint venture" },
   { value: "rent_to_rent", label: "Rent to rent" },
+  { value: "managed", label: "Managed for owner" },
   { value: "ground_rent", label: "Ground rent" },
 ];
 

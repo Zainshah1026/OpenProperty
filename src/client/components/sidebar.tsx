@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  Briefcase, Building2, CircleDollarSign, ClipboardCheck, ClipboardList, FileText, Home, Inbox, Landmark,
-  LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Settings, Users, Wrench, X,
+  Briefcase, Building2, CircleDollarSign, ClipboardCheck, ClipboardList, FileSignature, FileText, Home, Inbox, Landmark,
+  LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users, Wrench, X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,21 +21,27 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: Home },
       { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: Landmark },
       { id: "tenants", label: "Tenants", href: "/tenants", icon: Users },
-      { id: "leases", label: "Leases", href: "/leases", icon: ClipboardList },
     ],
   },
   {
-    label: "Operations",
+    label: "Day to day",
     items: [
       { id: "inbox", label: "Inbox", href: "/inbox", icon: Inbox },
-      { id: "invoices", label: "Invoices", href: "/invoices", icon: FileText },
-      { id: "rent", label: "Rent ledger", href: "/rent", icon: CircleDollarSign },
-      { id: "compliance", label: "Compliance", href: "/compliance", icon: ClipboardCheck },
       { id: "maintenance", label: "Maintenance", href: "/maintenance", icon: Wrench },
+      { id: "compliance", label: "Compliance", href: "/compliance", icon: ClipboardCheck },
+      { id: "letters", label: "Letters & contracts", href: "/letters", icon: FileSignature },
+      { id: "invoices", label: "Invoices", href: "/invoices", icon: FileText },
     ],
   },
   { label: "Sales", items: [{ id: "sales", label: "Sales leads", href: "/sales", icon: Briefcase }] },
-  { label: "Admin", items: [{ id: "settings", label: "Settings", href: "/settings", icon: Settings }] },
+  {
+    label: "More",
+    items: [
+      { id: "leases", label: "Leases", href: "/leases", icon: ClipboardList },
+      { id: "rent", label: "Rent ledger", href: "/rent", icon: CircleDollarSign },
+      { id: "settings", label: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
 ];
 
 const KEY = "nav-collapsed";
@@ -48,7 +54,7 @@ const readCollapsed = () => {
  * down to icons and back; on a phone it hides behind a menu button in a top
  * bar and slides in over the page.
  */
-export function Sidebar({ active, userName, onNavigate }: { active: string; userName?: string | null; onNavigate: (href: string) => void }) {
+export function Sidebar({ active, userName, onNavigate, onSearch }: { active: string; userName?: string | null; onNavigate: (href: string) => void; onSearch?: () => void }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -88,6 +94,11 @@ export function Sidebar({ active, userName, onNavigate }: { active: string; user
           <img src="/brand/favicon.svg" alt="" className="size-7 rounded-md" />
           <span className="display text-lg font-medium">Chisti &amp; Co.</span>
         </button>
+        {onSearch && (
+          <button type="button" onClick={onSearch} aria-label="Search" className="ml-auto inline-flex size-10 items-center justify-center rounded-lg hover:bg-white/10">
+            <Search className="size-5" />
+          </button>
+        )}
       </div>
 
       {/* Phone backdrop */}
@@ -134,6 +145,28 @@ export function Sidebar({ active, userName, onNavigate }: { active: string; user
             <X className="size-5" />
           </button>
         </div>
+
+        {onSearch && (
+          <div className={cn("shrink-0 px-3 pt-3", narrow && "px-2")}>
+            <button
+              type="button"
+              onClick={() => { setMobileOpen(false); onSearch(); }}
+              title={narrow ? "Search (Ctrl+K)" : undefined}
+              className={cn(
+                "flex h-10 w-full items-center gap-3 rounded-lg bg-white/[0.06] text-sm text-sidebar-foreground/70 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white",
+                narrow ? "justify-center" : "px-3",
+              )}
+            >
+              <Search className="size-[18px] shrink-0 opacity-80" />
+              {!narrow && (
+                <>
+                  <span className="flex-1 text-left">Search…</span>
+                  <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[11px] text-sidebar-foreground/60">{/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}</kbd>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {NAV_GROUPS.map((g, gi) => (

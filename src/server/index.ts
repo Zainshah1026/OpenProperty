@@ -7,6 +7,7 @@ import { registerAssistantRoutes } from "./assistant";
 import { mailProvider, registerMailRoutes } from "./mail";
 import { registerDocumentRoutes } from "./documents";
 import { registerExtras } from "./extras";
+import { registerLetters } from "./letters";
 import { getUser, registerAuth } from "./auth";
 
 type Env = {
@@ -120,7 +121,7 @@ function buildUpdate(fields: Record<string, unknown>): { sets: string[]; params:
 // ── Properties ─────────────────────────────────────────────────────
 
 const PROPERTY_TYPES = ["flat", "maisonette", "terraced", "semi_detached", "detached", "bungalow", "commercial", "other"] as const;
-const DEAL_TYPES = ["owned", "joint_venture", "rent_to_rent", "ground_rent"] as const;
+const DEAL_TYPES = ["owned", "joint_venture", "rent_to_rent", "managed", "ground_rent"] as const;
 const OCCUPANCY = ["occupied", "part_occupied", "vacant", "eviction"] as const;
 const RENT_STATUS = ["on_time", "in_arrears", "missed", "in_advance", "ground_rent"] as const;
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable();
@@ -1490,6 +1491,7 @@ registerAssistantRoutes(app);
 registerMailRoutes(app);
 registerDocumentRoutes(app);
 registerExtras(app);
+registerLetters(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 // ── Core entities ──────────────────────────────────────────────────
 
 export type PropertyType = "flat" | "maisonette" | "terraced" | "semi_detached" | "detached" | "bungalow" | "commercial" | "other";
-export type DealType = "owned" | "joint_venture" | "rent_to_rent" | "ground_rent";
+export type DealType = "owned" | "joint_venture" | "rent_to_rent" | "managed" | "ground_rent";
 export type Occupancy = "occupied" | "part_occupied" | "vacant" | "eviction";
 /** in_arrears = paid a set time late by agreement; missed = rent not paid (owed). */
 export type RentStatus = "on_time" | "in_arrears" | "missed" | "in_advance" | "ground_rent";
@@ -446,3 +446,27 @@ export type NewLease = Partial<Omit<Lease, "id" | "created_at" | "unit_name" | "
 export type NewWorkOrder = Partial<Omit<WorkOrder, "id" | "created_at" | "property_name" | "property_color" | "unit_name" | "tenant_first_name" | "tenant_last_name" | "vendor_name" | "vendor_color">> & { title: string };
 export type NewVendor = Partial<Omit<Vendor, "id" | "created_at">> & { name: string };
 export type NewApplication = Partial<Omit<Application, "id" | "created_at" | "unit_name" | "property_name">> & { first_name: string; last_name: string };
+
+export type LetterStatus = "draft" | "sent" | "signed" | "void";
+
+export interface Letter {
+  id: number;
+  template: string;
+  category: "tenancy" | "company" | "arrears";
+  title: string;
+  property_id: number | null;
+  tenant_id: number | null;
+  room: string | null;
+  status: LetterStatus;
+  sent_on: string | null;
+  signed_on: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  property_name: string | null;
+  property_ref: string | null;
+  tenant_name: string | null;
+  file_count: number;
+  body?: string | null;
+  fields?: Record<string, string> | null;
+}
