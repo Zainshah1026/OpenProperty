@@ -173,7 +173,25 @@ function UserDialog({ user, mailboxes, selfId, onClose }: { user: UserRow | null
   const allBoxes = [...new Set([...mailboxes, ...boxes])];
   const toggle = (m: string) => setBoxes(boxes.includes(m) ? boxes.filter((x) => x !== m) : [...boxes, m]);
 
+  function generatePassword() {
+    // Easy to read out over the phone: no 0/O or 1/l/I.
+    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = new Uint32Array(10);
+    crypto.getRandomValues(bytes);
+    setPassword(Array.from(bytes, (b) => chars[b % chars.length]).join(""));
+  }
+
   async function save() {
+    const missing: string[] = [];
+    if (!name.trim()) missing.push("a name");
+    if (!user && !username.trim()) missing.push("a username");
+    else if (!user && username.trim().length < 2) missing.push("a username of at least 2 characters");
+    if (!user && password.length < 8) missing.push(password ? `a password of at least 8 characters (${8 - password.length} more)` : "a temporary password");
+    if (user && password && password.length < 8) missing.push(`a new password of at least 8 characters (${8 - password.length} more)`);
+    if (missing.length) {
+      setMsg(`Please add ${missing.join(" and ")}.`);
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -208,11 +226,16 @@ function UserDialog({ user, mailboxes, selfId, onClose }: { user: UserRow | null
             <div><Label className="mb-1 block">Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Zain" /></div>
             <div>
               <Label className="mb-1 block">Username (used to sign in)</Label>
-              <Input value={username} onChange={(e) => setUsername(e.target.value)} disabled={!!user} autoCapitalize="none" placeholder="zain@chistiandco.com" />
+              <Input value={username} onChange={(e) => setUsername(e.target.value)} disabled={!!user} autoCapitalize="none" autoComplete="off" placeholder="e.g. sara" />
+              {!user && <p className="mt-1 text-[11px] text-muted-foreground">Any name they'll remember. It doesn't need to be an email address.</p>}
             </div>
             <div>
               <Label className="mb-1 block">{user ? "Reset password (leave blank to keep)" : "Temporary password (at least 8 characters)"}</Label>
-              <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+              <div className="flex gap-2">
+                <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" autoCapitalize="none" spellCheck={false} />
+                <Button type="button" variant="ghost" onClick={generatePassword}>Generate</Button>
+              </div>
+              {password.length > 0 && password.length < 8 && <p className="mt-1 text-[11px] text-warning">{8 - password.length} more character{8 - password.length === 1 ? "" : "s"} needed</p>}
               <p className="mt-1 text-[11px] text-muted-foreground">Give it to them in person or by phone; they can change it under Settings → My account.</p>
             </div>
             <div>
@@ -226,7 +249,7 @@ function UserDialog({ user, mailboxes, selfId, onClose }: { user: UserRow | null
               </div>
             </div>
             <div>
-              <Label className="mb-1 block">Mailboxes they can read</Label>
+              <Label className="mb-1 block">Mailboxes they can read <span className="font-normal text-muted-foreground">(optional: leave all unticked if they have no email)</span></Label>
               {allBoxes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No mailboxes connected yet. Add MAIL_USER / MAIL_PASSWORD (and _2, _3…) in Render first.</p>
               ) : (
@@ -251,7 +274,7 @@ function UserDialog({ user, mailboxes, selfId, onClose }: { user: UserRow | null
           <DialogFooter className="mt-2">
             {user && user.id !== selfId && <Button variant="destructive" className="sm:mr-auto" onClick={() => setConfirmDelete(true)}>Delete</Button>}
             <Button variant="ghost" onClick={() => onClose(false)}>Cancel</Button>
-            <Button onClick={save} disabled={busy || !name.trim() || (!user && (!username.trim() || password.length < 8))}>{user ? "Save" : "Add person"}</Button>
+            <Button onClick={save} disabled={busy}>{user ? "Save" : "Add person"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
