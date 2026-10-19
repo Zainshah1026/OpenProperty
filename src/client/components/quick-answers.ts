@@ -22,6 +22,7 @@ export const QUICK_QUESTIONS = [
   { id: "certs", label: "Which certificates are expired or expiring?" },
   { id: "tenancies", label: "Which tenancies end in the next 2 months?" },
   { id: "invoices", label: "Which rent invoices are ready to send?" },
+  { id: "worth", label: "What's the portfolio worth and what do we owe?" },
 ] as const;
 
 export type QuickId = (typeof QUICK_QUESTIONS)[number]["id"];
@@ -90,6 +91,18 @@ export async function quickAnswer(id: QuickId, currency: string): Promise<QuickA
     const list = cals.flatMap((c) => c.events).filter((e) => e.kind === "tenancy" && e.date >= today && e.date <= end).sort((a, b) => a.date.localeCompare(b.date));
     if (!list.length) return { text: "No tenancy end dates in the next 2 months (only rooms with a Tenancy End date in the sheet are counted)." };
     return { text: `**${list.length} ending by ${formatDate(end)}:**\n${list.map((e) => `• ${formatDate(e.date)}: ${name(e.ref, e.title)}, ${e.detail.replace(/^Tenancy ends · /, "")}`).join("\n")}` };
+  }
+
+  if (id === "worth") {
+    const s = await api<PortfolioSummary>("GET", "/api/portfolio/summary");
+    const f = s.finance;
+    if (!f || !f.valued) return { text: "No property values recorded yet. Add them in the Property Value column of the sheet." };
+    const p = (n: number | null) => (n === null ? "—" : `${Math.round(n * 100)}%`);
+    const top = f.by_company.slice(0, 8).map((c) => `• **${c.key}**: ${money(c.value)} value, ${money(c.debt)} owed, ${money(c.our_equity)} our equity`);
+    return {
+      text: `**Worth ${money(f.value)}, ${money(f.debt)} in mortgages (${p(f.ltv)} LTV), ${money(f.equity)} equity.**\nOur share after joint ventures: ${money(f.our_value)} value, ${money(f.our_equity)} equity.\n\n${top.join("\n")}`,
+      links: [{ label: "Open the dashboard", to: "/" }],
+    };
   }
 
   // invoices

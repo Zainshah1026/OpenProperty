@@ -74,6 +74,13 @@ for (const ddl of [
   "ALTER TABLE work_orders ADD COLUMN reported_by TEXT",
   "ALTER TABLE work_orders ADD COLUMN reporter_contact TEXT",
   "ALTER TABLE work_orders ADD COLUMN source TEXT",
+  "ALTER TABLE properties ADD COLUMN ownership_share REAL",
+  "ALTER TABLE properties ADD COLUMN market_value REAL",
+  "ALTER TABLE properties ADD COLUMN mortgage_balance REAL",
+  "ALTER TABLE properties ADD COLUMN lender TEXT",
+  "ALTER TABLE properties ADD COLUMN lease_end TEXT",
+  "ALTER TABLE properties ADD COLUMN lease_years REAL",
+  "ALTER TABLE properties ADD COLUMN fixed_rate_end TEXT",
 ]) {
   try { sqlite.exec(ddl); } catch { /* already there */ }
 }

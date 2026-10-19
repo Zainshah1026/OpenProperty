@@ -15,6 +15,7 @@ import { DocumentsPanel } from "@/components/compliance/documents";
 import { EnergyPicker } from "@/components/compliance/energy-picker";
 import { TenantPicker } from "@/components/tenants/tenant-picker";
 import { AccessCard, MediaCard, RepairQrCard, VoidsCard } from "./property-extras";
+import { FinanceCard } from "./finance-card";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, dealLabel, netProfit,
   hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
@@ -233,6 +234,8 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
             }}
           />
         )}
+
+        {property.section !== "managed" && <FinanceCard property={property} onSaved={setProperty} />}
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <AccessCard property={property} />

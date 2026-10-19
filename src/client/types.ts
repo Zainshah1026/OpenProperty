@@ -26,6 +26,13 @@ export interface Property {
   energy?: "all_electric" | "gas_electric" | null;
   tenant_id?: number | null;
   tenant_name?: string | null;
+  ownership_share?: number | null;
+  market_value?: number | null;
+  mortgage_balance?: number | null;
+  lender?: string | null;
+  lease_end?: string | null;
+  lease_years?: number | null;
+  fixed_rate_end?: string | null;
   rent_in: number;
   rent_out: number;
   other_costs: number;
@@ -287,6 +294,43 @@ export interface PortfolioSummary {
   cashflow_days: { day: number; money_in: number; money_out: number }[];
   arrears: { id: number; ref: string | null; name: string; owner: string | null; tenant_label: string | null; months_arrears: number; arrears_amount: number }[];
   attention: { id: number; ref: string | null; name: string; owner: string | null; occupancy: Occupancy }[];
+  finance?: FinanceSummary;
+}
+
+export interface FinanceGroup {
+  key: string;
+  count: number;
+  value: number;
+  debt: number;
+  equity: number;
+  our_equity: number;
+  ltv: number | null;
+  rent_in: number;
+  mortgage: number;
+  share: number | null;
+}
+
+export interface FinanceSummary {
+  homes: number;
+  valued: number;
+  missing_value: number;
+  value: number;
+  debt: number;
+  equity: number;
+  our_value: number;
+  our_debt: number;
+  our_equity: number;
+  ltv: number | null;
+  gross_yield: number | null;
+  net_yield: number | null;
+  unencumbered: number;
+  by_company: FinanceGroup[];
+  by_lender: FinanceGroup[];
+  leases: { id: number; ref: string | null; name: string; lease_end: string | null; years_left: number }[];
+  leases_under_90: { id: number; ref: string | null; name: string; lease_end: string | null; years_left: number }[];
+  fixed_rates: { id: number; ref: string | null; name: string; lender: string | null; fixed_rate_end: string; mortgage_balance: number }[];
+  fixed_rates_due: number;
+  highest_ltv: { id: number; ref: string | null; name: string; lender: string | null; value: number; debt: number; ltv: number }[];
 }
 
 export interface Room {

@@ -11,6 +11,7 @@ import { PageShell } from "@/components/page-shell";
 import { SyncBanner } from "@/components/sync-banner";
 import { CalendarCard } from "./calendar-card";
 import { RentReady } from "@/components/invoices/rent-ready";
+import { FinanceSection } from "./finance-section";
 
 export function DashboardPage({ navigate }: { navigate: (to: string) => void }) {
   const { settings, setError, me } = useApp();
@@ -88,6 +89,8 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
           onClick={() => navigate("/compliance")}
         />
       </section>
+
+      {s.finance && <FinanceSection f={s.finance} navigate={navigate} />}
 
       <RentReady compact navigate={navigate} />
       <CalendarCard navigate={navigate} currency={settings.currency} version={version} />

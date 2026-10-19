@@ -142,6 +142,14 @@ const PropertyInput = z.object({
   energy: z.enum(["all_electric", "gas_electric"]).optional().nullable(),
   /** The tenant chosen from the Tenants list (kept in the app, not the sheet). */
   tenant_id: z.number().int().optional().nullable(),
+  ownership_share: z.number().min(0).max(100).optional().nullable(),
+  market_value: z.number().min(0).optional().nullable(),
+  mortgage_balance: z.number().min(0).optional().nullable(),
+  lender: z.string().optional().nullable(),
+  lease_end: isoDate,
+  lease_years: z.number().min(0).optional().nullable(),
+  /** When the fixed-rate deal ends (kept in the app, not the sheet). */
+  fixed_rate_end: isoDate,
   bedrooms: z.number().int().min(0).optional().nullable(),
   hmo: z.number().int().min(0).max(1).optional(),
   occupancy: z.enum(OCCUPANCY).optional(),
@@ -1151,12 +1159,15 @@ app.get("/api/portfolio/summary", async (c) => {
     licence_expiry: string | null; insurance_expiry: string | null; tenant_label: string | null;
     ground_rent_paid: number; service_charge_paid: number; ground_rent_received: number; service_charge_received: number;
     energy: string | null;
+    ownership_share: number | null; market_value: number | null; mortgage_balance: number | null;
+    lender: string | null; lease_end: string | null; lease_years: number | null; fixed_rate_end: string | null;
   };
   const rows = await query<Row>(
     `SELECT id, ref, name, address, owner, deal_type, section, occupancy, rent_in, rent_out, other_costs,
             rent_in_day, payment_out_day, rent_status, months_arrears, arrears_amount,
             gas_expiry, epc_expiry, eicr_expiry, licence_expiry, insurance_expiry, tenant_label,
-            ground_rent_paid, service_charge_paid, ground_rent_received, service_charge_received, energy
+            ground_rent_paid, service_charge_paid, ground_rent_received, service_charge_received, energy,
+            ownership_share, market_value, mortgage_balance, lender, lease_end, lease_years, fixed_rate_end
      FROM properties`,
   ).catch(() => [] as Row[]);
 
@@ -1239,8 +1250,100 @@ app.get("/api/portfolio/summary", async (c) => {
     cashflow_days: days,
     arrears,
     attention,
+    finance: financeSummary(rows, today),
   });
 });
+
+/**
+ * Balance sheet: value, mortgage debt and equity, in total and for our share
+ * of joint ventures, grouped by company and by lender, plus leases and
+ * fixed-rate deals to watch. Homes we only manage (rent to rent) are left out.
+ */
+function financeSummary(
+  all: {
+    id: number; ref: string | null; name: string; owner: string | null; section: string; rent_in: number; rent_out: number;
+    ownership_share: number | null; market_value: number | null; mortgage_balance: number | null; lender: string | null;
+    lease_end: string | null; lease_years: number | null; fixed_rate_end: string | null;
+  }[],
+  today: string,
+) {
+  const rows = all.filter((r) => r.section !== "managed");
+  const share = (r: (typeof rows)[number]) => (r.ownership_share && r.ownership_share > 0 ? r.ownership_share / 100 : 1);
+  const valued = rows.filter((r) => (r.market_value ?? 0) > 0);
+  const add = (xs: typeof rows, f: (r: (typeof rows)[number]) => number) => xs.reduce((a, r) => a + (Number(f(r)) || 0), 0);
+  const value = add(valued, (r) => r.market_value ?? 0);
+  const debt = add(rows, (r) => r.mortgage_balance ?? 0);
+  const ourValue = add(valued, (r) => (r.market_value ?? 0) * share(r));
+  const ourDebt = add(rows, (r) => (r.mortgage_balance ?? 0) * share(r));
+  const valuedRent = add(valued, (r) => r.rent_in);
+  const valuedOut = add(valued, (r) => r.rent_out);
+
+  const groupBy = (key: (r: (typeof rows)[number]) => string) => {
+    const m = new Map<string, typeof rows>();
+    for (const r of rows) m.set(key(r), [...(m.get(key(r)) ?? []), r]);
+    return [...m.entries()].map(([k, xs]) => {
+      const v = add(xs, (r) => r.market_value ?? 0);
+      const d = add(xs, (r) => r.mortgage_balance ?? 0);
+      return {
+        key: k,
+        count: xs.length,
+        value: v,
+        debt: d,
+        equity: v - d,
+        our_equity: add(xs, (r) => ((r.market_value ?? 0) - (r.mortgage_balance ?? 0)) * share(r)),
+        ltv: v ? d / v : null,
+        rent_in: add(xs, (r) => r.rent_in),
+        mortgage: add(xs, (r) => r.rent_out),
+        share: xs.every((r) => share(r) === share(xs[0])) ? share(xs[0]) * 100 : null,
+      };
+    });
+  };
+
+  const yearsLeft = (r: (typeof rows)[number]) => {
+    if (r.lease_end && /^\d{4}-\d{2}-\d{2}$/.test(r.lease_end)) return (Date.parse(r.lease_end) - Date.parse(today)) / (365.25 * 86_400_000);
+    return r.lease_years ?? null;
+  };
+  const leases = rows
+    .map((r) => ({ id: r.id, ref: r.ref, name: r.name, lease_end: r.lease_end, years_left: yearsLeft(r) }))
+    .filter((r): r is typeof r & { years_left: number } => r.years_left !== null)
+    .sort((a, b) => a.years_left - b.years_left);
+
+  const in12m = new Date(Date.parse(today) + 365 * 86_400_000).toISOString().slice(0, 10);
+  const fixedRates = rows
+    .filter((r) => r.fixed_rate_end)
+    .map((r) => ({ id: r.id, ref: r.ref, name: r.name, lender: r.lender, fixed_rate_end: r.fixed_rate_end!, mortgage_balance: r.mortgage_balance ?? 0 }))
+    .sort((a, b) => a.fixed_rate_end.localeCompare(b.fixed_rate_end));
+
+  const ltvs = rows
+    .filter((r) => (r.market_value ?? 0) > 0 && (r.mortgage_balance ?? 0) > 0)
+    .map((r) => ({ id: r.id, ref: r.ref, name: r.name, lender: r.lender, value: r.market_value!, debt: r.mortgage_balance!, ltv: r.mortgage_balance! / r.market_value! }))
+    .sort((a, b) => b.ltv - a.ltv);
+
+  return {
+    homes: rows.length,
+    valued: valued.length,
+    missing_value: rows.length - valued.length,
+    value,
+    debt,
+    equity: value - debt,
+    our_value: ourValue,
+    our_debt: ourDebt,
+    our_equity: ourValue - ourDebt,
+    ltv: value ? debt / value : null,
+    gross_yield: value ? (valuedRent * 12) / value : null,
+    net_yield: value ? ((valuedRent - valuedOut) * 12) / value : null,
+    unencumbered: rows.filter((r) => (r.market_value ?? 0) > 0 && !(r.mortgage_balance ?? 0)).length,
+    by_company: groupBy((r) => r.owner || "Unassigned").sort((a, b) => b.value - a.value),
+    by_lender: groupBy((r) => r.lender || (r.mortgage_balance ? "Lender not recorded" : "No mortgage"))
+      .filter((g) => g.debt > 0)
+      .sort((a, b) => b.debt - a.debt),
+    leases_under_90: leases.filter((l) => l.years_left < 90),
+    leases,
+    fixed_rates: fixedRates,
+    fixed_rates_due: fixedRates.filter((f) => f.fixed_rate_end <= in12m).length,
+    highest_ltv: ltvs.slice(0, 6),
+  };
+}
 
 // ── Sales leads ────────────────────────────────────────────────────
 

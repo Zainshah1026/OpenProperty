@@ -106,6 +106,7 @@ const PROPERTY_COLUMNS = [
   "ground_rent_paid", "service_charge_paid", "ground_rent_received", "service_charge_received", "rent_in_day", "payment_out_day",
   "rent_status", "months_arrears", "arrears_amount", "gas_expiry", "epc_expiry", "eicr_expiry",
   "licence_expiry", "insurance_expiry", "notes",
+  "ownership_share", "market_value", "mortgage_balance", "lender", "lease_end", "lease_years",
 ] as const;
 
 const LEAD_COLUMNS = [

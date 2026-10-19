@@ -53,6 +53,13 @@ const day = (v) => {
   const n = int(v);
   return n && n >= 1 && n <= 31 ? n : null;
 };
+/** "50%", "50" or "0.5" → 50; blank → null. */
+const pct = (v) => {
+  if (!String(v ?? "").trim()) return null;
+  const n = parseFloat(String(v).replace(/[%\s,]/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n <= 1 ? Math.round(n * 1000) / 10 : Math.min(100, n);
+};
 const text = (v) => (v && v !== "–" && v !== "-" ? v : null);
 /** The first email address in a cell, lower-cased, or null. */
 const email = (v) => String(v ?? "").match(/[^\s<>,;|]+@[^\s<>,;|]+\.[^\s<>,;|]+/)?.[0]?.toLowerCase() ?? null;
@@ -134,6 +141,13 @@ export function toProperty(r, compliance, section = "owned") {
     licence_expiry: date(c["Licence Expiry"]),
     insurance_expiry: date(c["Insurance Expiry"]),
     notes: text(pick(r, "Notes")),
+    // Finance (Properties tab, columns AD–AI)
+    ownership_share: pct(pick(r, "Our Share", "Ownership Share", "Your Share")),
+    market_value: money(pick(r, "Property Value", "Value")) || null,
+    mortgage_balance: text(pick(r, "Mortgage Balance", "Outstanding Mortgage")) ? money(pick(r, "Mortgage Balance", "Outstanding Mortgage")) : null,
+    lender: text(pick(r, "Lender")),
+    lease_end: date(pick(r, "Lease End")),
+    lease_years: text(pick(r, "Lease Years", "Years Remaining")) ? money(pick(r, "Lease Years", "Years Remaining")) : null,
   };
 }
 
