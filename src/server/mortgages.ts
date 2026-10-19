@@ -46,7 +46,8 @@ const FIELDS = Object.keys(MortgageInput.shape) as (keyof z.infer<typeof Mortgag
 
 const SELECT = `
   SELECT m.*, p.name AS property_name, p.ref AS property_ref, p.address AS property_address, p.owner AS property_owner,
-         p.market_value, p.ownership_share, p.rent_in, p.section AS property_section
+         p.market_value, p.ownership_share, p.rent_in, p.section AS property_section,
+         (SELECT COUNT(*) FROM compliance_documents d WHERE d.mortgage_id = m.id) AS doc_count
   FROM mortgages m
   LEFT JOIN properties p ON p.id = m.property_id`;
 
@@ -173,6 +174,9 @@ export function registerMortgages(app: AnyApp) {
     sets.push("updated_at = datetime('now')");
     await run(`UPDATE mortgages SET ${sets.join(", ")} WHERE id = ?`, [...params, id]);
     const after = await get<{ property_id: number | null }>("SELECT property_id FROM mortgages WHERE id = ?", [id]);
+    if (after?.property_id && after.property_id !== before.property_id) {
+      await run("UPDATE compliance_documents SET property_id = ? WHERE mortgage_id = ?", [after.property_id, id]);
+    }
     await refreshProperty(after?.property_id, true);
     if (before.property_id && before.property_id !== after?.property_id) await refreshProperty(before.property_id, true);
     return c.json({ mortgage: await get(`${SELECT} WHERE m.id = ?`, [id]) });
@@ -183,6 +187,8 @@ export function registerMortgages(app: AnyApp) {
     if (!id) return c.json({ error: "Invalid ID" }, 400);
     const row = await get<{ property_id: number | null }>("SELECT property_id FROM mortgages WHERE id = ?", [id]);
     if (!row) return c.json({ error: "Not found" }, 404);
+    const files = await get<{ n: number }>("SELECT COUNT(*) AS n FROM compliance_documents WHERE mortgage_id = ?", [id]);
+    if (files && Number(files.n) > 0) return c.json({ error: "Delete this mortgage's documents first, or tick 'paid off' to keep it on record." }, 409);
     const had = (await countFor(row.property_id)) > 0;
     await run("DELETE FROM mortgages WHERE id = ?", [id]);
     await refreshProperty(row.property_id, had);

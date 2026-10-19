@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CHARGE_LABEL, RATE_LABEL, REPAYMENT_LABEL } from "./mortgage-math";
+import { MortgageDocuments } from "./mortgage-documents";
 
 type Draft = {
   property_id: string;
@@ -89,11 +90,13 @@ export function MortgageDialog({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [docsChanged, setDocsChanged] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setD(toDraft(mortgage ?? null, propertyId));
     setMsg(null);
+    setDocsChanged(false);
   }, [open, mortgage, propertyId]);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((x) => ({ ...x, [k]: v }));
@@ -170,7 +173,7 @@ export function MortgageDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(false); }}>
+      <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(docsChanged); }}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader><DialogTitle>{mortgage ? `Edit ${mortgage.lender} mortgage` : "Add a mortgage"}</DialogTitle></DialogHeader>
 
@@ -232,6 +235,12 @@ export function MortgageDialog({
               <Textarea id="mg-notes" rows={3} value={d.notes} onChange={(e) => set("notes", e.target.value)} />
             </div>
 
+            {mortgage ? (
+              <MortgageDocuments mortgageId={mortgage.id} propertyId={mortgage.property_id} onChanged={() => setDocsChanged(true)} />
+            ) : (
+              <p className="text-sm text-muted-foreground">You can add statements and the mortgage offer once the mortgage is saved.</p>
+            )}
+
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" className="size-4" checked={d.status === "redeemed"} onChange={(e) => set("status", e.target.checked ? "redeemed" : "active")} />
               This loan has been paid off or replaced
@@ -242,7 +251,7 @@ export function MortgageDialog({
 
           <DialogFooter className="mt-2">
             {mortgage && <Button variant="destructive" className="sm:mr-auto" onClick={() => setConfirmDelete(true)}>Delete</Button>}
-            <Button variant="ghost" onClick={() => onClose(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => onClose(docsChanged)}>{docsChanged ? "Close" : "Cancel"}</Button>
             <Button onClick={save} disabled={busy}>{busy ? "Saving…" : mortgage ? "Save" : "Add mortgage"}</Button>
           </DialogFooter>
         </DialogContent>

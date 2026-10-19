@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlarmClock, CalendarClock, Landmark, Percent, Plus, Scale, Search, Sparkles } from "lucide-react";
+import { AlarmClock, CalendarClock, Landmark, Paperclip, Percent, Plus, Scale, Search, Sparkles } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
@@ -272,7 +272,14 @@ export function MortgageTable({
                   </td>
                 )}
                 <td className="px-4 py-2.5">
-                  <button type="button" className="text-left font-medium hover:underline" onClick={(e) => { e.stopPropagation(); onOpen(m); }}>{m.lender}</button>
+                  <button type="button" className="inline-flex items-center gap-1.5 text-left font-medium hover:underline" onClick={(e) => { e.stopPropagation(); onOpen(m); }}>
+                    {m.lender}
+                    {!!m.doc_count && (
+                      <span className="inline-flex items-center gap-0.5 text-xs font-normal text-muted-foreground" title={`${m.doc_count} document${m.doc_count === 1 ? "" : "s"}`}>
+                        <Paperclip className="size-3" />{m.doc_count}
+                      </span>
+                    )}
+                  </button>
                   <span className="block text-xs text-muted-foreground">
                     {m.charge !== "first" ? `${CHARGE_LABEL[m.charge]} · ` : ""}{REPAYMENT_LABEL[m.repayment_type]}
                   </span>

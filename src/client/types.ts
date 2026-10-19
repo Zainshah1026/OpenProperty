@@ -508,4 +508,5 @@ export interface Mortgage {
   market_value: number | null;
   ownership_share: number | null;
   rent_in: number | null;
+  doc_count?: number;
 }
