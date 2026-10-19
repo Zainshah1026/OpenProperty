@@ -8,6 +8,7 @@ import { mailProvider, registerMailRoutes } from "./mail";
 import { registerDocumentRoutes } from "./documents";
 import { registerExtras } from "./extras";
 import { registerLetters } from "./letters";
+import { registerMortgages } from "./mortgages";
 import { getUser, registerAuth } from "./auth";
 
 type Env = {
@@ -1492,6 +1493,7 @@ registerMailRoutes(app);
 registerDocumentRoutes(app);
 registerExtras(app);
 registerLetters(app);
+registerMortgages(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 

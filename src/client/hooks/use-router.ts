@@ -16,6 +16,7 @@ export type Route =
   | { name: "settings" }
   | { name: "letters" }
   | { name: "letter"; id: number }
+  | { name: "mortgages" }
   | { name: "not-found" };
 
 function parse(full: string): Route {
@@ -36,6 +37,7 @@ function parse(full: string): Route {
   if (path === "/inbox") return { name: "inbox" };
   if (path === "/settings") return { name: "settings" };
   if (path === "/letters") return { name: "letters" };
+  if (path === "/mortgages") return { name: "mortgages" };
   m = path.match(/^\/letters\/(\d+)$/);
   if (m) return { name: "letter", id: parseInt(m[1], 10) };
   return { name: "not-found" };

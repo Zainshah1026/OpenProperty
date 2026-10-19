@@ -377,3 +377,35 @@ CREATE TABLE IF NOT EXISTS letters (
 );
 CREATE INDEX IF NOT EXISTS idx_letters_property ON letters(property_id);
 CREATE INDEX IF NOT EXISTS idx_letters_tenant ON letters(tenant_id);
+
+-- ── Mortgages ──────────────────────────────────────────────────────
+-- One row per loan, so a home can have a first charge, a second charge or a
+-- bridge. Saving a mortgage also refreshes the summary fields on the property
+-- (mortgage_balance, lender, fixed_rate_end) so the balance sheet agrees.
+CREATE TABLE IF NOT EXISTS mortgages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL,
+  lender TEXT NOT NULL,
+  account_ref TEXT,                            -- mortgage account number
+  borrower TEXT,                               -- who the loan is in the name of (person or company)
+  broker TEXT,
+  charge TEXT NOT NULL DEFAULT 'first',        -- 'first' | 'second' | 'bridging' | 'other'
+  repayment_type TEXT NOT NULL DEFAULT 'interest_only', -- 'interest_only' | 'repayment' | 'part_and_part'
+  rate_type TEXT NOT NULL DEFAULT 'fixed',     -- 'fixed' | 'tracker' | 'variable' | 'discount'
+  interest_rate REAL,                          -- % a year now
+  deal_end TEXT,                               -- when the fixed / tracker deal ends
+  follow_on_rate REAL,                         -- % a year after the deal (lender's SVR)
+  start_date TEXT,
+  term_end TEXT,                               -- when the loan must be repaid
+  balance REAL,
+  balance_as_of TEXT,
+  monthly_payment REAL,
+  payment_day INTEGER,
+  erc_until TEXT,                              -- early repayment charges stop
+  erc_note TEXT,
+  status TEXT NOT NULL DEFAULT 'active',       -- 'active' | 'redeemed'
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_mortgages_property ON mortgages(property_id);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Briefcase, Building2, CircleDollarSign, ClipboardCheck, ClipboardList, FileSignature, FileText, Home, Inbox, Landmark,
+  Banknote, Briefcase, Building2, CircleDollarSign, ClipboardCheck, ClipboardList, FileSignature, FileText, Home, Inbox, Landmark,
   LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users, Wrench, X,
   type LucideIcon,
 } from "lucide-react";
@@ -20,6 +20,7 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { id: "properties", label: "Our properties", href: "/properties?section=owned", icon: Building2 },
       { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: Home },
       { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: Landmark },
+      { id: "mortgages", label: "Mortgages", href: "/mortgages", icon: Banknote },
       { id: "tenants", label: "Tenants", href: "/tenants", icon: Users },
     ],
   },

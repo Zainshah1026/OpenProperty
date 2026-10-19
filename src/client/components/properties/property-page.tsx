@@ -17,6 +17,7 @@ import { TenantPicker } from "@/components/tenants/tenant-picker";
 import { AccessCard, MediaCard, RepairQrCard, VoidsCard } from "./property-extras";
 import { FinanceCard } from "./finance-card";
 import { LettersCard } from "@/components/letters/letters-card";
+import { MortgagesCard } from "@/components/mortgages/mortgages-card";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, dealLabel, netProfit,
   hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
@@ -237,6 +238,14 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
         )}
 
         {property.section !== "managed" && <FinanceCard property={property} onSaved={setProperty} />}
+        {property.section !== "managed" && (
+          <MortgagesCard
+            property={property}
+            onChanged={() => {
+              api<{ property: Property }>("GET", `/api/properties/${property.id}`).then((r) => setProperty(r.property)).catch(() => {});
+            }}
+          />
+        )}
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <AccessCard property={property} />

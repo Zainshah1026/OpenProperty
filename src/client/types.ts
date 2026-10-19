@@ -470,3 +470,42 @@ export interface Letter {
   body?: string | null;
   fields?: Record<string, string> | null;
 }
+
+export type MortgageCharge = "first" | "second" | "bridging" | "other";
+export type RepaymentType = "interest_only" | "repayment" | "part_and_part";
+export type RateType = "fixed" | "tracker" | "variable" | "discount";
+
+export interface Mortgage {
+  id: number;
+  property_id: number | null;
+  lender: string;
+  account_ref: string | null;
+  borrower: string | null;
+  broker: string | null;
+  charge: MortgageCharge;
+  repayment_type: RepaymentType;
+  rate_type: RateType;
+  interest_rate: number | null;
+  deal_end: string | null;
+  follow_on_rate: number | null;
+  start_date: string | null;
+  term_end: string | null;
+  balance: number | null;
+  balance_as_of: string | null;
+  monthly_payment: number | null;
+  payment_day: number | null;
+  erc_until: string | null;
+  erc_note: string | null;
+  status: "active" | "redeemed";
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  property_name: string | null;
+  property_ref: string | null;
+  property_address: string | null;
+  property_owner: string | null;
+  property_section: string | null;
+  market_value: number | null;
+  ownership_share: number | null;
+  rent_in: number | null;
+}
