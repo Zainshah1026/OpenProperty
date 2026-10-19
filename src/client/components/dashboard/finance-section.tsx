@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Landmark, Percent, PiggyBank, Scale } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import type { FinanceGroup, FinanceSummary } from "@/types";
@@ -42,7 +43,7 @@ export function FinanceSection({ f, navigate }: { f: FinanceSummary; navigate: (
           icon={<PiggyBank className="h-4 w-4" />}
           label={jv ? "Our equity" : "Equity"}
           value={compactMoney(jv ? f.our_equity : f.equity)}
-          sub={jv ? `${compactMoney(f.equity)} across all JV homes` : `${f.unencumbered} homes mortgage-free`}
+          sub={jv ? `${compactMoney(f.equity)} including partners' shares` : `${f.unencumbered} homes mortgage-free`}
         />
         <Stat
           icon={<Percent className="h-4 w-4" />}
@@ -187,7 +188,7 @@ function CompanyTable({ rows }: { rows: FinanceGroup[] }) {
               <td className="py-2 text-right tabular-nums">{r.value ? compactMoney(r.value) : "—"}</td>
               <td className="py-2 text-right tabular-nums">{r.debt ? compactMoney(r.debt) : "—"}</td>
               <td className="py-2 pl-4">
-                {r.ltv === null ? <span className="text-faint">—</span> : (
+                {r.ltv === null || !r.debt ? <span className="text-faint">{r.value ? "No mortgage" : "—"}</span> : (
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted" aria-hidden>
                       <div className={cn("h-full rounded-full", r.ltv >= 0.85 ? "bg-destructive" : r.ltv >= 0.75 ? "bg-warning" : "bg-cat-teal-solid")} style={{ width: `${Math.min(100, r.ltv * 100)}%` }} />
@@ -196,7 +197,7 @@ function CompanyTable({ rows }: { rows: FinanceGroup[] }) {
                   </div>
                 )}
               </td>
-              <td className="py-2 text-right font-medium tabular-nums">{compactMoney(r.our_equity)}</td>
+              <td className="py-2 text-right font-medium tabular-nums">{r.value ? compactMoney(r.our_equity) : "—"}</td>
               <td className="py-2 text-right tabular-nums">{compactMoney(r.rent_in)}</td>
             </tr>
           ))}
@@ -220,9 +221,12 @@ function CompanyTable({ rows }: { rows: FinanceGroup[] }) {
 
 function LenderBars({ rows, total }: { rows: FinanceGroup[]; total: number }) {
   const max = Math.max(1, ...rows.map((r) => r.debt));
+  const [all, setAll] = useState(false);
+  const shown = all ? rows : rows.slice(0, 9);
   return (
+    <>
     <ul className="space-y-2.5">
-      {rows.map((r) => (
+      {shown.map((r) => (
         <li key={r.key}>
           <div className="flex items-baseline justify-between gap-2 text-sm">
             <span className="truncate font-medium">{r.key}</span>
@@ -234,5 +238,11 @@ function LenderBars({ rows, total }: { rows: FinanceGroup[]; total: number }) {
         </li>
       ))}
     </ul>
+    {rows.length > 9 && (
+      <button type="button" onClick={() => setAll(!all)} className="mt-3 text-xs font-medium text-primary hover:underline">
+        {all ? "Show fewer" : `Show all ${rows.length} lenders`}
+      </button>
+    )}
+    </>
   );
 }
