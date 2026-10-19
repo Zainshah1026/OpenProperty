@@ -39,7 +39,8 @@ export const isFreehold = (t: string | null | undefined) =>
 
 export const RENT_STATUS: { value: RentStatus; label: string }[] = [
   { value: "on_time", label: "On time" },
-  { value: "in_arrears", label: "In arrears" },
+  { value: "in_arrears", label: "Paid in arrears (agreed)" },
+  { value: "missed", label: "Missed rent" },
   { value: "in_advance", label: "Paid in advance" },
   { value: "ground_rent", label: "Ground rent" },
 ];
@@ -75,7 +76,8 @@ export function occupancyTone(o: Occupancy): "success" | "info" | "warning" | "d
 export function rentStatusTone(s: RentStatus | null): "success" | "info" | "destructive" | "neutral" {
   if (s === "on_time") return "success";
   if (s === "in_advance") return "info";
-  if (s === "in_arrears") return "destructive";
+  if (s === "missed") return "destructive";
+  if (s === "in_arrears") return "info";
   return "neutral";
 }
 

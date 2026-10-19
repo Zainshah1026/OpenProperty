@@ -73,12 +73,12 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
           tone={s.costs_missing ? "warn" : "default"}
         />
         <Kpi
-          label="Arrears"
+          label="Missed rent"
           value={money(s.arrears_total)}
-          sub={`${s.arrears_count} ${s.arrears_count === 1 ? "home" : "homes"} behind`}
+          sub={`${s.arrears_count ? `${s.arrears_count} ${s.arrears_count === 1 ? "home" : "homes"} owe rent` : "Nothing missed"}${s.paid_behind?.length ? ` · ${s.paid_behind.length} pay in arrears (agreed)` : ""}`}
           icon={<AlertTriangle className="h-4 w-4" />}
           tone={s.arrears_total > 0 ? "danger" : "default"}
-          onClick={() => navigate("/properties?status=in_arrears")}
+          onClick={() => navigate("/properties?status=missed")}
         />
         <Kpi
           label="Compliance"
@@ -104,7 +104,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         <Card className="p-5">
           <CardTitle title="Needs attention" action={{ label: "All properties", onClick: () => navigate("/properties") }} />
           {s.attention.length === 0 && s.arrears.length === 0 ? (
-            <Empty title="Nothing outstanding" message="Every home is let and paying." />
+            <Empty title="Nothing outstanding" message="Every home is let and no rent has been missed." />
           ) : (
             <ul className="divide-y">
               {s.attention.map((a) => (
@@ -124,7 +124,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{a.name}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {[a.tenant_label, a.months_arrears ? `${a.months_arrears} mo behind` : null].filter(Boolean).join(" · ") || a.owner}
+                        {["Missed rent", a.tenant_label, a.months_arrears ? `${a.months_arrears} mo` : null].filter(Boolean).join(" · ") || a.owner}
                       </span>
                     </span>
                     <span className="shrink-0 text-sm font-semibold tabular-nums text-destructive">{money(a.arrears_amount)}</span>
@@ -135,6 +135,47 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
           )}
         </Card>
       </section>
+
+      {!!s.paid_behind?.length && (
+        <Card className="p-5">
+          <CardTitle
+            title="Paid in arrears (agreed)"
+            sub="Rent that arrives a set time after the due date, by arrangement. Not owed; shown so you know what to expect and when."
+            action={{ label: "Show in Properties", onClick: () => navigate("/properties?status=in_arrears") }}
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="pb-2 font-medium">Home</th>
+                  <th className="pb-2 font-medium">Tenant / agent</th>
+                  <th className="pb-2 text-right font-medium">Pays behind by</th>
+                  <th className="pb-2 text-right font-medium">Rent / month</th>
+                  <th className="pb-2 text-right font-medium">Running behind</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {s.paid_behind.map((r) => (
+                  <tr key={r.id} className="cursor-pointer hover:bg-muted" onClick={() => navigate(`/properties/${r.id}`)}>
+                    <td className="max-w-[14rem] truncate py-2 pr-2 font-medium">{r.ref ? `${r.ref} · ` : ""}{r.name}</td>
+                    <td className="max-w-[10rem] truncate py-2 pr-2 text-muted-foreground">{r.tenant_label || r.owner || "—"}</td>
+                    <td className="py-2 text-right tabular-nums">{monthsLabel(r.months_arrears)}</td>
+                    <td className="py-2 text-right tabular-nums">{money(r.rent_in)}</td>
+                    <td className="py-2 text-right tabular-nums">{money(r.behind_amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t font-semibold">
+                  <td className="pt-2" colSpan={3}>{s.paid_behind.length} homes</td>
+                  <td className="pt-2 text-right tabular-nums">{money(s.paid_behind.reduce((a, r) => a + r.rent_in, 0))}</td>
+                  <td className="pt-2 text-right tabular-nums">{money(s.paid_behind_total ?? 0)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
@@ -238,6 +279,13 @@ function Kpi({
       </Tag>
     </Card>
   );
+}
+
+/** 1 → "1 month", 1.4 → "6 weeks", 2 → "2 months". */
+function monthsLabel(m: number): string {
+  if (!m || m === 1) return "1 month";
+  if (!Number.isInteger(m)) return `${Math.round(m * 4.345)} weeks`;
+  return `${m} months`;
 }
 
 /** "Good morning, Zain" by the UK clock. */

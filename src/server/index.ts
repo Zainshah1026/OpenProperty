@@ -122,7 +122,7 @@ function buildUpdate(fields: Record<string, unknown>): { sets: string[]; params:
 const PROPERTY_TYPES = ["flat", "maisonette", "terraced", "semi_detached", "detached", "bungalow", "commercial", "other"] as const;
 const DEAL_TYPES = ["owned", "joint_venture", "rent_to_rent", "ground_rent"] as const;
 const OCCUPANCY = ["occupied", "part_occupied", "vacant", "eviction"] as const;
-const RENT_STATUS = ["on_time", "in_arrears", "in_advance", "ground_rent"] as const;
+const RENT_STATUS = ["on_time", "in_arrears", "missed", "in_advance", "ground_rent"] as const;
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable();
 const dayOfMonth = z.number().int().min(1).max(31).optional().nullable();
 
@@ -1216,10 +1216,19 @@ app.get("/api/portfolio/summary", async (c) => {
     if (r.payment_out_day && r.rent_out) days[r.payment_out_day - 1].money_out += r.rent_out;
   }
 
+  // Two kinds of "behind":
+  //  - missed: rent that should have come in and didn't. Money owed.
+  //  - in_arrears: paid a set time after it is due, as agreed (e.g. an agent
+  //    who always pays a month behind). Normal, not a debt.
+  const owed = (r: Row) => r.arrears_amount || (r.months_arrears || 1) * (r.rent_in || 0);
   const arrears = rows
-    .filter((r) => r.rent_status === "in_arrears" || r.arrears_amount > 0)
-    .sort((a, b) => b.arrears_amount - a.arrears_amount)
-    .map((r) => ({ id: r.id, ref: r.ref, name: r.name, owner: r.owner, tenant_label: r.tenant_label, months_arrears: r.months_arrears, arrears_amount: r.arrears_amount }));
+    .filter((r) => r.rent_status === "missed")
+    .map((r) => ({ id: r.id, ref: r.ref, name: r.name, owner: r.owner, tenant_label: r.tenant_label, months_arrears: r.months_arrears, arrears_amount: owed(r) }))
+    .sort((a, b) => b.arrears_amount - a.arrears_amount);
+  const paidBehind = rows
+    .filter((r) => r.rent_status === "in_arrears")
+    .map((r) => ({ id: r.id, ref: r.ref, name: r.name, owner: r.owner, tenant_label: r.tenant_label, months_arrears: r.months_arrears || 1, rent_in: r.rent_in, behind_amount: r.arrears_amount || (r.months_arrears || 1) * (r.rent_in || 0) }))
+    .sort((a, b) => b.behind_amount - a.behind_amount);
 
   const attention = rows
     .filter((r) => r.occupancy === "vacant" || r.occupancy === "eviction")
@@ -1241,8 +1250,10 @@ app.get("/api/portfolio/summary", async (c) => {
       service_charge_received: sum(rows, (r) => r.service_charge_received),
     },
     costs_missing: rows.filter((r) => r.deal_type !== "ground_rent" && !r.rent_out && !r.other_costs && !r.ground_rent_paid && !r.service_charge_paid).length,
-    arrears_total: sum(rows, (r) => r.arrears_amount),
+    arrears_total: arrears.reduce((a, r) => a + r.arrears_amount, 0),
     arrears_count: arrears.length,
+    paid_behind: paidBehind,
+    paid_behind_total: paidBehind.reduce((a, r) => a + r.behind_amount, 0),
     compliance: { expired, due_soon: dueSoon, missing },
     by_owner: group((r) => r.owner || "Unassigned"),
     by_deal: group((r) => r.deal_type),

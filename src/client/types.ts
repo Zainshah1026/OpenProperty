@@ -3,7 +3,8 @@
 export type PropertyType = "flat" | "maisonette" | "terraced" | "semi_detached" | "detached" | "bungalow" | "commercial" | "other";
 export type DealType = "owned" | "joint_venture" | "rent_to_rent" | "ground_rent";
 export type Occupancy = "occupied" | "part_occupied" | "vacant" | "eviction";
-export type RentStatus = "on_time" | "in_arrears" | "in_advance" | "ground_rent";
+/** in_arrears = paid a set time late by agreement; missed = rent not paid (owed). */
+export type RentStatus = "on_time" | "in_arrears" | "missed" | "in_advance" | "ground_rent";
 
 export interface Property {
   id: number;
@@ -287,6 +288,8 @@ export interface PortfolioSummary {
   leasehold?: { ground_rent_paid: number; service_charge_paid: number; ground_rent_received: number; service_charge_received: number };
   arrears_total: number;
   arrears_count: number;
+  paid_behind?: { id: number; ref: string | null; name: string; owner: string | null; tenant_label: string | null; months_arrears: number; rent_in: number; behind_amount: number }[];
+  paid_behind_total?: number;
   compliance: { expired: number; due_soon: number; missing: number };
   by_owner: PortfolioGroup[];
   by_deal: PortfolioGroup[];
@@ -340,7 +343,7 @@ export interface Room {
   tenant_name: string | null;
   rent: number;
   pay_day: number | null;
-  rent_status: "on_time" | "in_arrears" | "empty" | null;
+  rent_status: "on_time" | "in_arrears" | "missed" | "empty" | null;
   start_date: string | null;
   end_date: string | null;
   notes: string | null;

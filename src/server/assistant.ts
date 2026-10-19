@@ -30,7 +30,7 @@ const TOOLS = [
       properties: {
         text: { type: "string", description: "Matches ref, address, postcode, owner or tenant/agent." },
         section: { type: "string", enum: ["owned", "managed"], description: "owned = our properties, managed = rent to rent." },
-        rent_status: { type: "string", enum: ["on_time", "in_arrears", "in_advance", "ground_rent"] },
+        rent_status: { type: "string", enum: ["on_time", "in_arrears", "missed", "in_advance", "ground_rent"] },
         occupancy: { type: "string", enum: ["occupied", "part_occupied", "vacant", "eviction"] },
         freehold_only: { type: "boolean" },
       },

@@ -153,7 +153,7 @@ export function CalendarCard({ navigate, currency, version }: { navigate: (to: s
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium">{e.title}</span>
                           <span className="block truncate text-xs text-muted-foreground">
-                            {e.detail}{e.status === "in_arrears" ? " · in arrears" : ""}
+                            {e.detail}{e.status === "missed" ? " · missed last time" : e.status === "in_arrears" ? " · pays in arrears" : ""}
                           </span>
                         </span>
                         {e.amount ? (

@@ -194,7 +194,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                         <td className="px-3 py-2.5">
                           {p.rent_status ? (
                             <Badge variant={rentStatusTone(p.rent_status)}>
-                              {p.rent_status === "in_arrears" && p.arrears_amount ? `Arrears ${money(p.arrears_amount)}` : rentStatusLabel(p.rent_status)}
+                              {p.rent_status === "missed" && p.arrears_amount ? `Missed ${money(p.arrears_amount)}` : p.rent_status === "in_arrears" ? `Paid ${p.months_arrears && p.months_arrears !== 1 ? `${p.months_arrears} mo` : "a month"} behind` : rentStatusLabel(p.rent_status)}
                             </Badge>
                           ) : <span className="text-muted-foreground">—</span>}
                         </td>

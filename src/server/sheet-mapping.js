@@ -86,7 +86,7 @@ const choose = (v, map, fallback) => {
 const DEAL = { jointventure: "joint_venture", jv: "joint_venture", owned: "owned", renttorent: "rent_to_rent", rtr: "rent_to_rent", groundrent: "ground_rent" };
 const TYPE = { flat: "flat", apartment: "flat", maisonette: "maisonette", terrace: "terraced", semi: "semi_detached", detached: "detached", bungalow: "bungalow", commercial: "commercial", shop: "commercial", office: "commercial" };
 const OCC = { occupied: "occupied", partoccupied: "part_occupied", part: "part_occupied", vacant: "vacant", empty: "vacant", eviction: "eviction" };
-const RENT = { ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", advance: "in_advance", inadvance: "in_advance", groundrent: "ground_rent" };
+const RENT = { missed: "missed", unpaid: "missed", notpaid: "missed", owed: "missed", paidinarrears: "in_arrears", agreed: "in_arrears", ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", weeksarrears: "in_arrears", weekarrears: "in_arrears", advance: "in_advance", inadvance: "in_advance", groundrent: "ground_rent" };
 const TENURE = { freeholdandleasehold: "freehold_and_leasehold", freeholdleasehold: "freehold_and_leasehold", both: "freehold_and_leasehold", freehold: "freehold", fh: "freehold", leasehold: "leasehold", lh: "leasehold", shareoffreehold: "share_of_freehold", share: "share_of_freehold", sof: "share_of_freehold" };
 const ENERGY = { allelectric: "all_electric", electriconly: "all_electric", electric: "all_electric", gas: "gas_electric", both: "gas_electric", dual: "gas_electric" };
 const LEAD = { new: "new", contacted: "contacted", viewing: "viewing", offer: "offer_made", underoffer: "under_offer", sstc: "under_offer", completed: "completed", sold: "completed", withdrawn: "withdrawn", dead: "withdrawn" };
@@ -177,7 +177,7 @@ export function toLead(r) {
   };
 }
 
-const ROOM_STATUS = { ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", roomempty: "empty", empty: "empty", vacant: "empty" };
+const ROOM_STATUS = { missed: "missed", unpaid: "missed", paidinarrears: "in_arrears", ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", roomempty: "empty", empty: "empty", vacant: "empty" };
 
 /** One row of the Tenants tab: a room and who pays for it. */
 export function toRoom(r, i) {

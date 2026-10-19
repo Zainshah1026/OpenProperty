@@ -17,7 +17,7 @@ export interface QuickAnswer {
 }
 
 export const QUICK_QUESTIONS = [
-  { id: "arrears", label: "Who's behind on rent?" },
+  { id: "arrears", label: "Who has missed rent, and who pays in arrears?" },
   { id: "week", label: "What's coming in and going out this week?" },
   { id: "certs", label: "Which certificates are expired or expiring?" },
   { id: "tenancies", label: "Which tenancies end in the next 2 months?" },
@@ -43,13 +43,23 @@ export async function quickAnswer(id: QuickId, currency: string): Promise<QuickA
 
   if (id === "arrears") {
     const s = await api<PortfolioSummary>("GET", "/api/portfolio/summary");
-    if (!s.arrears.length) return { text: "Nobody is marked as behind on rent. 🎉" };
-    const lines = s.arrears.map(
-      (a) => `• **${name(a.ref, a.name)}**${a.tenant_label ? ` (${a.tenant_label})` : ""}: ${a.arrears_amount ? money(a.arrears_amount) : "amount not recorded"}${a.months_arrears ? `, ${a.months_arrears} month${a.months_arrears === 1 ? "" : "s"}` : ""}`,
-    );
+    const behind = s.paid_behind ?? [];
+    const missed = s.arrears.length
+      ? `**Missed rent: ${s.arrears.length} ${s.arrears.length === 1 ? "home" : "homes"}, ${money(s.arrears_total)} owed.**\n${s.arrears
+          .map((a) => `• **${name(a.ref, a.name)}**${a.tenant_label ? ` (${a.tenant_label})` : ""}: ${money(a.arrears_amount)}${a.months_arrears ? `, ${a.months_arrears} month${a.months_arrears === 1 ? "" : "s"}` : ""}`)
+          .join("\n")}`
+      : "**No missed rent.** 🎉";
+    const agreed = behind.length
+      ? `\n\n**Paid in arrears by agreement: ${behind.length} homes** (not owed, just paid later):\n${behind
+          .map((a) => `• ${name(a.ref, a.name)}${a.tenant_label ? ` (${a.tenant_label})` : ""}: ${a.months_arrears === 1 ? "a month" : `${a.months_arrears} months`} behind`)
+          .join("\n")}`
+      : "";
     return {
-      text: `**${s.arrears.length} in arrears, ${money(s.arrears_total)} in total.**\n${lines.join("\n")}`,
-      links: [{ label: "Show them in Properties", to: "/properties?status=in_arrears" }],
+      text: missed + agreed,
+      links: [
+        ...(s.arrears.length ? [{ label: "Missed rent in Properties", to: "/properties?status=missed" }] : []),
+        ...(behind.length ? [{ label: "Paid in arrears in Properties", to: "/properties?status=in_arrears" }] : []),
+      ],
     };
   }
 

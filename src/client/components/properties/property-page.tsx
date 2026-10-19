@@ -350,7 +350,8 @@ function SummaryCard({ label, value, sub, tone = "default" }: { label: string; v
 
 const ROOM_STATUS: Record<string, { label: string; tone: "success" | "destructive" | "neutral" }> = {
   on_time: { label: "On time", tone: "success" },
-  in_arrears: { label: "In arrears", tone: "destructive" },
+  in_arrears: { label: "Paid in arrears", tone: "neutral" },
+  missed: { label: "Missed rent", tone: "destructive" },
   empty: { label: "Room empty", tone: "neutral" },
 };
 
