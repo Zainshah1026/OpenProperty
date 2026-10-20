@@ -509,4 +509,7 @@ export interface Mortgage {
   ownership_share: number | null;
   rent_in: number | null;
   doc_count?: number;
+  lease_end?: string | null;
+  lease_years?: number | null;
+  property_tenure?: string | null;
 }

@@ -103,6 +103,19 @@ export function interestOnlyDue(m: Mortgage): boolean {
   return months !== null && months < 60;
 }
 
+/** Years left on the home's lease, from its end date or the years recorded; null if not known. */
+export function leaseYearsLeft(m: Pick<Mortgage, "lease_end" | "lease_years">): number | null {
+  if (m.lease_end && /^\d{4}-\d{2}-\d{2}/.test(m.lease_end)) {
+    const ms = Date.parse(`${m.lease_end.slice(0, 10)}T00:00:00`) - Date.now();
+    return Number.isFinite(ms) ? ms / (365.25 * 86_400_000) : null;
+  }
+  return m.lease_years ?? null;
+}
+
+/** Under 80 years a lease costs more to extend and some lenders won't lend; under 90 is worth watching. */
+export const leaseTone = (years: number | null) => (years === null ? "" : years < 80 ? "text-destructive" : years < 90 ? "text-warning" : "");
+export const shortLease = (m: Mortgage) => m.status === "active" && (leaseYearsLeft(m) ?? 999) < 80;
+
 export const share = (m: Pick<Mortgage, "ownership_share">) => (m.ownership_share && m.ownership_share > 0 ? m.ownership_share / 100 : 1);
 
 /** Loan to value per home, adding up every active loan on it. */

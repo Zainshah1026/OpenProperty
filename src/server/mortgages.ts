@@ -47,6 +47,7 @@ const FIELDS = Object.keys(MortgageInput.shape) as (keyof z.infer<typeof Mortgag
 const SELECT = `
   SELECT m.*, p.name AS property_name, p.ref AS property_ref, p.address AS property_address, p.owner AS property_owner,
          p.market_value, p.ownership_share, p.rent_in, p.section AS property_section,
+         p.lease_end, p.lease_years, p.tenure AS property_tenure,
          (SELECT COUNT(*) FROM compliance_documents d WHERE d.mortgage_id = m.id) AS doc_count
   FROM mortgages m
   LEFT JOIN properties p ON p.id = m.property_id`;

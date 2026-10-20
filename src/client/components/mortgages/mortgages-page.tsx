@@ -12,8 +12,8 @@ import { PageShell } from "@/components/page-shell";
 import { compactMoney } from "@/components/dashboard/finance-section";
 import { MortgageDialog } from "./mortgage-dialog";
 import {
-  CHARGE_LABEL, DEAL_TONE, RATE_LABEL, REPAYMENT_LABEL, dealLabel, dealState, interestOnlyDue, ltvByProperty, monthsUntil,
-  paymentAfterDeal, paymentNow, pct, share,
+  CHARGE_LABEL, DEAL_TONE, RATE_LABEL, REPAYMENT_LABEL, dealLabel, dealState, interestOnlyDue, leaseTone, leaseYearsLeft, ltvByProperty, monthsUntil,
+  paymentAfterDeal, paymentNow, pct, share, shortLease,
 } from "./mortgage-math";
 
 type Suggestion = { id: number; ref: string | null; name: string; lender: string | null; mortgage_balance: number | null; fixed_rate_end: string | null };
@@ -75,7 +75,7 @@ export function MortgagesPage({ navigate }: { navigate: (to: string) => void }) 
       active
         .filter((m) => {
           const s = dealState(m);
-          return s === "ended" || ((monthsUntil(m.deal_end) ?? 99) < 12 && s !== "no_date") || interestOnlyDue(m);
+          return s === "ended" || ((monthsUntil(m.deal_end) ?? 99) < 12 && s !== "no_date") || interestOnlyDue(m) || shortLease(m);
         })
         .sort((a, b) => (a.deal_end ?? "9999").localeCompare(b.deal_end ?? "9999")),
     [active],
@@ -135,7 +135,7 @@ export function MortgagesPage({ navigate }: { navigate: (to: string) => void }) 
       {upcoming.length > 0 && (
         <Card className="p-5">
           <h2 className="flex items-center gap-2 text-[1.0625rem] font-semibold"><CalendarClock className="size-4 text-primary" /> Coming up</h2>
-          <p className="mb-3 mt-0.5 text-sm text-muted-foreground">Deals ending in the next 12 months, and interest-only loans that must be repaid within 5 years. Speak to your broker about 6 months before a deal ends.</p>
+          <p className="mb-3 mt-0.5 text-sm text-muted-foreground">Deals ending in the next 12 months, interest-only loans that must be repaid within 5 years, and homes with under 80 years left on the lease, which can make remortgaging harder. Speak to your broker about 6 months before a deal ends.</p>
           <ul className="divide-y">
             {upcoming.map((m) => {
               const now = paymentNow(m).amount;
@@ -149,6 +149,7 @@ export function MortgagesPage({ navigate }: { navigate: (to: string) => void }) 
                       <span className="block text-xs text-muted-foreground">{m.lender} · {formatMoney(m.balance)}</span>
                     </span>
                     {interestOnlyDue(m) && <Badge variant="warning">Interest only: repay by {formatDate(m.term_end)}</Badge>}
+                    {shortLease(m) && <Badge variant="destructive">Short lease: {Math.floor(leaseYearsLeft(m) ?? 0)} yrs left</Badge>}
                     {m.deal_end && <Badge variant={DEAL_TONE[dealState(m)]}>{dealLabel(m)} · {formatDate(m.deal_end)}</Badge>}
                     {rise != null && (
                       <span className={cn("text-sm tabular-nums", rise > 0 ? "text-destructive" : "text-muted-foreground")}>
@@ -235,7 +236,7 @@ export function MortgageTable({
 }) {
   return (
     <Card className="overflow-x-auto p-0">
-      <table className="w-full min-w-[860px] text-sm">
+      <table className="w-full min-w-[940px] text-sm">
         <thead>
           <tr className="border-b text-left text-xs text-muted-foreground">
             {!hideProperty && <th className="px-4 py-2.5 font-medium">Property</th>}
@@ -244,6 +245,7 @@ export function MortgageTable({
             <th className="px-4 py-2.5 font-medium">Deal</th>
             <th className="px-4 py-2.5 text-right font-medium">Balance</th>
             <th className="px-4 py-2.5 text-right font-medium">LTV</th>
+            <th className="px-4 py-2.5 text-right font-medium">Lease</th>
             <th className="px-4 py-2.5 text-right font-medium">Monthly</th>
             <th className="px-4 py-2.5 text-right font-medium">After deal</th>
           </tr>
@@ -296,6 +298,15 @@ export function MortgageTable({
                 <td className={cn("px-4 py-2.5 text-right tabular-nums", l !== null && l >= 0.85 ? "text-destructive" : l !== null && l >= 0.75 ? "text-warning" : "")}>
                   {l === null ? "—" : `${Math.round(l * 100)}%`}
                 </td>
+                {(() => {
+                  const y = leaseYearsLeft(m);
+                  return (
+                    <td className={cn("px-4 py-2.5 text-right tabular-nums", leaseTone(y))} title={m.lease_end ? `Lease ends ${formatDate(m.lease_end)}` : undefined}>
+                      {y !== null ? `${Math.floor(y)} yrs` : m.property_tenure === "freehold" ? <span className="text-muted-foreground">Freehold</span> : <span className="text-faint">—</span>}
+                      {m.lease_end && y !== null && <span className="block text-xs text-muted-foreground">to {new Date(`${m.lease_end.slice(0, 10)}T00:00:00`).getFullYear()}</span>}
+                    </td>
+                  );
+                })()}
                 <td className="px-4 py-2.5 text-right tabular-nums">
                   {formatMoney(now.amount)}
                   {now.estimated && now.amount != null && <span className="ml-1 text-xs text-muted-foreground">est.</span>}
