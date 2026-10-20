@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, KeyRound, Mail, Phone, Plus, Search } from "lucide-react";
+import { Copy, KeyRound, Mail, MailCheck, Phone, Plus, Search, Send } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
 import { cn, formatDate } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageShell } from "@/components/page-shell";
 import { SyncBanner } from "@/components/sync-banner";
+import { CAMPAIGN, EmailLeadsDialog } from "./email-leads-dialog";
 
 export const LETTINGS_STATUS: { value: LettingsStatus; label: string; tone: "neutral" | "info" | "warning" | "success" | "brand" }[] = [
   { value: "new", label: "New", tone: "brand" },
@@ -42,6 +43,14 @@ export function LettingsLeadsPage() {
   const [when, setWhen] = useState<string>("all");
   const [editing, setEditing] = useState<LettingsLead | null | undefined>(undefined);
 
+  const [emailing, setEmailing] = useState(false);
+  const [emailed, setEmailed] = useState<Map<string, string>>(new Map());
+  const loadEmailed = useCallback(() => {
+    api<{ sent: { email: string; sent_at: string; campaign: string }[] }>("GET", "/api/lettings-leads/email/status")
+      .then((r) => setEmailed(new Map(r.sent.filter((x) => x.campaign === CAMPAIGN).map((x) => [x.email.toLowerCase(), x.sent_at]))))
+      .catch(() => {});
+  }, []);
+  useEffect(loadEmailed, [loadEmailed]);
   const load = useCallback(() => {
     api<{ leads: LettingsLead[] }>("GET", "/api/lettings-leads").then((r) => setLeads(r.leads)).catch((e) => setError((e as Error).message));
   }, [setError]);
@@ -80,7 +89,12 @@ export function LettingsLeadsPage() {
     <PageShell
       title="Lettings leads"
       meta={leads ? `${counts.total} landlords · ${counts.fresh} new · ${counts.signed} signed` : "Loading…"}
-      actions={<Button onClick={() => setEditing(null)}><Plus /> New lead</Button>}
+      actions={
+        <>
+          <Button variant="secondary" onClick={() => setEditing(null)}><Plus /> <span className="hidden sm:inline">New lead</span></Button>
+          <Button onClick={() => setEmailing(true)}><Send /> Email landlords</Button>
+        </>
+      }
     >
       <SyncBanner onSynced={load} />
 
@@ -173,7 +187,13 @@ export function LettingsLeadsPage() {
                       <td className={cn("whitespace-nowrap px-3 py-2.5", (URGENCY[(l.when_to_let ?? "").toLowerCase()] ?? 9) === 0 && "font-medium text-success")}>{l.when_to_let || <span className="text-faint">—</span>}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-muted-foreground">{l.enquired_on ? formatDate(l.enquired_on, { day: "numeric", month: "short" }) : "—"}</td>
                       <td className="px-3 py-2.5"><Badge variant={STATUS[l.status]?.tone ?? "neutral"}>{STATUS[l.status]?.label ?? l.status}</Badge></td>
-                      <td className="max-w-[12rem] truncate px-3 py-2.5 text-muted-foreground">{l.next_action || "—"}</td>
+                      <td className="max-w-[12rem] truncate px-3 py-2.5 text-muted-foreground">
+                        {l.next_action || "—"}
+                        {l.email && emailed.has(l.email.toLowerCase()) && (
+                          <span className="block text-xs text-success" title={`Sent ${formatDate(emailed.get(l.email.toLowerCase()))}`}><MailCheck className="mr-0.5 inline size-3" />Emailed {formatDate(emailed.get(l.email.toLowerCase()), { day: "numeric", month: "short" })}</span>
+                        )}
+                        {l.do_not_email ? <span className="block text-xs text-destructive">Do not email</span> : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -185,6 +205,7 @@ export function LettingsLeadsPage() {
       </section>
 
       <LettingsLeadDialog lead={editing} onClose={(changed) => { setEditing(undefined); if (changed) load(); }} />
+      <EmailLeadsDialog open={emailing} onOpenChange={setEmailing} onSent={() => { load(); loadEmailed(); }} />
     </PageShell>
   );
 }
@@ -201,7 +222,7 @@ function LettingsLeadDialog({ lead, onClose }: { lead: LettingsLead | null | und
 
   useEffect(() => {
     if (!open) return;
-    const next: Record<string, string> = { status: lead?.status ?? "new" };
+    const next: Record<string, string> = { status: lead?.status ?? "new", do_not_email: lead?.do_not_email ? "1" : "" };
     for (const k of FIELDS) next[k] = lead?.[k] ?? "";
     setF(next);
     setMsg(null);
@@ -222,6 +243,7 @@ function LettingsLeadDialog({ lead, onClose }: { lead: LettingsLead | null | und
       const body: Record<string, unknown> = { status: f.status };
       for (const k of FIELDS) body[k] = f[k]?.trim() || null;
       body.name = f.name.trim();
+      body.do_not_email = !!f.do_not_email;
       if (lead) await api("PUT", `/api/lettings-leads/${lead.id}`, body);
       else await api("POST", "/api/lettings-leads", body);
       onClose(true);
@@ -286,6 +308,10 @@ function LettingsLeadDialog({ lead, onClose }: { lead: LettingsLead | null | und
             </div>
             <F label="Next action" k="next_action"><Input {...bind("next_action")} placeholder="e.g. Call back Thursday, book viewing" /></F>
             <F label="Notes" k="notes"><Textarea rows={3} {...bind("notes")} /></F>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" className="size-4" checked={!!f.do_not_email} onChange={(e) => setF((p) => ({ ...p, do_not_email: e.target.checked ? "1" : "" }))} />
+              Don't email this landlord (for example, they replied "stop")
+            </label>
             {msg && <p className="rounded-md bg-destructive-tint px-3 py-2 text-sm text-destructive" role="alert">{msg}</p>}
           </div>
           <DialogFooter className="mt-2">

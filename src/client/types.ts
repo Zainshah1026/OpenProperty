@@ -533,5 +533,6 @@ export interface LettingsLead {
   next_action: string | null;
   notes: string | null;
   origin: string | null;
+  do_not_email?: number | boolean | null;
   created_at: string;
 }

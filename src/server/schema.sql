@@ -443,3 +443,18 @@ CREATE TABLE IF NOT EXISTS sheet_deleted (
   sheet_key TEXT PRIMARY KEY,
   deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Emails sent to leads from the app (one row per person per campaign), so a
+-- campaign never goes to the same address twice.
+CREATE TABLE IF NOT EXISTS lead_emails (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  lead_type TEXT NOT NULL DEFAULT 'lettings',
+  lead_id INTEGER,
+  campaign TEXT NOT NULL,
+  email TEXT NOT NULL,
+  status TEXT NOT NULL,                        -- 'sent' | 'failed'
+  error TEXT,
+  sent_by TEXT,
+  sent_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_lead_emails_campaign ON lead_emails(campaign, email);

@@ -10,6 +10,7 @@ import { registerExtras } from "./extras";
 import { registerLetters } from "./letters";
 import { registerMortgages } from "./mortgages";
 import { registerLettingsLeads } from "./lettings-leads";
+import { registerLeadEmail } from "./lead-email";
 import { getUser, registerAuth } from "./auth";
 
 type Env = {
@@ -1499,6 +1500,7 @@ registerDocumentRoutes(app);
 registerExtras(app);
 registerLetters(app);
 registerMortgages(app);
+registerLeadEmail(app);
 registerLettingsLeads(app);
 
 // ── Health ─────────────────────────────────────────────────────────

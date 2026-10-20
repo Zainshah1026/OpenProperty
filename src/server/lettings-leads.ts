@@ -27,6 +27,7 @@ const Input = z.object({
   status: z.enum(LETTINGS_STATUSES).optional(),
   next_action: text(300),
   notes: text(4000),
+  do_not_email: z.boolean().optional(),
 });
 const FIELDS = Object.keys(Input.shape) as (keyof z.infer<typeof Input> & string)[];
 

@@ -15,12 +15,16 @@ import { setAdapter } from "./db";
 import { runSync, syncEnabled } from "./sync";
 import { setMailProvider } from "./mail";
 import { createImapProvider } from "./imap";
+import { createSmtpMailer } from "./smtp";
+import { setLeadMailer } from "./lead-email";
 import { generateRentInvoices } from "./rent-invoices";
 import { setDocumentStore } from "./documents";
 import { recordVoids } from "./extras";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
 setMailProvider(createImapProvider(process.env));
+// Sending to leads: the same mailbox logins, over SMTP (see src/server/smtp.ts).
+setLeadMailer(createSmtpMailer(process.env));
 {
   // Names only, never values: helps spot a mistyped or unsaved setting.
   const mailKeys = Object.keys(process.env).filter((k) => /mail/i.test(k)).sort();
@@ -83,6 +87,7 @@ for (const ddl of [
   "ALTER TABLE properties ADD COLUMN fixed_rate_end TEXT",
   "ALTER TABLE compliance_documents ADD COLUMN letter_id INTEGER",
   "ALTER TABLE compliance_documents ADD COLUMN mortgage_id INTEGER",
+  "ALTER TABLE lettings_leads ADD COLUMN do_not_email INTEGER NOT NULL DEFAULT 0",
 ]) {
   try { sqlite.exec(ddl); } catch { /* already there */ }
 }
