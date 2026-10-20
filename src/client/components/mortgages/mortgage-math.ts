@@ -112,8 +112,8 @@ export function leaseYearsLeft(m: Pick<Mortgage, "lease_end" | "lease_years">): 
   return m.lease_years ?? null;
 }
 
-/** Under 80 years a lease costs more to extend and some lenders won't lend; under 90 is worth watching. */
-export const leaseTone = (years: number | null) => (years === null ? "" : years < 80 ? "text-destructive" : years < 90 ? "text-warning" : "");
+/** Lease colours: red under 50 years, amber 50 to 79, green 80 and over. */
+export const leaseTone = (years: number | null) => (years === null ? "" : years < 50 ? "text-destructive" : years < 80 ? "text-warning" : "text-success");
 export const shortLease = (m: Mortgage) => m.status === "active" && (leaseYearsLeft(m) ?? 999) < 80;
 
 export const share = (m: Pick<Mortgage, "ownership_share">) => (m.ownership_share && m.ownership_share > 0 ? m.ownership_share / 100 : 1);

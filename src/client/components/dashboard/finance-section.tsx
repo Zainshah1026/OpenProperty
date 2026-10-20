@@ -81,16 +81,16 @@ export function FinanceSection({ f, navigate }: { f: FinanceSummary; navigate: (
           </ul>
         </Card>
         <Card className="p-5">
-          <Title title="Leases to watch" sub="Under 90 years left is harder to mortgage; under 80 gets costly to extend" />
-          {f.leases_under_90.length === 0 ? (
+          <Title title="Leases to watch" sub="Red under 50 years left, amber under 80. Under 80 gets costly to extend and harder to mortgage." />
+          {f.leases.filter((l) => l.years_left < 80).length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {f.leases.length ? `All ${f.leases.length} recorded leases have 90+ years left.` : "No lease lengths recorded yet."}
+              {f.leases.length ? `All ${f.leases.length} recorded leases have 80+ years left.` : "No lease lengths recorded yet."}
             </p>
           ) : (
             <ul className="divide-y">
-              {f.leases_under_90.map((l) => (
+              {f.leases.filter((l) => l.years_left < 80).map((l) => (
                 <Row key={l.id} onClick={() => navigate(`/properties/${l.id}`)} title={l.name} sub={l.lease_end ? `Ends ${formatDate(l.lease_end)}` : "Years remaining from the sheet"}>
-                  <span className={cn("text-sm font-semibold tabular-nums", l.years_left < 80 ? "text-destructive" : "text-warning")}>{Math.floor(l.years_left)} yrs</span>
+                  <span className={cn("text-sm font-semibold tabular-nums", l.years_left < 50 ? "text-destructive" : "text-warning")}>{Math.floor(l.years_left)} yrs</span>
                 </Row>
               ))}
             </ul>

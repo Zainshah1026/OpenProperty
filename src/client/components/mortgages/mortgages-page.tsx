@@ -149,7 +149,7 @@ export function MortgagesPage({ navigate }: { navigate: (to: string) => void }) 
                       <span className="block text-xs text-muted-foreground">{m.lender} · {formatMoney(m.balance)}</span>
                     </span>
                     {interestOnlyDue(m) && <Badge variant="warning">Interest only: repay by {formatDate(m.term_end)}</Badge>}
-                    {shortLease(m) && <Badge variant="destructive">Short lease: {Math.floor(leaseYearsLeft(m) ?? 0)} yrs left</Badge>}
+                    {shortLease(m) && <Badge variant={(leaseYearsLeft(m) ?? 0) < 50 ? "destructive" : "warning"}>Short lease: {Math.floor(leaseYearsLeft(m) ?? 0)} yrs left</Badge>}
                     {m.deal_end && <Badge variant={DEAL_TONE[dealState(m)]}>{dealLabel(m)} · {formatDate(m.deal_end)}</Badge>}
                     {rise != null && (
                       <span className={cn("text-sm tabular-nums", rise > 0 ? "text-destructive" : "text-muted-foreground")}>

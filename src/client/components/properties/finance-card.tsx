@@ -121,7 +121,7 @@ export function FinanceCard({ property: p, onSaved }: { property: Property; onSa
           {item(
             "Lease",
             yearsLeft === null ? (p.tenure === "freehold" ? "Freehold" : none) : `${Math.floor(yearsLeft)} years left${p.lease_end ? ` (to ${new Date(p.lease_end).getFullYear()})` : ""}`,
-            yearsLeft !== null && yearsLeft < 80 ? "text-destructive" : yearsLeft !== null && yearsLeft < 90 ? "text-warning" : undefined,
+            yearsLeft === null ? undefined : yearsLeft < 50 ? "text-destructive" : yearsLeft < 80 ? "text-warning" : "text-success",
           )}
         </dl>
       )}
