@@ -29,6 +29,7 @@ export interface SyncConfig {
   SHEET_COMPLIANCE_GID?: string;
   SHEET_SALES_GID?: string;
   SHEET_TENANTS_GID?: string;
+  SHEET_LETTINGS_GID?: string;
 }
 
 export interface SyncStatus {
@@ -40,6 +41,7 @@ export interface SyncStatus {
   properties: number;
   leads: number;
   rooms: number;
+  lettings: number;
 }
 
 const status: SyncStatus = {
@@ -51,6 +53,7 @@ const status: SyncStatus = {
   properties: 0,
   leads: 0,
   rooms: 0,
+  lettings: 0,
 };
 
 export function syncEnabled(cfg: SyncConfig): boolean {
@@ -115,6 +118,11 @@ const LEAD_COLUMNS = [
   "status", "next_action", "notes",
 ] as const;
 
+const LETTINGS_COLUMNS = [
+  "name", "phone", "email", "location", "postcode", "bedrooms", "property_type", "properties_owned",
+  "when_to_let", "source", "enquired_on", "status", "next_action", "notes",
+] as const;
+
 const ROOM_COLUMNS = ["room", "tenant_name", "tenant_email", "rent", "pay_day", "rent_status", "start_date", "end_date", "notes", "sort"] as const;
 
 const keyOf = (ref: unknown, address: unknown) =>
@@ -132,7 +140,9 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
     const compliance = await fetchTab(cfg, cfg.SHEET_COMPLIANCE_GID);
     const sales = await fetchTab(cfg, cfg.SHEET_SALES_GID);
     const tenants = await fetchTab(cfg, cfg.SHEET_TENANTS_GID);
-    const payload = buildPayload({ properties, rentToRent, compliance, sales, tenants });
+    const lettings = await fetchTab(cfg, cfg.SHEET_LETTINGS_GID);
+    const payload = buildPayload({ properties, rentToRent, compliance, sales, tenants, lettings });
+    const deleted = new Set((await query<{ sheet_key: string }>("SELECT sheet_key FROM sheet_deleted").catch(() => [])).map((r) => r.sheet_key));
 
     // A sheet that comes back empty is far more likely a publishing problem
     // than a sold-off portfolio: never wipe the database on it.
@@ -235,6 +245,7 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
         const n = (occurrences.get(base) ?? 0) + 1;
         occurrences.set(base, n);
         const k = n > 1 ? `${base}#${n}` : base;
+        if (deleted.has(k)) continue; // deleted in the app: stays deleted
         const id = byKey.get(k);
         if (id) {
           keep.add(id);
@@ -268,9 +279,59 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
       }
     }
 
-    const counts = await get<{ p: number; l: number }>(
-      "SELECT (SELECT COUNT(*) FROM properties) AS p, (SELECT COUNT(*) FROM sales_leads) AS l, (SELECT COUNT(*) FROM rooms) AS r",
+    if (cfg.SHEET_LETTINGS_GID) {
+      // Same rules as sales leads: added in the app stays, an app edit stays
+      // until that cell changes in the sheet, and a delete in the app sticks.
+      const rows = await query<{ id: number; sheet_key: string | null; origin: string | null }>("SELECT id, sheet_key, origin FROM lettings_leads");
+      const byKey = new Map(rows.filter((r) => r.sheet_key).map((r) => [r.sheet_key!, r.id]));
+      const seenRows = await query<{ prop_key: string; field: string; value: string | null }>("SELECT prop_key, field, value FROM sheet_seen WHERE prop_key LIKE 'let:%'");
+      const seen = new Map(seenRows.map((r) => [`${r.prop_key}|${r.field}`, r.value]));
+      const remember = (k: string, col: string, v: string) =>
+        run("INSERT INTO sheet_seen (prop_key, field, value) VALUES (?, ?, ?) ON CONFLICT(prop_key, field) DO UPDATE SET value = excluded.value", [k, col, v]);
+      const occurrences = new Map<string, number>();
+      const keep = new Set<number>();
+      for (const l of payload.lettings) {
+        const who = String(l.phone ?? l.email ?? "").replace(/\s/g, "").toLowerCase();
+        const base = `let:${String(l.name).trim().toLowerCase()}|${who}`;
+        const n = (occurrences.get(base) ?? 0) + 1;
+        occurrences.set(base, n);
+        const k = n > 1 ? `${base}#${n}` : base;
+        if (deleted.has(k)) continue;
+        const id = byKey.get(k);
+        if (id) {
+          keep.add(id);
+          const sets: string[] = [];
+          const params: unknown[] = [];
+          for (const col of LETTINGS_COLUMNS) {
+            const v = l[col] === undefined ? null : l[col];
+            const sv = JSON.stringify(v);
+            if (seen.get(`${k}|${col}`) === sv) continue;
+            sets.push(`${col} = ?`);
+            params.push(v);
+            await remember(k, col, sv);
+          }
+          if (sets.length) await run(`UPDATE lettings_leads SET ${sets.join(", ")} WHERE id = ?`, [...params, id]);
+        } else {
+          const r = await run(
+            `INSERT INTO lettings_leads (${LETTINGS_COLUMNS.join(", ")}, origin, sheet_key) VALUES (${LETTINGS_COLUMNS.map(() => "?").join(", ")}, 'sheet', ?)`,
+            [...LETTINGS_COLUMNS.map((c) => (l[c] === undefined ? null : l[c])), k],
+          );
+          keep.add(r.lastInsertRowid);
+          for (const col of LETTINGS_COLUMNS) await remember(k, col, JSON.stringify(l[col] === undefined ? null : l[col]));
+        }
+      }
+      for (const r of rows) {
+        if (!keep.has(r.id) && r.origin !== "app") {
+          await run("DELETE FROM lettings_leads WHERE id = ?", [r.id]);
+          if (r.sheet_key) await run("DELETE FROM sheet_seen WHERE prop_key = ?", [r.sheet_key]);
+        }
+      }
+    }
+
+    const counts = await get<{ p: number; l: number; t?: number }>(
+      "SELECT (SELECT COUNT(*) FROM properties) AS p, (SELECT COUNT(*) FROM sales_leads) AS l, (SELECT COUNT(*) FROM rooms) AS r, (SELECT COUNT(*) FROM lettings_leads) AS t",
     );
+    status.lettings = Number(counts?.t ?? 0);
     status.rooms = Number((counts as { r?: number } | undefined)?.r ?? 0);
     status.properties = Number(counts?.p ?? 0);
     status.leads = Number(counts?.l ?? 0);

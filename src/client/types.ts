@@ -513,3 +513,25 @@ export interface Mortgage {
   lease_years?: number | null;
   property_tenure?: string | null;
 }
+
+export type LettingsStatus = "new" | "contacted" | "viewing" | "offer_sent" | "signed" | "not_interested";
+
+export interface LettingsLead {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  location: string | null;
+  postcode: string | null;
+  bedrooms: string | null;
+  property_type: string | null;
+  properties_owned: string | null;
+  when_to_let: string | null;
+  source: string | null;
+  enquired_on: string | null;
+  status: LettingsStatus;
+  next_action: string | null;
+  notes: string | null;
+  origin: string | null;
+  created_at: string;
+}

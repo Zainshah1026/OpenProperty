@@ -409,3 +409,37 @@ CREATE TABLE IF NOT EXISTS mortgages (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_mortgages_property ON mortgages(property_id);
+
+-- ── Lettings leads ─────────────────────────────────────────────────
+-- Landlords who want to let a property to us (guaranteed rent ads and the
+-- Chisti & Co lead form). Kept in the sheet's Lettings Leads tab, with the
+-- same rule as sales leads: an edit made in the app stays until that cell
+-- changes in the sheet.
+CREATE TABLE IF NOT EXISTS lettings_leads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  location TEXT,
+  postcode TEXT,
+  bedrooms TEXT,                               -- as the form gave it: '1–2', '3–4', '5+', 'En-suite room'
+  property_type TEXT,
+  properties_owned TEXT,                       -- '1', '2–5', '6–10', '10+'
+  when_to_let TEXT,                            -- 'Immediately', 'Within 30 days', '1–3 months', 'Just exploring'
+  source TEXT,                                 -- which ad or form
+  enquired_on TEXT,                            -- yyyy-mm-dd
+  status TEXT NOT NULL DEFAULT 'new',          -- 'new' | 'contacted' | 'viewing' | 'offer_sent' | 'signed' | 'not_interested'
+  next_action TEXT,
+  notes TEXT,
+  origin TEXT,                                 -- 'sheet' | 'app'
+  sheet_key TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_lettings_leads_status ON lettings_leads(status);
+
+-- Leads deleted in the app that are still in the sheet: the sync skips them,
+-- so a delete sticks without having to remove the row from the sheet too.
+CREATE TABLE IF NOT EXISTS sheet_deleted (
+  sheet_key TEXT PRIMARY KEY,
+  deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

@@ -180,6 +180,31 @@ export function toLead(r) {
   };
 }
 
+const LETTING = { new: "new", contacted: "contacted", called: "contacted", viewing: "viewing", inspection: "viewing", offer: "offer_sent", proposal: "offer_sent", signed: "signed", won: "signed", let: "signed", notinterested: "not_interested", lost: "not_interested", dead: "not_interested", no: "not_interested" };
+
+/** One row of the Lettings Leads tab: a landlord who wants to let to us. */
+export function toLettingsLead(r) {
+  const contact = pick(r, "Contact");
+  const email = contact.match(/[^\s|,;]+@[^\s|,;]+/)?.[0] ?? null;
+  const phone = contact.replace(email ?? "", "").replace(/[|,;]/g, " ").trim() || null;
+  return {
+    name: pick(r, "Name", "Full name", "Landlord"),
+    phone,
+    email,
+    location: text(pick(r, "Location", "Property Location")),
+    postcode: text(pick(r, "Postcode")),
+    bedrooms: text(pick(r, "Bedrooms")),
+    property_type: text(pick(r, "Property Type")),
+    properties_owned: text(pick(r, "Properties Owned", "How many")),
+    when_to_let: text(pick(r, "When To Let", "Available")),
+    source: text(pick(r, "Source", "Form")),
+    enquired_on: date(pick(r, "Enquired", "Date")),
+    status: choose(pick(r, "Status"), LETTING, "new"),
+    next_action: text(pick(r, "Next Action")),
+    notes: text(pick(r, "Notes")),
+  };
+}
+
 const ROOM_STATUS = { missed: "missed", unpaid: "missed", paidinarrears: "in_arrears", ontime: "on_time", paid: "on_time", inarrears: "in_arrears", arrears: "in_arrears", roomempty: "empty", empty: "empty", vacant: "empty" };
 
 /** One row of the Tenants tab: a room and who pays for it. */
@@ -215,5 +240,6 @@ export function buildPayload(csv) {
   const properties = [...fromTab(csv.properties, "owned"), ...fromTab(csv.rentToRent, "managed")];
   const leads = parseCsv(csv.sales ?? "").map(toLead).filter((l) => l.landlord_name);
   const rooms = parseCsv(csv.tenants ?? "").map(toRoom).filter((r) => r.ref);
-  return { properties, leads, rooms };
+  const lettings = parseCsv(csv.lettings ?? "").map(toLettingsLead).filter((l) => l.name);
+  return { properties, leads, rooms, lettings };
 }

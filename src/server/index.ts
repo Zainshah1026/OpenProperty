@@ -9,6 +9,7 @@ import { registerDocumentRoutes } from "./documents";
 import { registerExtras } from "./extras";
 import { registerLetters } from "./letters";
 import { registerMortgages } from "./mortgages";
+import { registerLettingsLeads } from "./lettings-leads";
 import { getUser, registerAuth } from "./auth";
 
 type Env = {
@@ -39,6 +40,7 @@ type Env = {
     SHEET_TENANTS_GID?: string;
     SHEET_COMPLIANCE_GID?: string;
     SHEET_SALES_GID?: string;
+    SHEET_LETTINGS_GID?: string;
   };
 };
 
@@ -1423,8 +1425,11 @@ app.put("/api/sales-leads/:id", async (c) => {
 app.delete("/api/sales-leads/:id", async (c) => {
   const id = intParam(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid ID" }, 400);
+  const row = await get<{ sheet_key: string | null }>("SELECT sheet_key FROM sales_leads WHERE id = ?", [id]);
   const r = await run("DELETE FROM sales_leads WHERE id = ?", [id]);
   if (!r.changes) return c.json({ error: "Not found" }, 404);
+  // Still in the sheet? Remember the delete so the next sync doesn't bring it back.
+  if (row?.sheet_key) await run("INSERT OR IGNORE INTO sheet_deleted (sheet_key) VALUES (?)", [row.sheet_key]);
   return c.json({ ok: true });
 });
 
@@ -1494,6 +1499,7 @@ registerDocumentRoutes(app);
 registerExtras(app);
 registerLetters(app);
 registerMortgages(app);
+registerLettingsLeads(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 

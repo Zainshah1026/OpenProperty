@@ -23,6 +23,7 @@ import { LettersPage } from "./components/letters/letters-page";
 import { CommandPalette } from "./components/command-palette";
 import { LetterPage } from "./components/letters/letter-page";
 import { MortgagesPage } from "./components/mortgages/mortgages-page";
+import { LettingsLeadsPage } from "./components/sales/lettings-leads-page";
 
 /** A record page keeps its collection's row lit. */
 function activeFor(route: Route, path: string): string {
@@ -94,6 +95,7 @@ export function App() {
               {route.name === "letters" && <LettersPage navigate={navigate} />}
               {route.name === "letter" && <LetterPage key={route.id} id={route.id} navigate={navigate} />}
               {route.name === "mortgages" && <MortgagesPage navigate={navigate} />}
+              {route.name === "lettings-leads" && <LettingsLeadsPage />}
               {route.name === "not-found" && (
                 <Placeholder title="Not found" message="That page doesn't exist." />
               )}

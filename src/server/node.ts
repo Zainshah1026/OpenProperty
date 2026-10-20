@@ -252,7 +252,7 @@ const SYNC_MINUTES = Math.max(1, Number(process.env.SYNC_MINUTES || 5));
 async function syncOnce(when: string) {
   try {
     const s = await runSync(env);
-    console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.rooms} rooms, ${s.leads} leads`);
+    console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.rooms} rooms, ${s.leads} leads, ${s.lettings} lettings leads`);
     await recordVoids().catch((err) => console.error(`Empty periods: ${(err as Error).message}`));
   } catch (err) {
     console.error(`Sheet sync (${when}) failed: ${(err as Error).message}`);
