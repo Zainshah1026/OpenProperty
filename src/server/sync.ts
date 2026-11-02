@@ -125,7 +125,7 @@ const LETTINGS_COLUMNS = [
 
 const ROOM_COLUMNS = ["room", "tenant_name", "tenant_email", "rent", "pay_day", "rent_status", "start_date", "end_date", "notes", "sort"] as const;
 
-const keyOf = (ref: unknown, address: unknown) =>
+export const keyOf = (ref: unknown, address: unknown) =>
   ref ? `ref:${String(ref).trim().toLowerCase()}` : `addr:${String(address ?? "").trim().toLowerCase()}`;
 
 export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
@@ -168,6 +168,7 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
       for (const p of payload.properties) {
         const k = keyOf(p.ref, p.address);
         const addr = String(p.address ?? "").trim().toLowerCase();
+        if (deleted.has(k)) continue; // deleted in the app: stays deleted
         const id = existing.get(k) ?? (addr ? byAddress.get(addr) : undefined);
         if (id && !inSheet.has(id)) {
           inSheet.add(id);

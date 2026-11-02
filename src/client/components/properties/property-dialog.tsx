@@ -13,6 +13,8 @@ import type { DealType, NewProperty, Occupancy, Property, PropertyType, RentStat
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called after a delete instead of closing, so the page can leave a home that no longer exists. */
+  onDeleted?: () => void;
   property?: Property;
   onSaved?: (p: Property) => void;
 }
@@ -40,7 +42,7 @@ function toForm(p?: Property): Form {
   return f;
 }
 
-export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props) {
+export function PropertyDialog({ open, onOpenChange, property, onSaved, onDeleted }: Props) {
   const app = useApp();
   const [f, setF] = useState<Form>(() => toForm(property));
   const [confirming, setConfirming] = useState(false);
@@ -87,7 +89,9 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved }: Props)
     if (!property) return;
     try {
       await app.deleteProperty(property.id);
-      onOpenChange(false);
+      setConfirming(false);
+      if (onDeleted) onDeleted();
+      else onOpenChange(false);
     } catch (err) {
       app.setError((err as Error).message);
     }

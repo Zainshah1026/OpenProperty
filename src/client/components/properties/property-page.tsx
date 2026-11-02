@@ -45,7 +45,10 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
 
   async function load() {
     try {
-      setLoading(true);
+      // Only the first load shows the loading screen: swapping the page out on
+      // a refresh unmounts any dialog that is still closing and leaves the page
+      // unclickable.
+      if (!property) setLoading(true);
       const [{ property: p }, ulist, wlist, rlist] = await Promise.all([
         api<{ property: Property }>("GET", `/api/properties/${id}`),
         app.listUnits(id),
@@ -333,6 +336,15 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
       <PropertyDialog
         open={editingProperty}
         onOpenChange={(o) => { setEditingProperty(o); if (!o) load(); }}
+        onDeleted={() => {
+          setEditingProperty(false);
+          // Let the dialogs finish closing before leaving, and make sure the
+          // page is clickable again on the list.
+          setTimeout(() => {
+            document.body.style.pointerEvents = "";
+            navigate("/properties");
+          }, 250);
+        }}
         property={property}
       />
       <UnitDialog

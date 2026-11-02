@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { initDB, query, get, run } from "./db";
-import { runSync, syncStatus } from "./sync";
+import { keyOf, runSync, syncStatus } from "./sync";
 import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
 import { mailProvider, registerMailRoutes } from "./mail";
@@ -246,8 +246,18 @@ app.put("/api/properties/:id", async (c) => {
 app.delete("/api/properties/:id", async (c) => {
   const id = intParam(c.req.param("id"));
   if (!id) return c.json({ error: "Invalid ID" }, 400);
+  const row = await get<{ ref: string | null; address: string | null; origin: string | null }>(
+    "SELECT ref, address, origin FROM properties WHERE id = ?",
+    [id],
+  );
   const r = await run("DELETE FROM properties WHERE id = ?", [id]);
   if (!r.changes) return c.json({ error: "Not found" }, 404);
+  // Came from the sheet? Remember the delete so the next sync doesn't bring it back.
+  if (row && row.origin !== "app") {
+    const k = keyOf(row.ref, row.address);
+    await run("INSERT OR IGNORE INTO sheet_deleted (sheet_key) VALUES (?)", [k]);
+    await run("DELETE FROM sheet_seen WHERE prop_key = ?", [k]);
+  }
   return c.json({ ok: true });
 });
 
