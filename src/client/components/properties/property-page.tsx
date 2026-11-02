@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Building2, MapPin, Pencil, Plus, Wrench } from "lucide-react";
+import { ArrowLeft, Building2, ChevronRight, MapPin, Pencil, Plus, Wrench } from "lucide-react";
 import { useApp } from "@/context";
 import { api } from "@/api";
 import { cn, colorClasses, formatDate, formatMoney } from "@/lib/utils";
@@ -19,10 +19,12 @@ import { FinanceCard } from "./finance-card";
 import { LettersCard } from "@/components/letters/letters-card";
 import { MortgagesCard } from "@/components/mortgages/mortgages-card";
 import {
-  CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, certNeeded, certState, dealLabel, netProfit,
+  CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, SECTIONS, certNeeded, certState, dealLabel, netProfit,
   hasLeaseholdFigures, isFreehold, leaseholdNet, occupancyLabel, occupancyTone, ordinal, propertyTypeLabel, rentStatusLabel, rentStatusTone, tenureLabel,
 } from "@/lib/portfolio";
 
+
+type Tab = "overview" | "compliance" | "money" | "rooms" | "letters" | "maintenance" | "files";
 
 const STATUS_TONE: Record<string, string> = {
   vacant: "bg-warning-tint text-warning",
@@ -42,6 +44,7 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   const [editingUnit, setEditingUnit] = useState<Unit | undefined>(undefined);
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [woDialogOpen, setWoDialogOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("overview");
 
   async function load() {
     try {
@@ -88,250 +91,338 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   }
 
   const palette = colorClasses(property.color);
+  const linkRoom = async (room: string, tid: number | null) => {
+    await api("PUT", `/api/properties/${property.id}/room-tenant`, { room, tenant_id: tid });
+    const r = await api<{ rooms: Room[] }>("GET", `/api/properties/${property.id}/rooms`);
+    setRooms(r.rooms);
+  };
   const openWorkOrders = workOrders.filter((w) => w.status !== "completed" && w.status !== "cancelled");
+
+  const money = (n: number) => formatMoney(n, app.settings.currency);
+  const sectionInfo = SECTIONS.find((x) => x.value === property.section) ?? SECTIONS[0];
+  const backHref = `/properties?section=${property.section}`;
+  const showRooms = rooms.length > 0 || property.hmo === 1 || property.occupancy === "part_occupied";
+  const showMoney = property.section !== "managed";
+  const certIssues = CERTIFICATES.filter((c) => certNeeded(property, c.key) && ["expired", "due_soon"].includes(certState(property[c.key])));
+  const tabs: { id: Tab; label: string; count?: number; hidden?: boolean }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "compliance", label: "Compliance", count: certIssues.length || undefined },
+    { id: "money", label: "Money", hidden: !showMoney },
+    { id: "rooms", label: showRooms ? "Rooms & units" : "Units" },
+    { id: "letters", label: "Letters" },
+    { id: "maintenance", label: "Maintenance", count: openWorkOrders.length || undefined },
+    { id: "files", label: "Access & files" },
+  ];
+  const current = tabs.find((t) => t.id === tab && !t.hidden) ? tab : "overview";
+
+  const workOrderList = (list: WorkOrder[], empty: string) =>
+    list.length === 0 ? (
+      <Card className="p-8 text-center text-sm text-muted-foreground">{empty}</Card>
+    ) : (
+      <Card className="divide-y">
+        {list.map((w) => (
+          <div key={w.id} className="flex items-center justify-between gap-4 p-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{w.title}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {[w.unit_name, w.vendor_name, formatDate(w.created_at)].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Badge variant="neutral" className="capitalize">{w.priority}</Badge>
+              <Badge variant="secondary" className="capitalize">{w.status.replace("_", " ")}</Badge>
+            </div>
+          </div>
+        ))}
+      </Card>
+    );
+
+  const certTiles = (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {CERTIFICATES.map((c) => {
+        if (!certNeeded(property, c.key)) {
+          return (
+            <div key={c.key} className="rounded-md border p-3">
+              <div className="stat-label">{c.label}</div>
+              <div className="mt-1 text-sm font-medium">Not needed</div>
+              <p className="mt-2 text-xs text-muted-foreground">All electric</p>
+            </div>
+          );
+        }
+        const date = property[c.key];
+        const st = certState(date);
+        return (
+          <div key={c.key} className="rounded-md border p-3">
+            <div className="stat-label">{c.label}</div>
+            <div className="mt-1 text-sm font-medium tabular-nums">{date ? formatDate(date) : "Not recorded"}</div>
+            <Badge variant={CERT_TONE[st]} className="mt-2">{CERT_LABEL[st]}</Badge>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const fact = (label: string, value: React.ReactNode) => (
+    <div className="flex items-baseline justify-between gap-3 py-1.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 truncate text-right font-medium">{value || <span className="font-normal text-faint">—</span>}</dd>
+    </div>
+  );
 
   return (
     <PageShell
       title={
-        <button
-          type="button"
-          onClick={() => navigate("/properties")}
-          className="inline-flex items-center gap-1.5 text-[1.375rem] font-semibold leading-tight tracking-[-0.01em] transition-colors duration-150 hover:text-muted-foreground"
-        >
-          <ArrowLeft className="size-4 text-muted-foreground" aria-hidden />
-          Properties
-        </button>
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 font-sans text-sm font-medium text-muted-foreground">
+          <button type="button" onClick={() => navigate(backHref)} className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+            <ArrowLeft className="size-4" aria-hidden />
+            {sectionInfo.label}
+          </button>
+          <ChevronRight className="size-3.5 text-faint" aria-hidden />
+          <span className="truncate text-foreground">{property.ref ? `Ref ${property.ref}` : property.name}</span>
+        </nav>
       }
-      width="max-w-7xl"
+      width="max-w-[90rem]"
     >
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className={cn("flex size-12 items-center justify-center rounded-md", palette.bg, palette.text)}>
-              <Building2 className="size-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-[1.375rem] font-semibold leading-tight tracking-[-0.01em]">{property.name}</h1>
-                <span className="rounded-full border bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {propertyTypeLabel(property.type)}
-                </span>
-              </div>
-              {(property.address || property.city) && (
-                <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {[property.address, property.zip].filter(Boolean).join(", ")}
-                </p>
-              )}
+      {/* Record header */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className={cn("flex size-14 shrink-0 items-center justify-center rounded-md", palette.bg, palette.text)}>
+            <Building2 className="size-7" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="display truncate text-[1.75rem] font-medium leading-tight md:text-[2rem]">{property.name}</h1>
+            {(property.address || property.zip) && (
+              <p className="mt-1 flex items-center gap-1 truncate text-sm text-muted-foreground">
+                <MapPin className="size-3.5 shrink-0" />
+                {[property.address, property.zip].filter(Boolean).join(", ")}
+              </p>
+            )}
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="badge-tone tone-info">{sectionInfo.label}</span>
+              <Badge variant={occupancyTone(property.occupancy)}>{occupancyLabel(property.occupancy)}</Badge>
+              {property.rent_status && <Badge variant={rentStatusTone(property.rent_status)}>{rentStatusLabel(property.rent_status)}</Badge>}
+              {certIssues.length > 0 && <span className="badge-tone tone-danger">{certIssues.length} certificate{certIssues.length === 1 ? "" : "s"} to sort</span>}
+              {openWorkOrders.length > 0 && <span className="badge-tone tone-warning">{openWorkOrders.length} open repair{openWorkOrders.length === 1 ? "" : "s"}</span>}
             </div>
           </div>
-          <Button variant="outline" onClick={() => setEditingProperty(true)}>
-            <Pencil className="mr-1 h-4 w-4" /> Edit property
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="outline" onClick={() => setWoDialogOpen(true)}>
+            <Wrench className="mr-1.5 size-4" /> Log repair
           </Button>
-        </header>
+          <Button onClick={() => setEditingProperty(true)}>
+            <Pencil className="mr-1.5 size-4" /> Edit
+          </Button>
+        </div>
+      </header>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {property.ref && <span className="chip">Ref {property.ref}</span>}
-          <span className="chip">{dealLabel(property.deal_type)}</span>
-          {property.tenure && <span className="chip">{tenureLabel(property.tenure)}</span>}
-          {property.owner && <span className="chip">{property.owner}</span>}
-          {property.bedrooms ? <span className="chip">{property.bedrooms} bed</span> : null}
-          {property.hmo ? <span className="chip">HMO</span> : null}
-          <Badge variant={occupancyTone(property.occupancy)}>{occupancyLabel(property.occupancy)}</Badge>
-          {property.rent_status && (
-            <Badge variant={rentStatusTone(property.rent_status)}>{rentStatusLabel(property.rent_status)}</Badge>
+      {/* Headline numbers */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <SummaryCard label="Rent in" value={money(property.rent_in)} sub={property.rent_in_day ? `arrives on the ${ordinal(property.rent_in_day)}` : undefined} />
+        <SummaryCard
+          label="Rent / mortgage out"
+          value={money(property.rent_out + property.other_costs)}
+          sub={property.payment_out_day ? `leaves on the ${ordinal(property.payment_out_day)}` : property.rent_out || property.other_costs ? undefined : "no costs entered"}
+        />
+        <SummaryCard
+          label="Net profit"
+          value={money(netProfit(property))}
+          sub={property.rent_in ? `${Math.round((netProfit(property) / property.rent_in) * 100)}% margin` : undefined}
+          tone={netProfit(property) < 0 ? "warn" : "good"}
+        />
+        <SummaryCard
+          label="Arrears"
+          value={property.arrears_amount ? money(property.arrears_amount) : "None"}
+          sub={property.months_arrears ? `${property.months_arrears} months behind` : undefined}
+          tone={property.arrears_amount > 0 ? "warn" : "default"}
+        />
+      </section>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        {/* Main column: tabs */}
+        <div className="min-w-0 space-y-5">
+          <div className="-mx-1 overflow-x-auto border-b" role="tablist" aria-label="Property sections">
+            <div className="flex min-w-max gap-1 px-1">
+              {tabs.filter((t) => !t.hidden).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={current === t.id}
+                  onClick={() => setTab(t.id)}
+                  className={cn(
+                    "-mb-px inline-flex h-10 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors",
+                    current === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                  {t.count ? <span className="rounded-full bg-muted px-1.5 text-[11px] tabular-nums text-muted-foreground">{t.count}</span> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {current === "overview" && (
+            <>
+              <Card className="p-5">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold">Compliance at a glance</h2>
+                  <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setTab("compliance")}>Certificates &amp; documents →</button>
+                </div>
+                {certTiles}
+              </Card>
+              <LeaseholdCard property={property} currency={app.settings.currency} />
+              {showRooms && rooms.length > 0 && (
+                <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} onLink={linkRoom} />
+              )}
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold">Open repairs</h2>
+                  <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setTab("maintenance")}>All maintenance →</button>
+                </div>
+                {workOrderList(openWorkOrders.slice(0, 5), "Nothing open. Log a repair with the button at the top.")}
+              </section>
+            </>
+          )}
+
+          {current === "compliance" && (
+            <Card className="p-5">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">Certificates</h2>
+                <EnergyPicker property={property} />
+              </div>
+              {certTiles}
+              <h2 className="mb-3 mt-6 text-sm font-semibold">Certificates &amp; documents</h2>
+              <DocumentsPanel property={property} />
+            </Card>
+          )}
+
+          {current === "money" && showMoney && (
+            <>
+              <FinanceCard property={property} onSaved={setProperty} />
+              <MortgagesCard
+                property={property}
+                onChanged={() => {
+                  api<{ property: Property }>("GET", `/api/properties/${property.id}`).then((r) => setProperty(r.property)).catch(() => {});
+                }}
+              />
+              <LeaseholdCard property={property} currency={app.settings.currency} />
+            </>
+          )}
+
+          {current === "rooms" && (
+            <>
+              {showRooms && <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} onLink={linkRoom} />}
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-[1.0625rem] font-semibold leading-tight">Units</h2>
+                  <Button size="sm" onClick={() => { setEditingUnit(undefined); setUnitDialogOpen(true); }}>
+                    <Plus className="mr-1 h-4 w-4" /> New unit
+                  </Button>
+                </div>
+                {units.length === 0 ? (
+                  <Card className="p-8 text-center text-sm text-muted-foreground">No units yet. Add one to start tracking leases and rent.</Card>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {units.map((u) => (
+                      <Card key={u.id} className="cursor-pointer p-4 transition-colors duration-150 hover:bg-muted" onClick={() => { setEditingUnit(u); setUnitDialogOpen(true); }}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold">{u.name}</h3>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {u.bedrooms} bed · {u.bathrooms} bath{u.sqft ? ` · ${u.sqft} sq ft` : ""}
+                            </p>
+                          </div>
+                          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize", STATUS_TONE[u.status])}>{u.status}</span>
+                        </div>
+                        <div className="mt-3 flex items-end justify-between border-t pt-3">
+                          <div>
+                            <div className="stat-label">Market rent</div>
+                            <div className="text-sm font-semibold tabular-nums">{money(u.market_rent)}</div>
+                          </div>
+                          {u.active_tenant_name && <div className="text-right text-xs text-muted-foreground">{u.active_tenant_name}</div>}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </section>
+              <VoidsCard property={property} />
+            </>
+          )}
+
+          {current === "letters" && <LettersCard propertyId={property.id} navigate={navigate} />}
+
+          {current === "maintenance" && (
+            <section className="space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[1.0625rem] font-semibold leading-tight">Work orders</h2>
+                <Button size="sm" variant="outline" onClick={() => setWoDialogOpen(true)}>
+                  <Plus className="mr-1 h-4 w-4" /> New work order
+                </Button>
+              </div>
+              {workOrderList(workOrders, "No work orders for this property.")}
+              <RepairQrCard property={property} />
+            </section>
+          )}
+
+          {current === "files" && (
+            <>
+              <AccessCard property={property} />
+              <MediaCard property={property} />
+            </>
           )}
         </div>
 
-        <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <SummaryCard label="Rent in" value={formatMoney(property.rent_in, app.settings.currency)} sub={property.rent_in_day ? `arrives on the ${ordinal(property.rent_in_day)}` : undefined} />
-          <SummaryCard
-            label="Rent / mortgage out"
-            value={formatMoney(property.rent_out + property.other_costs, app.settings.currency)}
-            sub={property.payment_out_day ? `leaves on the ${ordinal(property.payment_out_day)}` : property.rent_out || property.other_costs ? undefined : "no costs entered"}
-          />
-          <SummaryCard
-            label="Net profit"
-            value={formatMoney(netProfit(property), app.settings.currency)}
-            sub={property.rent_in ? `${Math.round((netProfit(property) / property.rent_in) * 100)}% margin` : undefined}
-            tone={netProfit(property) < 0 ? "warn" : "default"}
-          />
-          <SummaryCard
-            label="Arrears"
-            value={property.arrears_amount ? formatMoney(property.arrears_amount, app.settings.currency) : "None"}
-            sub={property.months_arrears ? `${property.months_arrears} months behind` : undefined}
-            tone={property.arrears_amount > 0 ? "warn" : "default"}
-          />
-        </section>
-
-        <LeaseholdCard property={property} currency={app.settings.currency} />
-
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Card className="p-5 lg:col-span-2">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Compliance</h2>
-              <EnergyPicker property={property} />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              {CERTIFICATES.map((c) => {
-                if (!certNeeded(property, c.key)) {
-                  return (
-                    <div key={c.key} className="rounded-md border p-3">
-                      <div className="stat-label">{c.label}</div>
-                      <div className="mt-1 text-sm font-medium">Not needed</div>
-                      <p className="mt-2 text-xs text-muted-foreground">All electric</p>
-                    </div>
-                  );
-                }
-                const date = property[c.key];
-                const st = certState(date);
-                return (
-                  <div key={c.key} className="rounded-md border p-3">
-                    <div className="stat-label">{c.label}</div>
-                    <div className="mt-1 text-sm font-medium tabular-nums">{date ? formatDate(date) : "Not recorded"}</div>
-                    <Badge variant={CERT_TONE[st]} className="mt-2">{CERT_LABEL[st]}</Badge>
-                  </div>
-                );
-              })}
-            </div>
-            <h2 className="mb-3 mt-5 text-sm font-semibold">Certificates &amp; documents</h2>
-            <DocumentsPanel property={property} />
-          </Card>
+        {/* Details panel */}
+        <aside className="space-y-4 lg:sticky lg:top-0 lg:self-start">
           <Card className="p-5">
-            <h2 className="mb-3 text-sm font-semibold">Letting</h2>
-            <dl className="space-y-2 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <dt className="text-muted-foreground">Tenant</dt>
-                <dd className="text-right">
-                  <TenantPicker
-                    value={property.tenant_id}
-                    placeholder={property.tenant_label ? `${property.tenant_label} (from sheet)` : "Choose tenant…"}
-                    onChange={async (tid) => {
-                      await api("PUT", `/api/properties/${property.id}`, { tenant_id: tid });
-                      const { property: p } = await api<{ property: Property }>("GET", `/api/properties/${property.id}`);
-                      setProperty(p);
-                    }}
-                  />
-                </dd>
-              </div>
-              {property.tenant_id && property.tenant_label && property.tenant_label !== property.tenant_name && (
-                <div className="flex justify-between gap-3 text-xs"><dt className="text-muted-foreground">Sheet says</dt><dd className="text-right text-muted-foreground">{property.tenant_label}</dd></div>
-              )}
-              {property.tenant_id && (
-                <div className="text-right text-xs"><button type="button" className="text-primary hover:underline" onClick={() => navigate(`/tenants/${property.tenant_id}`)}>Open tenant</button></div>
-              )}
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Energy</dt><dd className="text-right font-medium">{property.energy ? ENERGY_LABEL[property.energy] : "—"}</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Owner</dt><dd className="text-right font-medium">{property.owner || "—"}</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Open work orders</dt><dd className="text-right font-medium">{openWorkOrders.length}</dd></div>
-            </dl>
-            {property.notes && <p className="mt-4 whitespace-pre-line border-t pt-3 text-sm text-muted-foreground">{property.notes}</p>}
+            <h2 className="mb-2 text-sm font-semibold">Tenant</h2>
+            <TenantPicker
+              value={property.tenant_id}
+              placeholder={property.tenant_label ? `${property.tenant_label} (from sheet)` : "Choose tenant…"}
+              onChange={async (tid) => {
+                await api("PUT", `/api/properties/${property.id}`, { tenant_id: tid });
+                const { property: p } = await api<{ property: Property }>("GET", `/api/properties/${property.id}`);
+                setProperty(p);
+              }}
+            />
+            {property.tenant_id && property.tenant_label && property.tenant_label !== property.tenant_name && (
+              <p className="mt-2 text-xs text-muted-foreground">Sheet says: {property.tenant_label}</p>
+            )}
+            {property.tenant_id && (
+              <button type="button" className="mt-2 text-xs font-medium text-primary hover:underline" onClick={() => navigate(`/tenants/${property.tenant_id}`)}>
+                Open tenant →
+              </button>
+            )}
           </Card>
-        </section>
 
-        {(rooms.length > 0 || property.hmo === 1 || property.occupancy === "part_occupied") && (
-          <RoomsSection
-            rooms={rooms}
-            property={property}
-            currency={app.settings.currency}
-            onLink={async (room, tid) => {
-              await api("PUT", `/api/properties/${property.id}/room-tenant`, { room, tenant_id: tid });
-              const r = await api<{ rooms: Room[] }>("GET", `/api/properties/${property.id}/rooms`);
-              setRooms(r.rooms);
-            }}
-          />
-        )}
+          <Card className="p-5">
+            <h2 className="mb-1 text-sm font-semibold">About this home</h2>
+            <dl className="divide-y divide-border/60 text-sm">
+              {fact("Ref", property.ref)}
+              {fact("Sits in", sectionInfo.label)}
+              {fact("Deal", dealLabel(property.deal_type))}
+              {fact("Owner", property.owner)}
+              {fact("Type", propertyTypeLabel(property.type))}
+              {fact("Bedrooms", property.bedrooms ? `${property.bedrooms}${property.hmo ? " · HMO" : ""}` : property.hmo ? "HMO" : null)}
+              {fact("Tenure", property.tenure ? tenureLabel(property.tenure) : null)}
+              {fact("Energy", property.energy ? ENERGY_LABEL[property.energy] : null)}
+              {fact("Open repairs", String(openWorkOrders.length))}
+            </dl>
+          </Card>
 
-        {property.section !== "managed" && <FinanceCard property={property} onSaved={setProperty} />}
-        {property.section !== "managed" && (
-          <MortgagesCard
-            property={property}
-            onChanged={() => {
-              api<{ property: Property }>("GET", `/api/properties/${property.id}`).then((r) => setProperty(r.property)).catch(() => {});
-            }}
-          />
-        )}
-
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <AccessCard property={property} />
-          <RepairQrCard property={property} />
-        </section>
-
-        <LettersCard propertyId={property.id} navigate={navigate} />
-
-        <VoidsCard property={property} />
-        <MediaCard property={property} />
-
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[1.0625rem] font-semibold leading-tight">Units</h2>
-            <Button size="sm" onClick={() => { setEditingUnit(undefined); setUnitDialogOpen(true); }}>
-              <Plus className="mr-1 h-4 w-4" /> New unit
-            </Button>
-          </div>
-          {units.length === 0 ? (
-            <Card className="p-8 text-center text-sm text-muted-foreground">
-              No units yet. Add one to start tracking leases and rent.
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {units.map((u) => (
-                <Card key={u.id} className="cursor-pointer p-4 transition-colors duration-150 hover:bg-muted" onClick={() => { setEditingUnit(u); setUnitDialogOpen(true); }}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold">{u.name}</h3>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {u.bedrooms} bed · {u.bathrooms} bath{u.sqft ? ` · ${u.sqft} sq ft` : ""}
-                      </p>
-                    </div>
-                    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize", STATUS_TONE[u.status])}>
-                      {u.status}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-end justify-between border-t pt-3">
-                    <div>
-                      <div className="stat-label">Market rent</div>
-                      <div className="text-sm font-semibold tabular-nums">{formatMoney(u.market_rent, app.settings.currency)}</div>
-                    </div>
-                    {u.active_tenant_name && (
-                      <div className="text-right text-xs text-muted-foreground">{u.active_tenant_name}</div>
-                    )}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[1.0625rem] font-semibold leading-tight">Work orders</h2>
-            <Button size="sm" variant="outline" onClick={() => setWoDialogOpen(true)}>
-              <Plus className="mr-1 h-4 w-4" /> New work order
-            </Button>
-          </div>
-          {workOrders.length === 0 ? (
-            <Card className="p-8 text-center text-sm text-muted-foreground">No work orders for this property.</Card>
-          ) : (
-            <Card className="divide-y">
-              {workOrders.map((w) => (
-                <div key={w.id} className="flex items-center justify-between gap-4 p-4">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{w.title}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[w.unit_name, w.vendor_name, formatDate(w.created_at)].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant="neutral" className="capitalize">{w.priority}</Badge>
-                    <Badge variant="secondary" className="capitalize">{w.status.replace("_", " ")}</Badge>
-                  </div>
-                </div>
-              ))}
+          {property.notes && (
+            <Card className="p-5">
+              <h2 className="mb-2 text-sm font-semibold">Notes</h2>
+              <p className="whitespace-pre-line text-sm text-muted-foreground">{property.notes}</p>
             </Card>
           )}
-        </section>
+        </aside>
+      </div>
 
       <PropertyDialog
         open={editingProperty}
@@ -362,11 +453,11 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   );
 }
 
-function SummaryCard({ label, value, sub, tone = "default" }: { label: string; value: string; sub?: string; tone?: "default" | "warn" }) {
+function SummaryCard({ label, value, sub, tone = "default" }: { label: string; value: string; sub?: string; tone?: "default" | "warn" | "good" }) {
   return (
     <Card className="p-4">
       <div className="stat-label">{label}</div>
-      <div className={cn("mt-1 text-xl font-semibold tabular-nums", tone === "warn" && "text-warning")}>{value}</div>
+      <div className={cn("display mt-1.5 text-[1.625rem] font-medium leading-none tabular-nums", tone === "warn" && "text-warning", tone === "good" && "text-success")}>{value}</div>
       <div className="mt-0.5 h-4 truncate text-xs text-muted-foreground">{sub}</div>
     </Card>
   );

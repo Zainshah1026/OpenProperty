@@ -17,6 +17,11 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
     items: [
       { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Portfolio",
+    items: [
       { id: "properties", label: "Owned", href: "/properties?section=owned", icon: Building2 },
       { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: Home },
       { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: Landmark },

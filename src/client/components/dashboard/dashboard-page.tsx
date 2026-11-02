@@ -91,8 +91,6 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
       </section>
 
       <RentReady compact navigate={navigate} />
-      <CalendarCard navigate={navigate} currency={settings.currency} version={version} />
-
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <CardTitle title="Cashflow through the month" sub="Rent arriving and rent / mortgage going out, by day of the month" />
@@ -133,6 +131,9 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
           )}
         </Card>
       </section>
+
+      <CalendarCard navigate={navigate} currency={settings.currency} version={version} />
+
 
       {!!s.paid_behind?.length && (
         <Card className="p-5">
@@ -189,7 +190,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
           <GroupTable rows={s.by_owner} label={(k) => k} money={money} />
         </Card>
         <Card className="p-5">
-          <CardTitle title="Ours vs rent to rent" sub="Homes we own (with joint ventures) and homes we manage or rent from landlords" />
+          <CardTitle title="By section" sub="Owned (with joint ventures), Freehold, and Rent to rent homes we manage or rent from landlords" />
           <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "Rent to rent" : k === "freehold" ? "Freehold" : "Owned")} money={money} />
           <div className="mt-5">
             <CardTitle title="By deal type" sub="Owned, joint venture, managed, rent to rent, ground rent" />

@@ -459,8 +459,15 @@ main table thead th {
   letter-spacing: 0.01em;
   color: var(--muted-foreground);
 }
+main table thead th {
+  text-transform: none;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
 main table tbody td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 main table tbody tr { transition: background-color 120ms ease; }
+/* CRM-style row hover on every list, so the row under the cursor is obvious. */
+main table tbody tr:hover { background: color-mix(in srgb, var(--muted) 70%, transparent); }
 
 /* Agent mode (?agent / mode=agent sets data-agent on <html>): interactive
  * targets grow, and hover-only affordances become always-visible. */
