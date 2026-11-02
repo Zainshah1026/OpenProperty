@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CERTIFICATES, DEAL_TYPES, OCCUPANCY, PROPERTY_TYPES, RENT_STATUS, TENURES } from "@/lib/portfolio";
+import { CERTIFICATES, DEAL_TYPES, OCCUPANCY, PROPERTY_TYPES, RENT_STATUS, SECTIONS, TENURES } from "@/lib/portfolio";
 import type { DealType, NewProperty, Occupancy, Property, PropertyType, RentStatus } from "@/types";
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Called after a delete instead of closing, so the page can leave a home that no longer exists. */
   onDeleted?: () => void;
+  /** Where a new home goes, e.g. the tab it was added from. */
+  defaultSection?: Property["section"];
   property?: Property;
   onSaved?: (p: Property) => void;
 }
@@ -27,7 +29,7 @@ const NUM = ["rent_in", "rent_out", "other_costs", "months_arrears", "arrears_am
 const INT = ["bedrooms", "rent_in_day", "payment_out_day", "year_built"] as const;
 const DATES = CERTIFICATES.map((c) => c.key);
 
-function toForm(p?: Property): Form {
+function toForm(p?: Property, defaultSection?: Property["section"]): Form {
   const f: Form = {};
   for (const k of [...TEXT, ...NUM, ...INT, ...DATES]) {
     const v = p ? (p as unknown as Record<string, unknown>)[k] : undefined;
@@ -39,17 +41,18 @@ function toForm(p?: Property): Form {
   f.rent_status = p?.rent_status ?? "on_time";
   f.hmo = p?.hmo ? "1" : "0";
   f.tenure = p?.tenure ?? "unknown";
+  f.section = p?.section ?? defaultSection ?? "owned";
   return f;
 }
 
-export function PropertyDialog({ open, onOpenChange, property, onSaved, onDeleted }: Props) {
+export function PropertyDialog({ open, onOpenChange, property, onSaved, onDeleted, defaultSection }: Props) {
   const app = useApp();
-  const [f, setF] = useState<Form>(() => toForm(property));
+  const [f, setF] = useState<Form>(() => toForm(property, defaultSection));
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setF(toForm(property));
+    if (open) setF(toForm(property, defaultSection));
   }, [open, property]);
 
   const set = (k: string) => (v: string) => setF((prev) => ({ ...prev, [k]: v }));
@@ -74,6 +77,7 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved, onDelete
       payload.occupancy = f.occupancy as Occupancy;
       payload.rent_status = f.rent_status as RentStatus;
       payload.hmo = f.hmo === "1" ? 1 : 0;
+      payload.section = f.section as Property["section"];
       payload.tenure = f.tenure === "unknown" ? null : (f.tenure as Property["tenure"]);
       const saved = property ? await app.updateProperty(property.id, payload) : await app.createProperty(payload);
       onSaved?.(saved);
@@ -126,6 +130,9 @@ export function PropertyDialog({ open, onOpenChange, property, onSaved, onDelete
             </Section>
 
             <Section title="Ownership & letting">
+              <Field label="Show in" hint="Which list this home sits in">
+                <Choice value={f.section} onChange={set("section")} options={SECTIONS} />
+              </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Owner / company" hint="For rent to rent, the landlord you rent from"><Input {...bind("owner")} list="owner-options" /></Field>
                 <Field label="Deal type"><Choice value={f.deal_type} onChange={set("deal_type")} options={DEAL_TYPES} /></Field>

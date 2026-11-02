@@ -142,7 +142,7 @@ const PropertyInput = z.object({
   year_built: z.number().int().optional().nullable(),
   owner: z.string().optional().nullable(),
   deal_type: z.enum(DEAL_TYPES).optional(),
-  section: z.enum(["owned", "managed"]).optional(),
+  section: z.enum(["owned", "managed", "freehold"]).optional(),
   tenure: z.enum(["freehold", "leasehold", "share_of_freehold", "freehold_and_leasehold"]).optional().nullable(),
   energy: z.enum(["all_electric", "gas_electric"]).optional().nullable(),
   /** The tenant chosen from the Tenants list (kept in the app, not the sheet). */

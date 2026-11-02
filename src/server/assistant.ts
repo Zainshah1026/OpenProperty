@@ -29,7 +29,7 @@ const TOOLS = [
       type: "object",
       properties: {
         text: { type: "string", description: "Matches ref, address, postcode, owner or tenant/agent." },
-        section: { type: "string", enum: ["owned", "managed"], description: "owned = our properties, managed = rent to rent." },
+        section: { type: "string", enum: ["owned", "managed", "freehold"], description: "owned = owned homes, managed = rent to rent, freehold = homes where we hold the freehold." },
         rent_status: { type: "string", enum: ["on_time", "in_arrears", "missed", "in_advance", "ground_rent"] },
         occupancy: { type: "string", enum: ["occupied", "part_occupied", "vacant", "eviction"] },
         freehold_only: { type: "boolean" },
@@ -227,7 +227,7 @@ function systemPrompt(who: string): string {
 
 Answer from the live data using the tools; never guess figures. Rents are per calendar month unless a field says per year (ground rent and service charge are yearly). Use British English and pounds (£). Keep answers short and practical: lead with the answer, then the few details that matter. Refer to properties by ref and address.
 
-"Our properties" are section owned (including joint ventures); "rent to rent" (section managed) are homes we rent from a landlord and let out, where rent_out is what we pay the landlord. Arrears: rent_status in_arrears, with months_arrears and arrears_amount.
+"Owned" homes are section owned (including joint ventures), "Freehold" homes are section freehold (also ours); "rent to rent" (section managed) are homes we rent from a landlord and let out, where rent_out is what we pay the landlord. Arrears: rent_status in_arrears, with months_arrears and arrears_amount.
 
 You can draft invoices with draft_invoice. You cannot send email or messages. After drafting, say the draft number and total, and tell the user to check it on the Invoices page and press Send. If the email address or amount is unclear, ask before drafting. Do not invent email addresses.
 

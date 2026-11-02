@@ -190,7 +190,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         </Card>
         <Card className="p-5">
           <CardTitle title="Ours vs rent to rent" sub="Homes we own (with joint ventures) and homes we manage or rent from landlords" />
-          <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "Rent to rent" : "Our properties")} money={money} />
+          <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "Rent to rent" : k === "freehold" ? "Freehold" : "Owned")} money={money} />
           <div className="mt-5">
             <CardTitle title="By deal type" sub="Owned, joint venture, managed, rent to rent, ground rent" />
             <GroupTable rows={s.by_deal} label={dealLabel} money={money} />

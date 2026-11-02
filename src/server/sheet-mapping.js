@@ -107,6 +107,10 @@ export function toProperty(r, compliance, section = "owned") {
   const deal = choose(pick(r, "Deal Type"), DEAL, section === "managed" ? "rent_to_rent" : "owned");
   // Homes we only manage for their owner sit with rent to rent, whichever tab they are on.
   if (deal === "managed") section = "managed";
+  const tenure = choose(pick(r, "Tenure"), TENURE, null);
+  // Owned homes where we hold the freehold sit under Freehold. A move made in
+  // the app stays, since the sync only rewrites a field when the sheet changes it.
+  if (section === "owned" && ["freehold", "share_of_freehold", "freehold_and_leasehold"].includes(tenure)) section = "freehold";
 
   return {
     ref: text(ref),
@@ -119,7 +123,7 @@ export function toProperty(r, compliance, section = "owned") {
     owner: text(pick(r, "Owner", "Landlord")),
     deal_type: deal,
     section,
-    tenure: choose(pick(r, "Tenure"), TENURE, null),
+    tenure,
     ground_rent_paid: money(pick(r, "Ground Rent Paid")),
     service_charge_paid: money(pick(r, "Service Charge Paid")),
     ground_rent_received: money(pick(r, "Ground Rent Received")),

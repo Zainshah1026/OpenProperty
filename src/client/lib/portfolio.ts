@@ -27,6 +27,13 @@ export const OCCUPANCY: { value: Occupancy; label: string }[] = [
   { value: "eviction", label: "Eviction in process" },
 ];
 
+/** Which list a home sits in. */
+export const SECTIONS: { value: "owned" | "managed" | "freehold"; label: string }[] = [
+  { value: "owned", label: "Owned" },
+  { value: "managed", label: "Rent to rent" },
+  { value: "freehold", label: "Freehold" },
+];
+
 export const TENURES: { value: "freehold" | "leasehold" | "share_of_freehold" | "freehold_and_leasehold"; label: string }[] = [
   { value: "freehold", label: "Freehold" },
   { value: "freehold_and_leasehold", label: "Freehold & leasehold (we hold both)" },

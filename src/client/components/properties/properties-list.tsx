@@ -21,7 +21,7 @@ type Section = "all" | "owned" | "managed" | "freehold";
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "owned", label: "Our properties" },
+  { value: "owned", label: "Owned" },
   { value: "managed", label: "Rent to rent (managed)" },
   { value: "freehold", label: "Freehold" },
 ];
@@ -30,17 +30,15 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
   const { properties: allProperties, settings } = useApp();
   const counts = {
     all: allProperties.length,
-    owned: allProperties.filter((p) => p.section !== "managed").length,
+    owned: allProperties.filter((p) => p.section === "owned").length,
     managed: allProperties.filter((p) => p.section === "managed").length,
-    freehold: allProperties.filter((p) => isFreehold(p.tenure)).length,
+    freehold: allProperties.filter((p) => p.section === "freehold").length,
   };
   const properties = useMemo(
     () =>
       section === "all"
         ? allProperties
-        : section === "freehold"
-          ? allProperties.filter((p) => isFreehold(p.tenure))
-          : allProperties.filter((p) => (p.section === "managed") === (section === "managed")),
+        : allProperties.filter((p) => p.section === section),
     [allProperties, section],
   );
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -77,7 +75,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
 
   return (
     <PageShell
-      title={section === "managed" ? "Rent to rent" : section === "owned" ? "Our properties" : section === "freehold" ? "Freehold" : "Properties"}
+      title={section === "managed" ? "Rent to rent" : section === "owned" ? "Owned" : section === "freehold" ? "Freehold" : "Properties"}
       meta={`${filtered ? `${rows.length} of ` : ""}${properties.length} ${properties.length === 1 ? "home" : "homes"} · ${money(totals.in)} rent in · ${money(totals.net)} net`}
       actions={
         <Button onClick={() => setDialogOpen(true)}>
@@ -108,7 +106,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
       )}
       {section === "freehold" && (
         <p className="text-xs text-muted-foreground">
-          Homes where we own the freehold (or a share of it). Set this in the Tenure column on the Properties and Rent to Rent tabs of the sheet.
+          Homes where we own the freehold (or a share of it). Owned homes marked Freehold in the sheet's Tenure column land here; move any home with "Show in" on its edit screen.
           {counts.freehold === 0 && " No homes are marked yet."}
         </p>
       )}
@@ -224,7 +222,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
         </>
       )}
 
-      <PropertyDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <PropertyDialog open={dialogOpen} onOpenChange={setDialogOpen} defaultSection={section === "all" ? undefined : section} />
     </PageShell>
   );
 }
