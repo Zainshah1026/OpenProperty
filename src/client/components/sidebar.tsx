@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Banknote, Briefcase, Building2, CircleDollarSign, ClipboardCheck, ClipboardList, FileSignature, FileText, Home, Inbox, KeyRound, Landmark,
-  LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users, Wrench, X,
+  LayoutDashboard, LogOut, Map as MapIcon, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users, Wrench, X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
       { id: "properties", label: "Owned", href: "/properties?section=owned", icon: Building2 },
       { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: Home },
       { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: Landmark },
+      { id: "map", label: "Map", href: "/map", icon: MapIcon },
       { id: "mortgages", label: "Mortgages", href: "/mortgages", icon: Banknote },
       { id: "tenants", label: "Tenants", href: "/tenants", icon: Users },
     ],
