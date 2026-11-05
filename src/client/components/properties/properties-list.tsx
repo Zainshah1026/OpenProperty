@@ -68,9 +68,25 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
   }, [properties, q, owner, deal, occ, rent]);
 
   const totals = rows.reduce(
-    (a, p) => ({ in: a.in + (p.rent_in || 0), net: a.net + netProfit(p), arrears: a.arrears + (p.arrears_amount || 0) }),
-    { in: 0, net: 0, arrears: 0 },
+    (a, p) => ({
+      in: a.in + (p.rent_in || 0),
+      net: a.net + netProfit(p),
+      arrears: a.arrears + (p.arrears_amount || 0),
+      gr: a.gr + (p.ground_rent_paid || 0) - (p.ground_rent_received || 0),
+      sc: a.sc + (p.service_charge_paid || 0) - (p.service_charge_received || 0),
+    }),
+    { in: 0, net: 0, arrears: 0, gr: 0, sc: 0 },
   );
+  // Ground rent and service charge columns appear on the Freehold page only.
+  const showCharges = section === "freehold";
+  // Yearly ground rent / service charge cell: what we pay, or what we receive (shown in green with +).
+  const yearly = (paid: number, received: number) => {
+    if (paid > 0) return money(paid);
+    if (received > 0) return <span className="text-success" title="We receive this">+{money(received)}</span>;
+    return <span className="text-muted-foreground">—</span>;
+  };
+  const yearlyTotal = (n: number) =>
+    n === 0 ? "" : n > 0 ? money(n) : <span className="text-success">+{money(-n)}</span>;
   const filtered = rows.length !== properties.length;
 
   return (
@@ -152,7 +168,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
 
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] text-sm">
+              <table className={cn("w-full text-sm", showCharges ? "min-w-[1180px]" : "min-w-[960px]")}>
                 <thead className="border-b bg-muted/40 text-left text-[0.8125rem] text-muted-foreground">
                   <tr>
                     <th className="h-10 px-3 font-medium">Ref</th>
@@ -163,6 +179,12 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                     <th className="h-10 px-3 text-right font-medium">Rent in</th>
                     <th className="h-10 px-3 text-right font-medium">Out</th>
                     <th className="h-10 px-3 text-right font-medium">Net</th>
+                    {showCharges && (
+                      <>
+                        <th className="h-10 px-3 text-right font-medium" title="Per year. Green with + means we receive it.">Ground rent <span className="font-normal">/yr</span></th>
+                        <th className="h-10 px-3 text-right font-medium" title="Per year. Green with + means we receive it.">Service charge <span className="font-normal">/yr</span></th>
+                      </>
+                    )}
                     <th className="h-10 px-3 font-medium">Rent</th>
                   </tr>
                 </thead>
@@ -189,6 +211,12 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                         <td className={cn("px-3 py-2.5 text-right font-medium tabular-nums", costsKnown && net < 0 && "text-destructive")}>
                           {costsKnown ? money(net) : "—"}
                         </td>
+                        {showCharges && (
+                          <>
+                            <td className="px-3 py-2.5 text-right tabular-nums">{yearly(p.ground_rent_paid || 0, p.ground_rent_received || 0)}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums">{yearly(p.service_charge_paid || 0, p.service_charge_received || 0)}</td>
+                          </>
+                        )}
                         <td className="px-3 py-2.5">
                           {p.rent_status ? (
                             <Badge variant={rentStatusTone(p.rent_status)}>
@@ -200,7 +228,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                     );
                   })}
                   {rows.length === 0 && (
-                    <tr><td colSpan={9} className="px-3 py-10 text-center text-muted-foreground">No homes match these filters.</td></tr>
+                    <tr><td colSpan={showCharges ? 11 : 9} className="px-3 py-10 text-center text-muted-foreground">No homes match these filters.</td></tr>
                   )}
                 </tbody>
                 {rows.length > 0 && (
@@ -210,6 +238,12 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
                       <td className="px-3 py-2.5 text-right tabular-nums">{money(totals.in)}</td>
                       <td />
                       <td className="px-3 py-2.5 text-right tabular-nums">{money(totals.net)}</td>
+                      {showCharges && (
+                        <>
+                          <td className="px-3 py-2.5 text-right tabular-nums">{yearlyTotal(totals.gr)}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">{yearlyTotal(totals.sc)}</td>
+                        </>
+                      )}
                       <td className={cn("px-3 py-2.5 tabular-nums", totals.arrears > 0 && "text-destructive")}>
                         {totals.arrears ? `${money(totals.arrears)} arrears` : ""}
                       </td>
