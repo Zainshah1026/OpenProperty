@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, FileText, Search, Send, Sparkles, X } from "lucide-react";
+import { ArrowRight, CheckCircle, FileText, Search, Send, Sparkles, X } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   invoices?: { id: number; number: string }[];
+  changes?: { tool: string; summary: string }[];
   links?: QuickLink[];
   error?: boolean;
 }
@@ -18,6 +19,7 @@ const SUGGESTIONS = [
   "What goes out this week?",
   "Which certificates expire in the next 2 months?",
   "Draft an invoice to NACCS for this month's rent at 27 Reeves Avenue",
+  "Log a leak at ref 12, high priority",
 ];
 
 /** Light formatting for replies: **bold** and line breaks, nothing else. */
@@ -37,8 +39,9 @@ function Rich({ text }: { text: string }) {
 
 /**
  * The "Ask" assistant: a chat panel on every page. It answers from the live
- * portfolio and can draft invoices, which wait on the Invoices page until
- * someone presses Send.
+ * portfolio, drafts invoices (which wait on the Invoices page until someone
+ * presses Send), and makes small changes (maintenance jobs, rent status,
+ * notes, leads) once the user says yes.
  */
 export function AssistantPanel({ navigate }: { navigate: (to: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -91,9 +94,13 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
     setBusy(true);
     try {
       const history = next.filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content }));
-      const res = await api<{ reply: string; invoices: { id: number; number: string }[] }>("POST", "/api/assistant", { messages: history });
-      setMessages([...next, { role: "assistant", content: res.reply, invoices: res.invoices }]);
+      const res = await api<{ reply: string; invoices: { id: number; number: string }[]; changes?: { tool: string; summary: string }[] }>("POST", "/api/assistant", { messages: history });
+      setMessages([...next, { role: "assistant", content: res.reply, invoices: res.invoices, changes: res.changes }]);
       if (res.invoices?.length) window.dispatchEvent(new Event("invoices-changed"));
+      if (res.changes?.length) {
+        window.dispatchEvent(new Event("assistant-changed"));
+        void app.refreshLookups().catch(() => {});
+      }
     } catch (err) {
       setMessages([...next, { role: "assistant", content: (err as Error).message, error: true }]);
     } finally {
@@ -168,6 +175,11 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
                     >
                       <FileText className="size-3.5" /> Review draft {inv.number}
                     </button>
+                  ))}
+                  {m.changes?.filter((ch) => ch.tool !== "draft_invoice").map((ch, i) => (
+                    <div key={i} className="mt-2 flex items-center gap-1.5 rounded-md bg-card px-2 py-1 text-xs font-medium text-emerald-700">
+                      <CheckCircle className="size-3.5 shrink-0" /> {ch.summary}
+                    </div>
                   ))}
                 </div>
               </div>

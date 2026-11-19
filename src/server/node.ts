@@ -18,6 +18,7 @@ import { createImapProvider } from "./imap";
 import { createSmtpMailer } from "./smtp";
 import { setLeadMailer } from "./lead-email";
 import { generateRentInvoices } from "./rent-invoices";
+import { scanEmailOnce } from "./jarvis";
 import { setDocumentStore } from "./documents";
 import { recordVoids } from "./extras";
 
@@ -273,6 +274,12 @@ async function rentInvoicesOnce() {
   }
 }
 
+// Jarvis: new maintenance emails become approvals (only with JARVIS_EMAIL_SCAN=on).
+const SCAN_MINUTES = Math.max(2, Number(process.env.JARVIS_SCAN_MINUTES || 10));
+async function scanOnce() {
+  await scanEmailOnce(env).catch((err) => console.error(`Jarvis email scan: ${(err as Error).message}`));
+}
+
 async function start() {
   if (syncEnabled(env)) {
     await syncOnce("start");
@@ -283,6 +290,11 @@ async function start() {
   await rentInvoicesOnce();
   setInterval(rentInvoicesOnce, 60 * 60_000).unref();
   listen();
+  if (process.env.JARVIS_EMAIL_SCAN?.trim().toLowerCase() === "on") {
+    console.log(`Jarvis email scan: on, every ${SCAN_MINUTES} minutes.`);
+    setTimeout(scanOnce, 30_000).unref();
+    setInterval(scanOnce, SCAN_MINUTES * 60_000).unref();
+  }
 }
 
 start();

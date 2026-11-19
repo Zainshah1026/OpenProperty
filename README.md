@@ -118,6 +118,49 @@ create drafts; sending is always a person's click. Set `ANTHROPIC_API_KEY`
 (from console.anthropic.com) to switch it on; `ASSISTANT_MODEL` optionally
 overrides the model (default `claude-sonnet-5-5`).
 
+It can also make small changes: log and update maintenance jobs, set a home's
+rent status and arrears ("mark ref 4 paid"), add a dated note to a home, and
+add or update sales and lettings leads. It always says what it will change
+and asks first; the server refuses a change unless your latest message is a
+yes. It never sends emails or messages: ask it to write one and it gives you
+the text. A rent status changed here can be overwritten if the same cell later
+changes in the Google Sheet, so keep the sheet up to date too.
+
+### Voice: "Hey Siri, ask Jarvis"
+
+Set `JARVIS_TOKEN` (a long random string, 24+ characters) in Render, then make
+an iPhone Shortcut: **Dictate Text** → **Get Contents of URL** (POST to
+`https://<your-app>/api/jarvis`, header `Authorization: Bearer <JARVIS_TOKEN>`,
+JSON body `{"text": <Dictated Text>}`) → **Speak Text**. Name it "Ask Jarvis".
+It remembers the last few turns for 15 minutes, so you can answer "yes" to a
+change it proposes; say "new conversation" to start over. Anyone with the
+token can use the assistant and read every connected mailbox, so keep it
+private and change it if a phone is lost. `JARVIS_NAME` (optional) is the name
+it records against changes made by voice.
+
+### Approvals: Jarvis asks before it acts
+
+Automations never change anything on their own. They queue the change on the
+**Approvals** page and tell you:
+
+- **Notifications.** On the Approvals page, tap *Turn on notifications here*
+  (on iPhone, open the app from your Home Screen first). Each request arrives
+  as a notification; tap it to approve or decline.
+- **Phone calls for urgent requests.** Set `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` (your Twilio number) and `JARVIS_PHONE`
+  (your mobile, e.g. `+447700900123`). Jarvis rings, reads the request, and you
+  say yes or no. No calls in quiet hours: `JARVIS_QUIET_HOURS` (default
+  `21-8`, London time; `off` to allow any time). *Test a call* is on the
+  Approvals page.
+- **Maintenance emails.** `JARVIS_EMAIL_SCAN=on` checks every connected
+  mailbox every 10 minutes (`JARVIS_SCAN_MINUTES`). Repair requests it can
+  match to a property become "log this job?" approvals (urgent ones ring you);
+  ones it can't match send a notification. It starts from the newest email
+  when first switched on. `JARVIS_SCAN_MODEL` defaults to `claude-haiku-5-5`.
+- **Other automations** can queue approvals with
+  `POST /api/jarvis/propose` (`Authorization: Bearer <JARVIS_TOKEN>`, JSON
+  `{"tool": "log_work_order", "input": {...}, "summary": "...", "urgent": false}`).
+
 ## Inbox
 
 The **Inbox** page shows the company's existing mailboxes (read over IMAP;

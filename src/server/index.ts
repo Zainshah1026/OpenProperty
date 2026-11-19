@@ -4,6 +4,7 @@ import { initDB, query, get, run } from "./db";
 import { keyOf, runSync, syncStatus } from "./sync";
 import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
+import { registerJarvisRoutes } from "./jarvis";
 import { mailProvider, registerMailRoutes } from "./mail";
 import { registerDocumentRoutes } from "./documents";
 import { registerExtras } from "./extras";
@@ -33,6 +34,19 @@ type Env = {
     /** The Ask assistant (Claude API). */
     ANTHROPIC_API_KEY?: string;
     ASSISTANT_MODEL?: string;
+    /** Siri Shortcut access to the assistant: POST /api/jarvis with this as a Bearer token. */
+    JARVIS_TOKEN?: string;
+    JARVIS_NAME?: string;
+    /** Approvals by phone (see src/server/jarvis.ts). */
+    TWILIO_ACCOUNT_SID?: string;
+    TWILIO_AUTH_TOKEN?: string;
+    TWILIO_FROM?: string;
+    JARVIS_PHONE?: string;
+    JARVIS_QUIET_HOURS?: string;
+    JARVIS_EMAIL_SCAN?: string;
+    JARVIS_SCAN_MODEL?: string;
+    PUBLIC_URL?: string;
+    VAPID_SUBJECT?: string;
     SHEET_SCRIPT_URL?: string;
     SHEET_SCRIPT_KEY?: string;
     SHEET_PUB_URL?: string;
@@ -53,7 +67,7 @@ const app = new Hono<Env>();
 
 registerAuth(app, {
   headExtra: `<link rel="icon" type="image/svg+xml" href="/brand/favicon.svg"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b7cc2"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Chisti &amp; Co."><meta name="apple-mobile-web-app-status-bar-style" content="default">`,
-  publicPaths: ["/api/health", "/manifest.webmanifest", "/sw.js"],
+  publicPaths: ["/api/health", "/manifest.webmanifest", "/sw.js", "/api/jarvis", "/api/jarvis/propose", "/api/voice/approval"], // these check their own JARVIS_TOKEN / Twilio signature
   allMailboxes: () => (mailProvider()?.accounts() ?? []).map((a) => a.toLowerCase()),
 });
 
@@ -1505,6 +1519,7 @@ app.post("/api/sync", async (c) => {
 
 registerInvoiceRoutes(app);
 registerAssistantRoutes(app);
+registerJarvisRoutes(app);
 registerMailRoutes(app);
 registerDocumentRoutes(app);
 registerExtras(app);

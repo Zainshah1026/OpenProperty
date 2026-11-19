@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Banknote, Briefcase, Building2, CircleDollarSign, ClipboardCheck, ClipboardList, FileSignature, FileText, Home, Inbox, KeyRound, Landmark,
-  LayoutDashboard, LogOut, Map as MapIcon, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, Users, Wrench, X,
+  LayoutDashboard, LogOut, Map as MapIcon, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Users, Wrench, X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,7 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
     label: "Day to day",
     items: [
+      { id: "approvals", label: "Approvals", href: "/approvals", icon: ShieldCheck },
       { id: "inbox", label: "Inbox", href: "/inbox", icon: Inbox },
       { id: "maintenance", label: "Maintenance", href: "/maintenance", icon: Wrench },
       { id: "compliance", label: "Compliance", href: "/compliance", icon: ClipboardCheck },

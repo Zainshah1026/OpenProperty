@@ -458,3 +458,33 @@ CREATE TABLE IF NOT EXISTS lead_emails (
   sent_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_lead_emails_campaign ON lead_emails(campaign, email);
+
+-- ── Jarvis: approvals, push notifications ───────────────────────────
+-- Changes that automations want to make wait here until a person says yes
+-- (in the app, from a notification, or by voice on a phone call).
+CREATE TABLE IF NOT EXISTS approvals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tool TEXT NOT NULL,                          -- an assistant change tool, e.g. 'log_work_order'
+  input TEXT NOT NULL,                         -- JSON for that tool
+  summary TEXT NOT NULL,                       -- one line, read out on calls
+  details TEXT,
+  source TEXT,                                 -- 'email:<mailbox>', 'api', ...
+  urgent INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',      -- 'pending' | 'approved' | 'declined' | 'failed'
+  dedupe_key TEXT UNIQUE,
+  result TEXT,
+  decided_by TEXT,
+  decided_at TEXT,
+  called_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

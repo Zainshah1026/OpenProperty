@@ -28,6 +28,20 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Optional: Siri voice access to the assistant (POST /api/jarvis)
+      - key: JARVIS_TOKEN
+        generateValue: true
+      # Optional: Jarvis approvals by phone and the maintenance email scan
+      - key: JARVIS_EMAIL_SCAN
+        value: "on"
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
+      - key: JARVIS_PHONE
+        sync: false
       - key: MAIL_USER
         sync: false
       - key: MAIL_PASSWORD
