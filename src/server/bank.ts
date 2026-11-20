@@ -113,7 +113,9 @@ async function fetchAccounts(env: Env, c: ConnectionRow, userIp?: string): Promi
 }
 
 async function fetchTransactions(env: Env, c: ConnectionRow, accountId: string, from: string, to: string, userIp?: string): Promise<TlTx[]> {
-  const q = new URLSearchParams({ from: `${from}T00:00:00Z`, to: `${to}T23:59:59Z` });
+  // TrueLayer refuses a `to` in the future, so today's range ends a minute ago.
+  const end = to >= new Date().toISOString().slice(0, 10) ? new Date(Date.now() - 60_000).toISOString().replace(/\.\d+Z$/, "Z") : `${to}T23:59:59Z`;
+  const q = new URLSearchParams({ from: `${from}T00:00:00Z`, to: end });
   const r = await tl<{ results?: V1Tx[] }>(env, c, `/accounts/${encodeURIComponent(accountId)}/transactions?${q}`, userIp);
   return (r.results ?? []).map((t) => {
     const pounds = Math.abs(t.amount) * (t.transaction_type === "DEBIT" ? -1 : t.transaction_type === "CREDIT" ? 1 : Math.sign(t.amount) || 1);
