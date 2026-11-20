@@ -137,7 +137,7 @@ const TOOLS = [
   },
   {
     name: "list_todos",
-    description: "The to-do list: approvals, repairs, certificates to renew, missed rent, lead follow-ups, tenancy and mortgage dates, rent reviews, and the user's own tasks, most urgent first.",
+    description: "The to-do list: approvals, repairs, certificates to renew, missed rent, tenancy and mortgage dates, rent reviews, and the user's own tasks, most urgent first. Leads are not on it.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {

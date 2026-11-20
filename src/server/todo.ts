@@ -1,6 +1,6 @@
 // One to-do list for everything: what the rest of the app already knows
-// needs doing (approvals, repairs, certificates, missed rent, lead
-// follow-ups, tenancy and mortgage dates, rent reviews) plus your own tasks.
+// needs doing (approvals, repairs, certificates, missed rent, tenancy and
+// mortgage dates, rent reviews) plus your own tasks. Leads are not included.
 //
 // Items from elsewhere can be ticked "done for now", which hides them for a
 // while (todo_hidden); they come back if the thing still needs doing. Your
@@ -93,18 +93,7 @@ export async function buildTodos(): Promise<TodoItem[]> {
     }
   }
 
-  for (const l of await safe(query<{ id: number; name: string; status: string; next_action: string | null; kind: string }>(
-    `SELECT id, landlord_name AS name, status, next_action, 'sales' AS kind FROM sales_leads WHERE status NOT IN ('completed', 'withdrawn')
-     UNION ALL SELECT id, name, status, next_action, 'lettings' AS kind FROM lettings_leads WHERE status NOT IN ('signed', 'not_interested')`,
-  ))) {
-    if (l.status !== "new" && !l.next_action?.trim()) continue;
-    items.push({
-      key: `lead:${l.kind}:${l.id}`, kind: "lead",
-      title: l.next_action?.trim() ? `${l.next_action.trim()}: ${l.name}` : `Call ${l.name} (new ${l.kind === "sales" ? "seller" : "landlord"} lead)`,
-      detail: l.kind === "sales" ? "House for sale" : "Landlord to sign up", due: l.status === "new" ? today : null,
-      href: l.kind === "sales" ? "/sales" : "/lettings-leads",
-    });
-  }
+  // Leads are left off on purpose: they live on Houses for sale and Landlords to sign up.
 
   for (const r of await safe(query<{ property_id: number; room: string | null; tenant_name: string | null; end_date: string; ref: string | null; name: string | null }>(
     `SELECT r.property_id, r.room, r.tenant_name, r.end_date, p.ref, p.name FROM rooms r JOIN properties p ON p.id = r.property_id
