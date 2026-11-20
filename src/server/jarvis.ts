@@ -543,6 +543,30 @@ export function registerJarvisRoutes(app: AnyApp) {
     return c.json({ ok: true });
   });
 
+  // An example of the morning money notification, for the next day that has
+  // anything in or out. Signed-in users, or Bearer JARVIS_TOKEN.
+  app.post("/api/jarvis/money-example", async (c) => {
+    const env = c.env as Env;
+    initDB(env as { DB?: D1Database });
+    if (!getUser(c)) {
+      const token = str(env.JARVIS_TOKEN);
+      const given = (c.req.header("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+      const [x, y] = await Promise.all([hmac("SHA-256", "cmp", token), hmac("SHA-256", "cmp", given)]);
+      if (token.length < 24 || !given || !sameBytes(x, y)) return c.json({ error: "Not authorised." }, 401);
+    }
+    const start = Date.parse(`${londonNow().date}T12:00:00Z`);
+    for (let i = 0; i < 31; i++) {
+      const date = new Date(start + i * 86_400_000).toISOString().slice(0, 10);
+      const msg = moneyMessage(await moneyForDay(app, env, date));
+      if (!msg) continue;
+      const label = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+      const example = { ...msg, title: `${i === 0 ? "" : `Example for ${label}: `}${msg.title.replace(/^Today: /, i === 0 ? "Today: " : "")}`, tag: `money-example-${date}` };
+      const subs = await query<{ n: number }>("SELECT COUNT(*) AS n FROM push_subscriptions").catch(() => [{ n: 0 }]);
+      return c.json({ date, notification: example, devices: subs[0]?.n ?? 0, sent: await pushToAll(env, example) });
+    }
+    return c.json({ error: "Nothing in or out in the next month." }, 404);
+  });
+
   // Automations elsewhere (e.g. Claude scheduled tasks) queue approvals here.
   // POST /api/jarvis/propose, "Authorization: Bearer <JARVIS_TOKEN>", JSON Proposal.
   app.post("/api/jarvis/propose", async (c) => {
