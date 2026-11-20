@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, CircleAlert, Plus, Wrench } from "lucide-react";
+import { Check, CircleAlert, Mail, Plus, Wrench } from "lucide-react";
+import { api } from "@/api";
 import { useApp } from "@/context";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,23 @@ export function MaintenancePage() {
   const [filter, setFilter] = useState<WorkOrderStatus | "open_all" | "all">("open_all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<WorkOrder | undefined>(undefined);
+  const [checking, setChecking] = useState(false);
+  const [checkNote, setCheckNote] = useState<string | null>(null);
+
+  /** Jarvis reads the last two weeks of emails and adds any repairs that were never logged. */
+  async function checkEmails() {
+    setChecking(true);
+    try {
+      const r = await api<{ started: boolean; note?: string }>("POST", "/api/emails/repairs-recent", { days: 14 });
+      setCheckNote(r.started
+        ? "Jarvis is reading the last 2 weeks of emails. It takes a few minutes; you'll get a notification when it's done, then refresh this page."
+        : r.note ?? "Already checking.");
+    } catch (err) {
+      setCheckNote((err as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function load() {
     try {
@@ -92,13 +110,19 @@ export function MaintenancePage() {
           )}
         </>}
       actions={
-        filtered.length > 0 ? (
-          <Button onClick={() => { setEditing(undefined); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4" /> New work order
+        <>
+          <Button variant="outline" disabled={checking} onClick={checkEmails}>
+            <Mail className="h-4 w-4" /> {checking ? "Checking…" : "Check emails for repairs"}
           </Button>
-        ) : null
+          {filtered.length > 0 ? (
+            <Button onClick={() => { setEditing(undefined); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4" /> New repair
+            </Button>
+          ) : null}
+        </>
       }
     >
+      {checkNote && <p className="text-sm font-medium text-primary">{checkNote}</p>}
 
         <Tabs value={filter} onValueChange={(v) => setFilter(v as never)}>
           <TabsList>

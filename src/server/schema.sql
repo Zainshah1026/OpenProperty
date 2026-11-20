@@ -572,3 +572,11 @@ CREATE TABLE IF NOT EXISTS email_links (
   PRIMARY KEY (mailbox, uid)
 );
 CREATE INDEX IF NOT EXISTS idx_email_links_property ON email_links(property_id);
+
+-- Emails Jarvis has turned into repairs (or added to one), so each is handled once.
+CREATE TABLE IF NOT EXISTS email_repairs (
+  email_key TEXT PRIMARY KEY,                  -- '<mailbox>:<uid>'
+  work_order_id INTEGER,
+  action TEXT NOT NULL,                        -- 'new' | 'note'
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
