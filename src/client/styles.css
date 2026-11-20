@@ -88,8 +88,54 @@
 }
 
 /* Same hues, re-tuned L and C% — a mirror of the light ramp reads muddy. */
+:root[data-theme="dark"] {
+    --background: #0e1024;
+    --foreground: #e7edf3;
+    --card: #161a33;
+    --card-foreground: #e7edf3;
+    --popover: #1b2040;
+    --popover-foreground: #e7edf3;
+    --muted: #1c2142;
+    --muted-foreground: #9aa7b5;
+    --faint: #6c7a89;
+    --border: #262c52;
+    --input: #2e355f;
+    --primary: #6f8cff;
+    --primary-foreground: #06121c;
+    --secondary: #1b2040;
+    --secondary-foreground: #e7edf3;
+    --accent: #1c2142;
+    --accent-foreground: #e7edf3;
+    --brand: #5a7bff;
+    --brand-hover: #6f8cff;
+    --brand-tint: #1a2148;
+    --brand-text: #b3c2ff;
+    --ring: #6f8cff;
+    --info: #b5c4e5;
+    --info-tint: #12234f;
+    --info-solid: #5580e8;
+    --success: #86da9e;
+    --success-tint: #1a2b1f;
+    --success-solid: #3c9c5d;
+    --warning: #e5bd7e;
+    --warning-tint: #2d2518;
+    --warning-solid: #a87e35;
+    --destructive: #e6b7b2;
+    --destructive-tint: #3b1c1a;
+    --destructive-solid: #e64243;
+    --sidebar: #0b0d1f;
+    --sidebar-foreground: #c9d4df;
+    --sidebar-accent: rgba(255, 255, 255, 0.08);
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgba(255, 255, 255, 0.06);
+    /* In dark the drops disappear and the ring carries every level. */
+    --edge-raised: inset 0 0 0 1px var(--input);
+    --edge-float: inset 0 0 0 1px var(--input), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+    --edge-card: inset 0 0 0 1px var(--border);
+    --edge-solid: none;
+  }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0e1024;
     --foreground: #e7edf3;
     --card: #161a33;
@@ -242,8 +288,37 @@
   --cat-slate-solid: #9a9893;
 }
 
+:root[data-theme="dark"] {
+    --cat-sky-tint: #1a2930;
+    --cat-sky-text: #9bcce5;
+    --cat-sky-solid: #3b91b6;
+    --cat-emerald-tint: #1a2b1f;
+    --cat-emerald-text: #86da9e;
+    --cat-emerald-solid: #3c9c5d;
+    --cat-amber-tint: #2d2518;
+    --cat-amber-text: #e5bd7e;
+    --cat-amber-solid: #a87e35;
+    --cat-rose-tint: #3b1c1f;
+    --cat-rose-text: #e6b6b8;
+    --cat-rose-solid: #e4415e;
+    --cat-violet-tint: #271f45;
+    --cat-violet-text: #c3bfe5;
+    --cat-violet-solid: #876ee8;
+    --cat-fuchsia-tint: #341c36;
+    --cat-fuchsia-text: #e3b0e5;
+    --cat-fuchsia-solid: #c741d1;
+    --cat-teal-tint: #1a2a28;
+    --cat-teal-text: #86d5cb;
+    --cat-teal-solid: #3c978d;
+    --cat-orange-tint: #322318;
+    --cat-orange-text: #e6ba9d;
+    --cat-orange-solid: #be7035;
+    --cat-slate-tint: #222120;
+    --cat-slate-text: #c0bdb9;
+    --cat-slate-solid: #82807c;
+  }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --cat-sky-tint: #1a2930;
     --cat-sky-text: #9bcce5;
     --cat-sky-solid: #3b91b6;
@@ -518,7 +593,38 @@ body,
   --door-plum: #7a4de8;
   --door-teal: #0f9fb0;
   --door-ink: #1a1d3a;
+  --jarvis-bar: #1a1d3a;
 }
+/* Street at night: the doors glow a little brighter; the lamp-yellow stays. */
+:root[data-theme="dark"] {
+  --door-blue: #5a7bff;
+  --door-red: #ff5c61;
+  --door-green: #22c188;
+  --door-plum: #9a78ff;
+  --door-teal: #22b8c9;
+  --jarvis-bar: #222866;
+  --background: #0e1024;
+  --foreground: #eceeff;
+  --card-foreground: #eceeff;
+  --popover-foreground: #eceeff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --door-blue: #5a7bff;
+    --door-red: #ff5c61;
+    --door-green: #22c188;
+    --door-plum: #9a78ff;
+    --door-teal: #22b8c9;
+    --jarvis-bar: #222866;
+    --background: #0e1024;
+    --foreground: #eceeff;
+    --card-foreground: #eceeff;
+    --popover-foreground: #eceeff;
+  }
+}
+:root { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
 .door {
   position: relative;
   display: flex;

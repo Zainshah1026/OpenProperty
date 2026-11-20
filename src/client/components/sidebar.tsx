@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   Banknote, Briefcase, Building2, CircleDollarSign, ClipboardList, FileSignature, FileText, Home, House, Inbox, KeyRound, Landmark,
-  LogOut, Map as MapIcon, Menu, Mic, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Users, Wrench, X, Flame,
+  LogOut, Map as MapIcon, Menu, Mic, Moon, Sun, SunMoon, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Users, Wrench, X, Flame,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getTheme, nextTheme, setTheme, themeLabel, type Theme } from "@/lib/theme";
 
 export interface NavItem {
   id: string;
@@ -82,6 +83,9 @@ const readCollapsed = () => {
 export function Sidebar({ active, userName, onNavigate, onSearch }: { active: string; userName?: string | null; onNavigate: (href: string) => void; onSearch?: () => void }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [theme, setThemeState] = useState<Theme>(getTheme);
+  const cycleTheme = () => { const t = nextTheme(theme); setTheme(t); setThemeState(t); };
+  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : SunMoon;
 
   useEffect(() => {
     try { localStorage.setItem(KEY, collapsed ? "1" : "0"); } catch { /* private mode */ }
@@ -119,8 +123,11 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
           <img src="/brand/favicon.svg" alt="" className="size-7 rounded-md" />
           <span className="display text-lg">Chisti &amp; Co.</span>
         </button>
+        <button type="button" onClick={cycleTheme} aria-label={`Colours: ${themeLabel(theme)}. Tap to change`} className="ml-auto inline-flex size-10 items-center justify-center rounded-lg hover:bg-white/10">
+          <ThemeIcon className="size-5" />
+        </button>
         {onSearch && (
-          <button type="button" onClick={onSearch} aria-label="Search" className="ml-auto inline-flex size-10 items-center justify-center rounded-lg hover:bg-white/10">
+          <button type="button" onClick={onSearch} aria-label="Search" className="inline-flex size-10 items-center justify-center rounded-lg hover:bg-white/10">
             <Search className="size-5" />
           </button>
         )}
@@ -251,6 +258,29 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
         </nav>
 
         <div className={cn("shrink-0 border-t border-sidebar-border p-3", narrow && "px-2")}>
+          {narrow ? (
+            <button type="button" onClick={cycleTheme} title={`Colours: ${themeLabel(theme)}`} className="mb-1 flex h-10 w-full items-center justify-center rounded-lg text-sidebar-foreground/75 hover:bg-white/5 hover:text-white">
+              <ThemeIcon className="size-[18px]" />
+            </button>
+          ) : (
+            <div role="radiogroup" aria-label="Colours" className="mb-2 grid grid-cols-3 gap-1 rounded-xl bg-white/[0.06] p-1">
+              {([["light", Sun, "Light"], ["dark", Moon, "Dark"], ["auto", SunMoon, "Auto"]] as const).map(([t, Icon, label]) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  aria-checked={theme === t}
+                  onClick={() => { setTheme(t); setThemeState(t); }}
+                  className={cn(
+                    "flex h-9 items-center justify-center gap-1.5 rounded-lg text-[0.8125rem] font-semibold transition-colors",
+                    theme === t ? "bg-[var(--door-yellow)] text-[var(--door-ink)]" : "text-sidebar-foreground/70 hover:text-white",
+                  )}
+                >
+                  <Icon className="size-4" /> {label}
+                </button>
+              ))}
+            </div>
+          )}
           <a
             href="/logout"
             title={narrow ? "Sign out" : undefined}

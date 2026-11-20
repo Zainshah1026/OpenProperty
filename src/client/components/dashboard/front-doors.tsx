@@ -73,7 +73,7 @@ export function FrontDoors({ summary, navigate }: { summary: PortfolioSummary; n
       <button
         type="button"
         onClick={openJarvis}
-        className="flex w-full items-center gap-4 rounded-[1.75rem] bg-[var(--door-ink)] p-3 pr-5 text-left text-white shadow-[0_14px_30px_-18px_rgba(26,29,58,0.8)] transition hover:brightness-110 active:translate-y-px"
+        className="flex w-full items-center gap-4 rounded-[1.75rem] bg-[var(--jarvis-bar)] p-3 pr-5 text-left text-white shadow-[0_14px_30px_-18px_rgba(26,29,58,0.8)] transition hover:brightness-110 active:translate-y-px"
       >
         <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--door-yellow)] text-[var(--door-ink)]">
           <Mic className="size-7" />

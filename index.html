@@ -12,6 +12,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
 </head>
 <body>
+  <script>
+    // Set light/dark before anything draws, so the page never flashes the wrong colours.
+    try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <div id="app"></div>
   <script type="module" src="/src/client/main.tsx"></script>
 </body>
