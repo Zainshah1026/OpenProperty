@@ -11,7 +11,7 @@
 // JARVIS_TOKEN switches on POST /api/jarvis for the Siri Shortcut.
 
 import type { Hono } from "hono";
-import { get, initDB, query } from "./db";
+import { get, initDB, query, run } from "./db";
 import { InvoiceInput, createInvoiceDraft, invoiceTotal, type InvoiceRow } from "./invoices";
 import { allowedMailboxes, mailProvider } from "./mail";
 import { getUser } from "./auth";
@@ -156,6 +156,21 @@ const TOOLS = [
     },
   },
   {
+    name: "bulk_update_lead_status",
+    description: "CHANGE: set the status of many sales or lettings leads at once, e.g. every lettings lead that is 'new' to 'contacted'. Without from_status it changes every lead of that kind. First call with confirmed: false to get the counts, tell the user exactly how many will change, and ask. Only after they say yes call again with confirmed: true.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["sales", "lettings"] },
+        to_status: { type: "string", description: "Sales: new, contacted, viewing, offer_made, under_offer, completed, withdrawn. Lettings: new, contacted, viewing, offer_sent, signed, not_interested." },
+        from_status: { type: "string", description: "Only change leads currently at this status. Omit for all." },
+        confirmed: { type: "boolean" },
+      },
+      required: ["kind", "to_status", "confirmed"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "log_work_order",
     description: "CHANGE: log a maintenance job against a property. Only after the user has confirmed (set confirmed: true).",
     input_schema: {
@@ -270,6 +285,7 @@ type AnyApp = Hono<any>;
 // Tools that change data. The server only runs them when the user's latest
 // message is a confirmation, whatever the model sends.
 const WRITE_TOOLS = new Set([
+  "bulk_update_lead_status",
   "draft_invoice", "log_work_order", "update_work_order", "update_rent_status",
   "add_property_note", "add_lead", "update_lead",
 ]);
@@ -326,7 +342,8 @@ async function runTool(
   const clean = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== ""));
 
   // Drafting an invoice changes nothing anyone sees until a person presses Send, so it doesn't need the go-ahead.
-  if (WRITE_TOOLS.has(name) && name !== "draft_invoice" && (!ctx.confirmed || input.confirmed !== true)) {
+  const countingOnly = name === "bulk_update_lead_status" && input.confirmed !== true;
+  if (WRITE_TOOLS.has(name) && name !== "draft_invoice" && !countingOnly && (!ctx.confirmed || input.confirmed !== true)) {
     return {
       not_done: true,
       error: "Not done: changes need the user's go-ahead. Tell the user exactly what you will change and ask them to reply yes. Call this tool again only after they confirm.",
@@ -467,6 +484,24 @@ async function runTool(
       );
     }
 
+
+    case "bulk_update_lead_status": {
+      const lettings = input.kind === "lettings";
+      const table = lettings ? "lettings_leads" : "sales_leads";
+      const allowed = lettings ? ["new", "contacted", "viewing", "offer_sent", "signed", "not_interested"] : ["new", "contacted", "viewing", "offer_made", "under_offer", "completed", "withdrawn"];
+      const to = String(input.to_status ?? "");
+      const from = input.from_status ? String(input.from_status) : null;
+      if (!allowed.includes(to) || (from && !allowed.includes(from))) return { error: `Status must be one of: ${allowed.join(", ")}` };
+      const byStatus = await query<{ status: string; n: number }>(`SELECT status, COUNT(*) AS n FROM ${table} GROUP BY status`);
+      const affected = byStatus.filter((r) => r.status !== to && (!from || r.status === from)).reduce((a, r) => a + Number(r.n), 0);
+      if (input.confirmed !== true) {
+        return { would_change: affected, current_counts: Object.fromEntries(byStatus.map((r) => [r.status, Number(r.n)])), note: "Nothing changed yet. Tell the user how many will change (and from which statuses), and ask before calling again with confirmed: true." };
+      }
+      const r = await run(`UPDATE ${table} SET status = ? WHERE status != ?${from ? " AND status = ?" : ""}`, from ? [to, to, from] : [to, to]);
+      ctx.changes.push({ tool: name, summary: `${r.changes} ${lettings ? "lettings" : "sales"} leads set to ${to.replace("_", " ")}` });
+      return { done: true, changed: r.changes, note: "If these leads also live in the Google Sheet, a later change to a lead's Status there will overwrite it here." };
+    }
+
     case "log_work_order": {
       const p = await propertyByRef(input.property_ref);
       const notes = [input.notes, `Logged by the assistant for ${ctx.by}.`].filter(Boolean).join("\n");
@@ -564,7 +599,7 @@ async function runTool(
   return { error: `Unknown tool ${name}` };
 }
 
-export const CHANGE_TOOLS = ["log_work_order", "update_work_order", "update_rent_status", "add_property_note", "add_lead", "update_lead"] as const;
+export const CHANGE_TOOLS = ["log_work_order", "update_work_order", "update_rent_status", "add_property_note", "add_lead", "update_lead", "bulk_update_lead_status"] as const;
 
 /** Run a change a person has already approved (from the approvals list, a notification or a phone call). */
 export async function runApprovedChange(app: AnyApp, env: Record<string, unknown>, tool: string, input: Record<string, unknown>, by: string) {
