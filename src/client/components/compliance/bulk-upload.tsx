@@ -55,7 +55,12 @@ function parseName(name: string, refToId: Map<string, number>): Pick<Row, "prope
   // address can't be mistaken for one.
   const typePart = /^\s*ref\s*[a-z0-9]+\s*-\s*([^-]+)/i.exec(name)?.[1] ?? "";
   const kind = KIND_WORDS.find(([re]) => re.test(typePart))?.[1] ?? KIND_WORDS.find(([re]) => re.test(name))?.[1] ?? "";
-  const iso = name.match(/expires?\s*(\d{4}-\d{2}-\d{2})/i)?.[1] ?? "";
+  let iso = name.match(/expires?\s*(\d{4}-\d{2}-\d{2})/i)?.[1] ?? "";
+  const ukDate = /(?:expiry|expires?|exp)\D{0,3}(\d{1,2})[-./ ](\d{1,2})[-./ ](\d{2,4})/i.exec(name);
+  if (!iso && ukDate) {
+    const y = ukDate[3].length === 2 ? `20${ukDate[3]}` : ukDate[3];
+    iso = `${y}-${ukDate[2].padStart(2, "0")}-${ukDate[1].padStart(2, "0")}`;
+  }
   return { propertyId: id ? String(id) : "", kind, expiry: iso };
 }
 

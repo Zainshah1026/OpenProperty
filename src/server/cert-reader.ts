@@ -2,7 +2,7 @@
 // it's for and when it expires, so nobody has to type it in. Nothing is
 // saved here: the person checks what was read and presses Upload.
 //
-// Uses ANTHROPIC_API_KEY. CERT_READ_MODEL overrides the model.
+// Uses ANTHROPIC_API_KEY. CERT_READ_MODEL overrides the model (default Sonnet).
 
 import type { Hono } from "hono";
 import { query } from "./db";
@@ -72,7 +72,8 @@ export async function readCertificate(env: Env, file: File): Promise<CertReading
     method: "POST",
     headers: { "x-api-key": str(env.ANTHROPIC_API_KEY), "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: str(env.CERT_READ_MODEL) || "claude-haiku-5-5",
+      // Sonnet: a misread expiry date is the costliest mistake here, and there are few certificates.
+      model: str(env.CERT_READ_MODEL) || "claude-sonnet-5-5",
       max_tokens: 800,
       system: `${PROMPT}\n\nProperties (ref | address | postcode):\n${list}`,
       messages: [{ role: "user", content: [block, { type: "text", text: `File name: ${file.name}. Read this document.` }] }],

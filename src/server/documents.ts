@@ -138,6 +138,17 @@ export async function applyCertificateDates(propertyId?: number) {
   return changed;
 }
 
+/** "… Expiry 16-11-2029.pdf", "expires 2029-11-16", "exp 16.11.29" → "2029-11-16" (UK day-first). */
+export function dateInFileName(name: string): string | null {
+  const m = /(?:expiry|expires?|exp|valid until|due)\D{0,3}(\d{1,4})[-./ ](\d{1,2})[-./ ](\d{2,4})/i.exec(name);
+  if (!m) return null;
+  let [a, b, c] = [m[1], m[2], m[3]];
+  let y: number, mo: number, d: number;
+  if (a.length === 4) { y = +a; mo = +b; d = +c; } else { d = +a; mo = +b; y = c.length === 2 ? 2000 + +c : +c; }
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 2000 || y > 2100) return null;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 /**
  * Jarvis reads a stored certificate that has no expiry date, saves the date
  * on the document, and moves the home's date up if it's later. Returns the
@@ -147,9 +158,19 @@ export async function readStoredCertificate(env: Record<string, unknown>, doc: D
   if (!store || !CERT_FIELD[doc.kind] || doc.expiry_date || !String(env.ANTHROPIC_API_KEY ?? "").trim()) return null;
   const bytes = await store.get(doc.stored_name);
   if (!bytes) return null;
-  const file = new File([bytes], doc.filename, { type: doc.content_type });
-  const r = await readCertificate(env, file);
-  if (!r.expiry_date) return null;
+  const file = new File([bytes as unknown as BlobPart], doc.filename, { type: doc.content_type });
+  const fromName = dateInFileName(doc.filename);
+  let r: Awaited<ReturnType<typeof readCertificate>> | null = null;
+  try {
+    r = await readCertificate(env, file);
+  } catch (err) {
+    if (!fromName) throw err;
+  }
+  // The file name wins when it states an expiry (people name files from the certificate).
+  const expiry = fromName ?? r?.expiry_date ?? null;
+  if (!expiry) return null;
+  if (!r) r = { kind: null, property_ref: null, address_on_document: null, issue_date: null, expiry_date: expiry, expiry_worked_out: false, company: null, result: null, problems: [] };
+  r.expiry_date = expiry;
   const flag = r.result === "fail" || r.result === "unsatisfactory" ? `${r.result === "fail" ? "Failed" : "Unsatisfactory"}: ${r.problems.join("; ")}`.slice(0, 200) : null;
   await run("UPDATE compliance_documents SET expiry_date = ?, label = COALESCE(label, ?) WHERE id = ? AND expiry_date IS NULL", [r.expiry_date, flag, doc.id]);
   await applyCertificateDates(doc.property_id);
