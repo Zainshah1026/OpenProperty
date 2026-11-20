@@ -145,7 +145,7 @@ export function ApprovalsPage() {
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
             <p className="text-sm text-muted-foreground">
-              Jarvis asks here before it changes anything. Urgent requests also ring your phone, and you can answer yes or no out loud. Every morning at 8 you also get the rent due in that day and the mortgages and other payments going out.
+              Jarvis asks here before it changes anything. Urgent requests also ring your phone, and you can answer yes or no out loud. Every morning at 9 you also get the rent due in that day and the mortgages and other payments going out.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

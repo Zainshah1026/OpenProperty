@@ -386,7 +386,7 @@ export async function scanEmailOnce(env: Env) {
 }
 
 // ── Morning money notification ───────────────────────────────────────
-// Once a day (from JARVIS_MONEY_HOUR, default 8, London time) a notification
+// Once a day (from JARVIS_MONEY_HOUR, default 9, London time) a notification
 // lists the rent due in today and what goes out: mortgages (from the
 // Mortgages page, or the property's payment-out day), rent to landlords and
 // ground rent. Off with JARVIS_DAILY_MONEY=off.
@@ -456,8 +456,8 @@ let moneyRunning = false;
 export async function dailyMoneyOnce(app: AnyApp, env: Env) {
   if (moneyRunning || str(env.JARVIS_DAILY_MONEY).toLowerCase() === "off") return;
   const now = londonNow();
-  const hour = Number(str(env.JARVIS_MONEY_HOUR) || "8");
-  if (now.hour < (Number.isFinite(hour) ? hour : 8)) return;
+  const hour = Number(str(env.JARVIS_MONEY_HOUR) || "9");
+  if (now.hour < (Number.isFinite(hour) ? hour : 9)) return;
   if ((await setting("jarvis_money_sent")) === now.date) return;
   moneyRunning = true;
   try {
