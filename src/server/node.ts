@@ -20,7 +20,7 @@ import { setLeadMailer } from "./lead-email";
 import { generateRentInvoices } from "./rent-invoices";
 import { dailyMoneyOnce, scanEmailOnce } from "./jarvis";
 import { syncBank } from "./bank";
-import { setDocumentStore } from "./documents";
+import { applyCertificateDates, setDocumentStore } from "./documents";
 import { recordVoids } from "./extras";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
@@ -264,6 +264,9 @@ async function syncOnce(when: string) {
     const s = await runSync(env);
     console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.rooms} rooms, ${s.leads} leads, ${s.lettings} lettings leads`);
     await recordVoids().catch((err) => console.error(`Empty periods: ${(err as Error).message}`));
+    // Certificates on file with a later expiry than the sheet: keep the newer date.
+    const moved = await applyCertificateDates().catch(() => 0);
+    if (moved) console.log(`Certificates: ${moved} home date(s) updated from uploaded certificates`);
   } catch (err) {
     console.error(`Sheet sync (${when}) failed: ${(err as Error).message}`);
   }
@@ -290,6 +293,7 @@ async function start() {
     setInterval(() => syncOnce("scheduled"), SYNC_MINUTES * 60_000).unref();
   } else {
     await seedIfEmpty().catch((err) => console.error("Seeding failed", err));
+    await applyCertificateDates().catch(() => 0);
   }
   await rentInvoicesOnce();
   setInterval(rentInvoicesOnce, 60 * 60_000).unref();

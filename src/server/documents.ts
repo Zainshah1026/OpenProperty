@@ -111,6 +111,32 @@ const randomName = (ext: string) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CERT_FIELD: Record<string, string> = { gas: "gas_expiry", eicr: "eicr_expiry", epc: "epc_expiry", licence: "licence_expiry", insurance: "insurance_expiry" };
+
+/**
+ * A certificate's file is the evidence; the home's own date drives the
+ * Certificates page, the to-do list and reminders. Whenever a certificate
+ * with a LATER expiry is on file, move the home's date up to match. Never
+ * moves a date backwards. Pass a property to do just that home.
+ */
+export async function applyCertificateDates(propertyId?: number) {
+  let changed = 0;
+  for (const [kind, field] of Object.entries(CERT_FIELD)) {
+    const r = await run(
+      `UPDATE properties SET ${field} = (
+         SELECT MAX(d.expiry_date) FROM compliance_documents d WHERE d.property_id = properties.id AND d.kind = ? AND d.expiry_date IS NOT NULL
+       )
+       WHERE ${propertyId ? "id = ? AND " : ""}EXISTS (
+         SELECT 1 FROM compliance_documents d WHERE d.property_id = properties.id AND d.kind = ? AND d.expiry_date IS NOT NULL
+           AND d.expiry_date > COALESCE(properties.${field}, '')
+       )`,
+      propertyId ? [kind, propertyId, kind] : [kind, kind],
+    ).catch(() => ({ changes: 0 }));
+    changed += Number(r.changes) || 0;
+  }
+  return changed;
+}
+
 export function registerDocumentRoutes(app: Hono<any>) {
   const unavailable = { error: "Document uploads aren't available on this server." };
 
@@ -203,6 +229,7 @@ export function registerDocumentRoutes(app: Hono<any>) {
       uploaded_by: getUser(c)?.name ?? null,
     });
     if (!res.ok) return c.json({ error: res.error }, res.status);
+    if (CERT_FIELD[kind] && expiry) await applyCertificateDates(pid);
     return c.json({ document: publicRow(res.document), ...(res.duplicate ? { duplicate: true } : {}) }, res.duplicate ? 200 : 201);
   });
 
