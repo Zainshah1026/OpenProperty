@@ -55,6 +55,9 @@ sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 sqlite.exec(schema);
 // Columns added after a database was first created: add them if missing.
 for (const ddl of [
+  "ALTER TABLE bank_connections ADD COLUMN access_token TEXT",
+  "ALTER TABLE bank_connections ADD COLUMN refresh_token TEXT",
+  "ALTER TABLE bank_connections ADD COLUMN token_expires_at INTEGER",
   "ALTER TABLE properties ADD COLUMN section TEXT NOT NULL DEFAULT 'owned'",
   "ALTER TABLE properties ADD COLUMN tenure TEXT",
   "ALTER TABLE invoices ADD COLUMN sent_from TEXT",

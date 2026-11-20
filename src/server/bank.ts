@@ -1,4 +1,4 @@
-// Bank connection (open banking, read-only) through TrueLayer Data API v3.
+// Bank connection (open banking, read-only) through TrueLayer Data API v1.
 //
 // Setup: create an app in the TrueLayer Console, register the redirect URI
 // <PUBLIC_URL>/bank, then set TRUELAYER_CLIENT_ID, TRUELAYER_CLIENT_SECRET
@@ -8,7 +8,7 @@
 // What it does
 //   - Connect: a signed-in person is sent to TrueLayer's hosted page, picks
 //     their bank and approves read-only access at the bank itself. Nobody here
-//     ever sees bank logins.
+//     ever sees bank logins. The tokens TrueLayer returns stay on the server.
 //   - Sync: every 6 hours (TrueLayer allows 4 unattended calls a day) and on
 //     demand, new transactions are stored in bank_transactions.
 //   - Match: money in is matched to the rent each home or room expects, money
@@ -35,43 +35,52 @@ const configured = (env: Env) => !!(str(env.TRUELAYER_CLIENT_ID) && str(env.TRUE
 const publicBase = (env: Env) => (str(env.PUBLIC_URL) || str(env.RENDER_EXTERNAL_URL)).replace(/\/+$/, "");
 const gbp = (n: number) => `£${Math.round(n).toLocaleString("en-GB")}`;
 
-// ── TrueLayer API ────────────────────────────────────────────────────
+// ── TrueLayer API (Data v1: auth link → code → tokens) ───────────────
 
-let token: { value: string; until: number; host: string } | null = null;
+const SCOPES = "info accounts balance transactions offline_access";
 
-async function accessToken(env: Env) {
-  if (token && token.host === authHost(env) && Date.now() < token.until) return token.value;
+interface ConnectionRow {
+  id: number; connection_id: string; status: string; accounts: string | null; last_sync_at: string | null; synced_until: string | null;
+  error: string | null; created_by: string | null; created_at: string;
+  access_token: string | null; refresh_token: string | null; token_expires_at: number | null;
+}
+
+class TlError extends Error { constructor(msg: string, public status = 0, public code = "") { super(msg); } }
+
+async function tokenRequest(env: Env, fields: Record<string, string>) {
   const res = await fetch(`${authHost(env)}/connect/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: str(env.TRUELAYER_CLIENT_ID),
-      client_secret: str(env.TRUELAYER_CLIENT_SECRET),
-      scope: "data",
-    }).toString(),
+    body: new URLSearchParams({ client_id: str(env.TRUELAYER_CLIENT_ID), client_secret: str(env.TRUELAYER_CLIENT_SECRET), ...fields }).toString(),
   });
-  const json = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error?: string; error_description?: string };
-  if (!res.ok || !json.access_token) throw new Error(`TrueLayer sign-in failed (${res.status}): ${json.error_description ?? json.error ?? "no token"}`);
-  token = { value: json.access_token, until: Date.now() + Math.max(60, (json.expires_in ?? 3600) - 120) * 1000, host: authHost(env) };
-  return token.value;
+  const json = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string };
+  if (!res.ok || !json.access_token) throw new TlError(`TrueLayer sign-in failed (${res.status}): ${json.error_description ?? json.error ?? "no token"}`, res.status, json.error ?? "");
+  return json;
 }
 
-async function tl<T>(env: Env, method: string, path: string, opts: { connectionId?: string; body?: unknown; userIp?: string } = {}): Promise<T> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${await accessToken(env)}` };
-  if (opts.connectionId) headers["Connection-Id"] = opts.connectionId;
-  if (opts.userIp) headers["Tl-User-IP"] = opts.userIp;
-  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
-  const res = await fetch(`${apiHost(env)}${path}`, { method, headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
-  const text = await res.text();
-  let json: unknown = {};
-  try { json = text ? JSON.parse(text) : {}; } catch { json = { detail: text.slice(0, 200) }; }
-  if (!res.ok) {
-    const j = json as { title?: string; detail?: string; error_description?: string };
-    const err = new Error(`TrueLayer ${res.status}: ${j.detail ?? j.title ?? j.error_description ?? "request failed"}`) as Error & { status?: number };
-    err.status = res.status;
-    throw err;
-  }
+async function saveTokens(id: number, t: { access_token?: string; refresh_token?: string; expires_in?: number }, keepRefresh: string | null) {
+  await run("UPDATE bank_connections SET access_token = ?, refresh_token = ?, token_expires_at = ? WHERE id = ?", [
+    t.access_token ?? null, t.refresh_token ?? keepRefresh, Date.now() + Math.max(60, (t.expires_in ?? 3600) - 120) * 1000, id,
+  ]);
+}
+
+async function accessToken(env: Env, c: ConnectionRow) {
+  if (c.access_token && c.token_expires_at && Date.now() < c.token_expires_at) return c.access_token;
+  if (!c.refresh_token) throw new TlError("The bank connection has no refresh token: connect again.", 401, "invalid_grant");
+  const t = await tokenRequest(env, { grant_type: "refresh_token", refresh_token: c.refresh_token });
+  await saveTokens(c.id, t, c.refresh_token);
+  c.access_token = t.access_token!;
+  c.refresh_token = t.refresh_token ?? c.refresh_token;
+  c.token_expires_at = Date.now() + ((t.expires_in ?? 3600) - 120) * 1000;
+  return c.access_token;
+}
+
+async function tl<T>(env: Env, c: ConnectionRow, path: string, userIp?: string): Promise<T> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${await accessToken(env, c)}` };
+  if (userIp) headers["X-PSU-IP"] = userIp;
+  const res = await fetch(`${apiHost(env)}/data/v1${path}`, { headers });
+  const json = (await res.json().catch(() => ({}))) as { error?: string; error_description?: string; results?: unknown };
+  if (!res.ok) throw new TlError(`TrueLayer ${res.status}: ${json.error_description ?? json.error ?? "request failed"}`, res.status, json.error ?? "");
   return json as T;
 }
 
@@ -85,29 +94,39 @@ interface TlAccount {
 }
 interface TlTx { id: string; timestamp: string; description: string; currency: string; amount_in_minor: number; status: string; transaction_type?: string }
 
-async function fetchTransactions(env: Env, connectionId: string, accountId: string, from: string, to: string, userIp?: string) {
-  const out: TlTx[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < 10; page++) {
-    const req = await tl<{ id: string }>(env, "POST", `/v3/connected-accounts/${encodeURIComponent(accountId)}/transactions/requests`, {
-      connectionId,
-      userIp,
-      body: { from, to, page_size: 500, ...(cursor ? { cursor } : {}) },
-    });
-    type TxRequest = { status: string; failure_reason?: string; result?: { items: TlTx[]; pagination?: { next_cursor?: string | null } } };
-    let done = null as TxRequest | null;
-    for (let i = 0; i < 15; i++) {
-      await new Promise((r) => setTimeout(r, i === 0 ? 1500 : 3000));
-      const r = await tl<TxRequest>(env, "GET", `/v3/connected-accounts/${encodeURIComponent(accountId)}/transactions/requests/${req.id}`, { connectionId, userIp });
-      if (r.status !== "pending") { done = r; break; }
-    }
-    if (!done) throw new Error("The bank took too long to send transactions. Try again shortly.");
-    if (done.status === "failed") throw new Error(`The bank couldn't send transactions (${done.failure_reason ?? "unknown reason"}).`);
-    out.push(...(done.result?.items ?? []));
-    cursor = done.result?.pagination?.next_cursor ?? undefined;
-    if (!cursor) break;
-  }
-  return out;
+interface V1Account { account_id: string; account_type?: string; display_name?: string; currency?: string; account_number?: { iban?: string; number?: string; sort_code?: string } }
+interface V1Tx { transaction_id: string; normalised_provider_transaction_id?: string; timestamp: string; description?: string; merchant_name?: string; amount: number; currency?: string; transaction_type?: string }
+
+async function fetchAccounts(env: Env, c: ConnectionRow, userIp?: string): Promise<TlAccount[]> {
+  const r = await tl<{ results?: V1Account[] }>(env, c, "/accounts", userIp);
+  return (r.results ?? []).map((a) => ({
+    id: a.account_id,
+    type: "account",
+    currency: a.currency ?? "GBP",
+    account_type: (a.account_type ?? "").toLowerCase().replace(/_/g, " "),
+    account_identifiers: [
+      ...(a.account_number?.number ? [{ type: "sort_code_account_number", sort_code: a.account_number.sort_code, account_number: a.account_number.number }] : []),
+      ...(a.account_number?.iban ? [{ type: "iban", iban: a.account_number.iban }] : []),
+    ],
+    account_holder_names: a.display_name ? [a.display_name] : [],
+  }));
+}
+
+async function fetchTransactions(env: Env, c: ConnectionRow, accountId: string, from: string, to: string, userIp?: string): Promise<TlTx[]> {
+  const q = new URLSearchParams({ from: `${from}T00:00:00Z`, to: `${to}T23:59:59Z` });
+  const r = await tl<{ results?: V1Tx[] }>(env, c, `/accounts/${encodeURIComponent(accountId)}/transactions?${q}`, userIp);
+  return (r.results ?? []).map((t) => {
+    const pounds = Math.abs(t.amount) * (t.transaction_type === "DEBIT" ? -1 : t.transaction_type === "CREDIT" ? 1 : Math.sign(t.amount) || 1);
+    return {
+      id: t.normalised_provider_transaction_id || t.transaction_id,
+      timestamp: t.timestamp,
+      description: [t.description, t.merchant_name && !t.description?.includes(t.merchant_name) ? t.merchant_name : ""].filter(Boolean).join(" · "),
+      currency: t.currency ?? "GBP",
+      amount_in_minor: Math.round(pounds * 100),
+      status: "settled",
+      transaction_type: t.transaction_type,
+    };
+  });
 }
 
 // ── Matching ─────────────────────────────────────────────────────────
@@ -200,8 +219,6 @@ async function expectations(app: AnyApp, env: Env, from: string, to: string): Pr
 
 // ── Sync ─────────────────────────────────────────────────────────────
 
-interface ConnectionRow { id: number; connection_id: string; status: string; accounts: string | null; last_sync_at: string | null; synced_until: string | null; error: string | null; created_by: string | null; created_at: string }
-
 let syncing = false;
 
 export async function syncBank(app: AnyApp, env: Env, opts: { userIp?: string; refreshAccounts?: boolean } = {}) {
@@ -210,21 +227,20 @@ export async function syncBank(app: AnyApp, env: Env, opts: { userIp?: string; r
   syncing = true;
   const summary = { connections: 0, accounts: 0, new_transactions: 0, matched: 0, errors: [] as string[] };
   try {
-    const conns = await query<ConnectionRow>("SELECT * FROM bank_connections WHERE status IN ('authorizing', 'active')");
+    const conns = await query<ConnectionRow>("SELECT * FROM bank_connections WHERE status = 'active'");
     const today = iso(new Date());
     for (const c of conns) {
       try {
         let accounts: TlAccount[] = c.accounts ? JSON.parse(c.accounts) : [];
         if (!accounts.length || opts.refreshAccounts || c.status !== "active") {
-          const r = await tl<{ items: TlAccount[] }>(env, "GET", "/v3/connected-accounts", { connectionId: c.connection_id, userIp: opts.userIp });
-          accounts = (r.items ?? []).filter((a) => a.type === "account");
+          accounts = await fetchAccounts(env, c, opts.userIp);
           await run("UPDATE bank_connections SET status = 'active', accounts = ?, error = NULL WHERE id = ?", [JSON.stringify(accounts), c.id]);
         }
         summary.connections++;
         const from = c.synced_until ? iso(new Date(Date.parse(`${c.synced_until}T12:00:00Z`) - 10 * 86_400_000)) : iso(new Date(Date.now() - 90 * 86_400_000));
         for (const a of accounts) {
           summary.accounts++;
-          const txs = await fetchTransactions(env, c.connection_id, a.id, from, today, opts.userIp);
+          const txs = await fetchTransactions(env, c, a.id, from, today, opts.userIp);
           for (const t of txs) {
             const r = await run(
               `INSERT INTO bank_transactions (id, connection_id, account_id, date, timestamp, description, amount, currency, status, transaction_type)
@@ -241,13 +257,7 @@ export async function syncBank(app: AnyApp, env: Env, opts: { userIp?: string; r
         const msg = e.message;
         summary.errors.push(msg);
         // Consent expired or revoked: say so once, and stop trying.
-        // Still waiting for the person to finish at their bank: leave it, unless it's been an hour.
-        if (c.status === "authorizing") {
-          const stale = Date.now() - Date.parse(`${c.created_at.replace(" ", "T")}Z`) > 3_600_000;
-          await run("UPDATE bank_connections SET error = ?, status = CASE WHEN ? THEN 'failed' ELSE status END WHERE id = ?", [msg.slice(0, 500), stale ? 1 : 0, c.id]);
-          continue;
-        }
-        const gone = e.status === 401 || e.status === 403 || /expired|revoked/i.test(msg);
+        const gone = (e as TlError).code === "invalid_grant" || e.status === 401 || e.status === 403 || /expired|revoked|consent/i.test(msg);
         await run("UPDATE bank_connections SET error = ?, status = CASE WHEN ? THEN 'expired' ELSE status END WHERE id = ?", [msg.slice(0, 500), gone ? 1 : 0, c.id]);
         if (gone && c.status === "active") {
           await pushToAll(env, { title: "Jarvis: bank connection needs renewing", body: "Your bank access has expired. Open Bank in the app and tap Reconnect.", url: "/bank", tag: "bank-expired" }).catch(() => {});
@@ -341,7 +351,9 @@ export function registerBankRoutes(app: AnyApp) {
       configured: configured(env),
       mode: live(env) ? "live" : "sandbox",
       redirect_uri: `${publicBase(env)}/bank`,
-      connections: conns.map((r) => ({ ...r, accounts: r.accounts ? JSON.parse(r.accounts) : [] })),
+      connections: conns
+        .filter((r) => r.status !== "failed" && r.status !== "removed")
+        .map(({ access_token: _a, refresh_token: _r, token_expires_at: _t, ...r }) => ({ ...r, accounts: r.accounts ? JSON.parse(r.accounts) : [] })),
       transactions: txs,
       month: { in: totals?.inn ?? 0, out: totals?.outt ?? 0, matched: totals?.matched ?? 0 },
     });
@@ -350,24 +362,41 @@ export function registerBankRoutes(app: AnyApp) {
   app.post("/api/bank/connect", async (c) => {
     const env = c.env as Env;
     if (!configured(env)) return c.json({ error: "Bank connection isn't set up yet: add TRUELAYER_CLIENT_ID and TRUELAYER_CLIENT_SECRET in Render." }, 400);
-    const me = getUser(c);
+    const state = Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => b.toString(16).padStart(2, "0")).join("");
+    await run("INSERT INTO bank_connections (connection_id, status, created_by) VALUES (?, 'authorizing', ?)", [state, getUser(c)?.name ?? null]);
+    const q = new URLSearchParams({
+      response_type: "code",
+      client_id: str(env.TRUELAYER_CLIENT_ID),
+      scope: SCOPES,
+      redirect_uri: `${publicBase(env)}/bank`,
+      providers: live(env) ? "uk-ob-all uk-oauth-all" : "uk-cs-mock uk-ob-all uk-oauth-all",
+      state,
+    });
+    return c.json({ url: `${authHost(env)}/?${q.toString().replace(/\+/g, "%20")}` });
+  });
+
+  // Back from the bank: swap the one-time code for tokens, then fetch accounts and transactions.
+  app.post("/api/bank/callback", async (c) => {
+    const env = c.env as Env;
+    const body = (await c.req.json().catch(() => null)) as { code?: string; state?: string; error?: string } | null;
+    const row = await get<ConnectionRow>("SELECT * FROM bank_connections WHERE connection_id = ? AND status = 'authorizing'", [str(body?.state)]);
+    if (!row) return c.json({ error: "That bank link has expired or was already used. Tap Connect again." }, 400);
+    if (body?.error || !str(body?.code)) {
+      await run("UPDATE bank_connections SET status = 'failed', error = ? WHERE id = ?", [str(body?.error) || "No code returned", row.id]);
+      return c.json({ error: body?.error === "access_denied" ? "The bank connection was cancelled." : `The bank didn't connect (${str(body?.error) || "no code"}).` }, 400);
+    }
     try {
-      const r = await tl<{ id: string; status: string; hosted_page?: { uri?: string } }>(env, "POST", "/v3/data-connections", {
-        userIp: clientIp((n) => c.req.header(n)),
-        body: {
-          scopes: ["info", "accounts", "balance", "transactions"],
-          provider_selection: { type: "user_selected", filter: { countries: ["GB"] } },
-          user: { name: str(env.TRUELAYER_USER_NAME) || me?.name || "Chisti & Co", email: str(env.TRUELAYER_USER_EMAIL) || "info@chistiandco.com" },
-          user_consent: { type: "authorization_flow_captured" },
-          hosted_page: { type: "authorization_flow", return_uri: `${publicBase(env)}/bank`, country_code: "GB", language_code: "en" },
-          data_access_type: "recurring",
-        },
-      });
-      if (!r.hosted_page?.uri) throw new Error("TrueLayer didn't return a page to connect the bank.");
-      await run("INSERT INTO bank_connections (connection_id, status, created_by) VALUES (?, 'authorizing', ?)", [r.id, me?.name ?? null]);
-      return c.json({ url: r.hosted_page.uri });
+      const t = await tokenRequest(env, { grant_type: "authorization_code", code: str(body!.code), redirect_uri: `${publicBase(env)}/bank` });
+      await saveTokens(row.id, t, null);
+      await run("UPDATE bank_connections SET status = 'active', error = NULL WHERE id = ?", [row.id]);
     } catch (err) {
+      await run("UPDATE bank_connections SET status = 'failed', error = ? WHERE id = ?", [(err as Error).message.slice(0, 500), row.id]);
       return c.json({ error: (err as Error).message }, 502);
+    }
+    try {
+      return c.json({ ok: true, ...(await syncBank(app, env, { userIp: clientIp((n) => c.req.header(n)), refreshAccounts: true })) });
+    } catch (err) {
+      return c.json({ ok: true, errors: [(err as Error).message] });
     }
   });
 

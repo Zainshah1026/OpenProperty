@@ -492,13 +492,16 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 -- ── Bank (open banking, read-only, via TrueLayer) ───────────────────
 CREATE TABLE IF NOT EXISTS bank_connections (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  connection_id TEXT NOT NULL UNIQUE,          -- TrueLayer Data v3 connection
+  connection_id TEXT NOT NULL UNIQUE,          -- our id for the connection (also the OAuth state)
   status TEXT NOT NULL DEFAULT 'authorizing',  -- 'authorizing' | 'active' | 'expired' | 'failed' | 'removed'
   accounts TEXT,                               -- JSON from /v3/connected-accounts
   last_sync_at TEXT,
   synced_until TEXT,                           -- YYYY-MM-DD
   error TEXT,
   created_by TEXT,
+  access_token TEXT,                           -- TrueLayer Data v1 tokens (server only, never sent to the browser)
+  refresh_token TEXT,
+  token_expires_at INTEGER,                    -- ms since epoch
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

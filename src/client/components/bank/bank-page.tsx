@@ -68,11 +68,22 @@ export function BankPage() {
   }
 
   useEffect(() => {
-    // Back from the bank (a connection is still waiting): fetch the accounts and first transactions straight away.
-    load().then((next) => {
-      if (window.location.search) window.history.replaceState(null, "", "/bank");
-      if (next?.connections.some((c) => c.status === "authorizing")) void sync();
-    });
+    // Back from the bank with a one-time code: finish connecting, then show the transactions.
+    const back = new URLSearchParams(window.location.search);
+    const code = back.get("code");
+    const state = back.get("state");
+    const error = back.get("error");
+    if (back.toString()) window.history.replaceState(null, "", "/bank");
+    if (state && (code || error)) {
+      setBusy("sync");
+      setNote("Connecting your bank and fetching transactions…");
+      api<{ new_transactions?: number; matched?: number; errors?: string[] }>("POST", "/api/bank/callback", { code, state, error })
+        .then((r) => setNote(r.errors?.length ? `Connected, but: ${r.errors[0]}` : `Connected: ${r.new_transactions ?? 0} transactions fetched, ${r.matched ?? 0} matched to rent or payments.`))
+        .catch((err) => setNote(`Problem: ${(err as Error).message}`))
+        .finally(() => { setBusy(null); void load(); });
+    } else {
+      void load();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -87,7 +98,7 @@ export function BankPage() {
     }
   }
 
-  const live = s?.connections.filter((c) => c.status === "active" || c.status === "authorizing") ?? [];
+  const live = s?.connections.filter((c) => c.status === "active") ?? [];
   const txs = (s?.transactions ?? []).filter((t) =>
     filter === "in" ? t.amount > 0 : filter === "out" ? t.amount < 0 : filter === "unmatched" ? !t.match_label : true,
   );
