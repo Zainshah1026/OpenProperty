@@ -137,6 +137,26 @@ export function registerDocumentRoutes(app: Hono<any>) {
     return c.json({ enabled: !!store, documents: rows.map(publicRow) });
   });
 
+  /** The document vault: every document, newest first, with its home. Optional ?q= search and ?property_id=. */
+  app.get("/api/documents/all", async (c) => {
+    const where: string[] = [];
+    const params: unknown[] = [];
+    const q = (c.req.query("q") ?? "").trim();
+    if (q) {
+      const like = `%${q}%`;
+      where.push("(d.filename LIKE ? OR d.label LIKE ? OR p.name LIKE ? OR p.address LIKE ? OR p.ref = ? OR p.zip LIKE ?)");
+      params.push(like, like, like, like, q.replace(/^ref\s*/i, ""), like);
+    }
+    const pid = parseInt(c.req.query("property_id") ?? "", 10);
+    if (Number.isFinite(pid)) { where.push("d.property_id = ?"); params.push(pid); }
+    const rows = await query<DocRow & { property_ref: string | null; property_name: string | null }>(
+      `SELECT d.*, p.ref AS property_ref, p.name AS property_name FROM compliance_documents d LEFT JOIN properties p ON p.id = d.property_id
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY COALESCE(d.taken_on, d.created_at) DESC, d.id DESC LIMIT 500`,
+      params,
+    ).catch(() => []);
+    return c.json({ enabled: !!store, documents: rows.map(publicRow) });
+  });
+
   /** How many documents each property has, per kind (for the Compliance table). */
   app.get("/api/documents/summary", async (c) => {
     const rows = await query<{ property_id: number; kind: string; n: number }>(

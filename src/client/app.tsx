@@ -28,6 +28,7 @@ import { MapPage } from "./components/map/map-page";
 import { ApprovalsPage } from "./components/approvals/approvals-page";
 import { BankPage } from "./components/bank/bank-page";
 import { TodoPage } from "./components/todo/todo-page";
+import { VaultPage } from "./components/vault/vault-page";
 
 /** A record page keeps its collection's row lit. */
 function activeFor(route: Route, path: string): string {
@@ -104,6 +105,7 @@ export function App() {
               {route.name === "approvals" && <ApprovalsPage />}
               {route.name === "bank" && <BankPage />}
               {route.name === "todo" && <TodoPage navigate={navigate} />}
+              {route.name === "documents" && <VaultPage />}
               {route.name === "not-found" && (
                 <Placeholder title="This page doesn't exist" message="Use the menu to find what you need, or tap Home." />
               )}

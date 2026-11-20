@@ -22,6 +22,7 @@ export type Route =
   | { name: "approvals" }
   | { name: "bank" }
   | { name: "todo" }
+  | { name: "documents" }
   | { name: "not-found" };
 
 function parse(full: string): Route {
@@ -48,6 +49,7 @@ function parse(full: string): Route {
   if (path === "/approvals") return { name: "approvals" };
   if (path === "/bank") return { name: "bank" };
   if (path === "/todo") return { name: "todo" };
+  if (path === "/documents") return { name: "documents" };
   m = path.match(/^\/letters\/(\d+)$/);
   if (m) return { name: "letter", id: parseInt(m[1], 10) };
   return { name: "not-found" };
