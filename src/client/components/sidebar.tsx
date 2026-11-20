@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Banknote, Briefcase, Building2, CircleDollarSign, ClipboardList, FileSignature, FileText, Home, House, Inbox, KeyRound, Landmark,
-  LogOut, Map as MapIcon, Menu, Mic, Moon, Sun, SunMoon, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Users, Wrench, X, Flame,
+  ListChecks, LogOut, Map as MapIcon, Menu, Mic, Moon, Sun, SunMoon, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Users, Wrench, X, Flame,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,10 @@ export interface NavItem {
 export const NAV_GROUPS: { label?: string; color: string; items: NavItem[] }[] = [
   {
     color: "var(--door-yellow)",
-    items: [{ id: "dashboard", label: "Home", href: "/dashboard", icon: House }],
+    items: [
+      { id: "dashboard", label: "Home", href: "/dashboard", icon: House },
+      { id: "todo", label: "To-do", href: "/todo", icon: ListChecks },
+    ],
   },
   {
     label: "Things to do",
@@ -297,7 +300,7 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
         <ul className="grid grid-cols-5">
           {[
             { id: "dashboard", label: "Home", href: "/dashboard", icon: House, color: "var(--door-yellow)" },
-            { id: "properties", label: "Homes", href: "/properties?section=owned", icon: Building2, color: "var(--door-blue)" },
+            { id: "todo", label: "To-do", href: "/todo", icon: ListChecks, color: "var(--door-blue)" },
             { id: "jarvis", label: "Jarvis", href: "", icon: Mic, color: "var(--door-yellow)" },
             { id: "rent", label: "Money", href: "/rent", icon: CircleDollarSign, color: "var(--door-green)" },
             { id: "maintenance", label: "Repairs", href: "/maintenance", icon: Wrench, color: "var(--door-red)" },

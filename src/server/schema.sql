@@ -524,3 +524,21 @@ CREATE TABLE IF NOT EXISTS bank_transactions (
 );
 CREATE INDEX IF NOT EXISTS idx_bank_tx_date ON bank_transactions(date);
 CREATE INDEX IF NOT EXISTS idx_bank_tx_match ON bank_transactions(match_key, match_month);
+
+-- ── To-do ──────────────────────────────────────────────────────────
+-- Your own tasks. Everything else on the to-do list is worked out from the
+-- rest of the app; todo_hidden remembers what was ticked "done for now".
+CREATE TABLE IF NOT EXISTS todos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  notes TEXT,
+  due_date TEXT,                               -- YYYY-MM-DD
+  property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL,
+  done_at TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS todo_hidden (
+  key TEXT PRIMARY KEY,
+  until TEXT NOT NULL                          -- YYYY-MM-DD
+);
