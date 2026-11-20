@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Landmark, Link2, RefreshCw } from "lucide-react";
+import { Landmark, Link2, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
 import { cn } from "@/lib/utils";
@@ -87,6 +87,17 @@ export function BankPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function remove(c: Connection) {
+    if (!window.confirm(`Remove ${c.accounts.length === 1 ? "this account" : "these accounts"} and all ${c.accounts.length === 1 ? "its" : "their"} transactions from the app?`)) return;
+    try {
+      const r = await api<{ removed_transactions: number }>("POST", `/api/bank/connections/${c.id}/remove`);
+      setNote(`Removed, along with ${r.removed_transactions} transactions.`);
+    } catch (err) {
+      setNote(`Problem: ${(err as Error).message}`);
+    }
+    await load();
+  }
+
   async function connect() {
     setBusy("connect");
     try {
@@ -145,6 +156,9 @@ export function BankPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={c.status === "active" ? "secondary" : "outline"}>{c.status === "active" ? "Connected" : "Waiting for the bank"}</Badge>
                   <span className="text-xs text-muted-foreground">Last sync {when(c.last_sync_at)}</span>
+                  <Button size="sm" variant="ghost" className="ml-auto" disabled={busy !== null} onClick={() => remove(c)}>
+                    <Trash2 className="size-4" /> Remove
+                  </Button>
                 </div>
                 {c.accounts.map((a) => <p key={a.id} className="mt-1">{accountLabel(a)}</p>)}
                 {c.error && <p className="mt-1 text-xs text-destructive">{c.error}</p>}

@@ -411,8 +411,12 @@ export function registerBankRoutes(app: AnyApp) {
   });
 
   app.post("/api/bank/connections/:id/remove", async (c) => {
-    // Stops using a connection here; the person can also revoke it at their bank.
-    await run("UPDATE bank_connections SET status = 'removed' WHERE id = ?", [Number(c.req.param("id"))]);
-    return c.json({ ok: true });
+    // Forget a connection and everything fetched through it (e.g. the sandbox
+    // test bank). The person can also revoke access at their bank.
+    const row = await get<ConnectionRow>("SELECT * FROM bank_connections WHERE id = ?", [Number(c.req.param("id"))]);
+    if (!row) return c.json({ error: "Not found" }, 404);
+    const r = await run("DELETE FROM bank_transactions WHERE connection_id = ?", [row.connection_id]);
+    await run("UPDATE bank_connections SET status = 'removed', accounts = NULL, access_token = NULL, refresh_token = NULL, token_expires_at = NULL WHERE id = ?", [row.id]);
+    return c.json({ ok: true, removed_transactions: r.changes });
   });
 }
