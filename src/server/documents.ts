@@ -11,6 +11,7 @@
 import type { Hono } from "hono";
 import { get, query, run } from "./db";
 import { getUser } from "./auth";
+import { readCertificate } from "./cert-reader";
 
 export interface DocumentStore {
   put(name: string, bytes: Uint8Array): Promise<void>;
@@ -137,6 +138,41 @@ export async function applyCertificateDates(propertyId?: number) {
   return changed;
 }
 
+/**
+ * Jarvis reads a stored certificate that has no expiry date, saves the date
+ * on the document, and moves the home's date up if it's later. Returns the
+ * date found (or null). Problems on the certificate are kept in its label.
+ */
+export async function readStoredCertificate(env: Record<string, unknown>, doc: DocRow): Promise<string | null> {
+  if (!store || !CERT_FIELD[doc.kind] || doc.expiry_date || !String(env.ANTHROPIC_API_KEY ?? "").trim()) return null;
+  const bytes = await store.get(doc.stored_name);
+  if (!bytes) return null;
+  const file = new File([bytes], doc.filename, { type: doc.content_type });
+  const r = await readCertificate(env, file);
+  if (!r.expiry_date) return null;
+  const flag = r.result === "fail" || r.result === "unsatisfactory" ? `${r.result === "fail" ? "Failed" : "Unsatisfactory"}: ${r.problems.join("; ")}`.slice(0, 200) : null;
+  await run("UPDATE compliance_documents SET expiry_date = ?, label = COALESCE(label, ?) WHERE id = ? AND expiry_date IS NULL", [r.expiry_date, flag, doc.id]);
+  await applyCertificateDates(doc.property_id);
+  return r.expiry_date;
+}
+
+/** Read every certificate on file that has no expiry date (newest first, up to `limit`). */
+export async function readMissingCertificateDates(env: Record<string, unknown>, limit = 25) {
+  const rows = await query<DocRow>(
+    `SELECT * FROM compliance_documents WHERE expiry_date IS NULL AND kind IN (${Object.keys(CERT_FIELD).map((k) => `'${k}'`).join(", ")}) ORDER BY id DESC LIMIT ?`,
+    [limit],
+  ).catch(() => [] as DocRow[]);
+  let found = 0;
+  for (const d of rows) {
+    try {
+      if (await readStoredCertificate(env, d)) found++;
+    } catch (err) {
+      console.error(`Reading certificate ${d.id} (${d.filename}): ${(err as Error).message}`);
+    }
+  }
+  return { checked: rows.length, found };
+}
+
 export function registerDocumentRoutes(app: Hono<any>) {
   const unavailable = { error: "Document uploads aren't available on this server." };
 
@@ -230,6 +266,15 @@ export function registerDocumentRoutes(app: Hono<any>) {
     });
     if (!res.ok) return c.json({ error: res.error }, res.status);
     if (CERT_FIELD[kind] && expiry) await applyCertificateDates(pid);
+    // No date typed in: Jarvis reads it off the certificate.
+    let read: string | null = null;
+    if (CERT_FIELD[kind] && !expiry && !res.duplicate) {
+      read = await readStoredCertificate(c.env as Record<string, unknown>, res.document).catch((err) => {
+        console.error(`Reading uploaded certificate: ${(err as Error).message}`);
+        return null;
+      });
+      if (read) res.document.expiry_date = read;
+    }
     return c.json({ document: publicRow(res.document), ...(res.duplicate ? { duplicate: true } : {}) }, res.duplicate ? 200 : 201);
   });
 

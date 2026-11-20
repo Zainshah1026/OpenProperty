@@ -20,7 +20,7 @@ import { setLeadMailer } from "./lead-email";
 import { generateRentInvoices } from "./rent-invoices";
 import { dailyMoneyOnce, scanEmailOnce } from "./jarvis";
 import { syncBank } from "./bank";
-import { applyCertificateDates, setDocumentStore } from "./documents";
+import { applyCertificateDates, readMissingCertificateDates, setDocumentStore } from "./documents";
 import { recordVoids } from "./extras";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
@@ -302,6 +302,10 @@ async function start() {
   const bankSync = () => syncBank(app, env).then((s) => { if ("connections" in s && s.connections) console.log(`Bank sync: ${JSON.stringify(s)}`); }).catch((err) => console.error(`Bank sync: ${(err as Error).message}`));
   setTimeout(bankSync, 120_000).unref();
   setInterval(bankSync, 6 * 3600_000).unref();
+  // Certificates uploaded without a date: Jarvis reads them (once after start, then daily).
+  const readCerts = () => readMissingCertificateDates(env).then((r) => { if (r.checked) console.log(`Certificates read: ${r.found} of ${r.checked} dated`); }).catch((err) => console.error(`Certificates read: ${(err as Error).message}`));
+  setTimeout(readCerts, 90_000).unref();
+  setInterval(readCerts, 24 * 3600_000).unref();
   // Jarvis: the morning "rent due and mortgages today" notification.
   setTimeout(() => dailyMoneyOnce(app, env), 60_000).unref();
   setInterval(() => dailyMoneyOnce(app, env), 10 * 60_000).unref();
