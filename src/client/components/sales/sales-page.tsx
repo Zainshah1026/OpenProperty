@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ContactButtons } from "@/components/contact-buttons";
 import { Mail, Phone, Plus, Search, Briefcase } from "lucide-react";
 import { useApp } from "@/context";
 import { formatMoney } from "@/lib/utils";
@@ -111,9 +112,10 @@ export function SalesPage() {
                       <td className="px-3 py-2.5 font-medium">{l.landlord_name}</td>
                       <td className="px-3 py-2.5 text-xs">
                         {l.phone && (
-                          <a href={`tel:${l.phone.replace(/\s/g, "")}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 hover:underline">
-                            <Phone className="size-3" aria-hidden />{l.phone}
-                          </a>
+                          <span className="mb-1 flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-muted-foreground">{l.phone}</span>
+                            <ContactButtons phone={l.phone} size="sm" message={`Hi ${l.landlord_name.split(" ")[0]}, it's Chisti & Co about your property.`} />
+                          </span>
                         )}
                         {l.email && (
                           <a href={`mailto:${l.email}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 text-muted-foreground hover:underline">

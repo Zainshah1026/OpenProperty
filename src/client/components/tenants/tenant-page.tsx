@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ContactButtons } from "@/components/contact-buttons";
 import { ArrowLeft, Mail, Pencil, Phone, User } from "lucide-react";
 import { useApp } from "@/context";
 import { api } from "@/api";
@@ -84,6 +85,7 @@ export function TenantPage({ id, navigate }: { id: number; navigate: (to: string
                 {tenant.email && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> {tenant.email}</span>}
                 {tenant.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {tenant.phone}</span>}
               </div>
+              <ContactButtons phone={tenant.phone} className="mt-3" />
             </div>
           </div>
           <Button variant="outline" onClick={() => setEditing(true)}>

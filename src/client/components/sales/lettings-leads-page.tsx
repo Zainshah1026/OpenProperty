@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ContactButtons } from "@/components/contact-buttons";
 import { Copy, KeyRound, Mail, MailCheck, Phone, Plus, Search, Send } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
@@ -168,9 +169,10 @@ export function LettingsLeadsPage() {
                       </td>
                       <td className="px-3 py-2.5 text-xs">
                         {l.phone && (
-                          <a href={`tel:${l.phone.replace(/\s/g, "")}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 whitespace-nowrap hover:underline">
-                            <Phone className="size-3" aria-hidden />{l.phone}
-                          </a>
+                          <span className="mb-1 flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-muted-foreground">{l.phone}</span>
+                            <ContactButtons phone={l.phone} size="sm" message={`Hi ${l.name.split(" ")[0]}, it's Chisti & Co about letting your property.`} />
+                          </span>
                         )}
                         {l.email && (
                           <a href={`mailto:${l.email}`} onClick={(e) => e.stopPropagation()} className="flex max-w-[14rem] items-center gap-1 truncate text-muted-foreground hover:underline">
@@ -281,7 +283,7 @@ function LettingsLeadDialog({ lead, onClose }: { lead: LettingsLead | null | und
             </div>
             {lead && (f.phone || f.email) && (
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                {f.phone && <a className="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1.5 hover:bg-muted/70" href={`tel:${f.phone.replace(/\s/g, "")}`}><Phone className="size-3.5" /> Call</a>}
+                {f.phone && <ContactButtons phone={f.phone} size="sm" />}
                 {f.email && <a className="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1.5 hover:bg-muted/70" href={`mailto:${f.email}`}><Mail className="size-3.5" /> Email</a>}
                 <button type="button" onClick={copyContact} className="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1.5 hover:bg-muted/70"><Copy className="size-3.5" /> {copied ? "Copied" : "Copy details"}</button>
               </div>

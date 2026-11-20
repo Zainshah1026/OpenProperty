@@ -17,6 +17,17 @@ import { SyncBanner } from "@/components/sync-banner";
 
 const ALL = "__all";
 
+/** How a home is doing, in one colour and a few words, for the phone cards. */
+function homeMood(p: { rent_status: string | null; occupancy: string; arrears_amount?: number; months_arrears?: number }) {
+  if (p.occupancy === "vacant") return { color: "#8a90b8", tint: "var(--muted)", text: "var(--muted-foreground)", emoji: "🔑", label: "Empty" };
+  if (p.occupancy === "eviction") return { color: "var(--door-red)", tint: "var(--destructive-tint)", text: "var(--destructive)", emoji: "⚠️", label: "Eviction in progress" };
+  if (p.rent_status === "missed") return { color: "var(--door-red)", tint: "var(--destructive-tint)", text: "var(--destructive)", emoji: "🔴", label: p.arrears_amount ? `Owes £${Math.round(p.arrears_amount).toLocaleString("en-GB")}` : "Rent missed" };
+  if (p.rent_status === "in_arrears") return { color: "#f59f0b", tint: "var(--warning-tint)", text: "var(--warning)", emoji: "🟠", label: `Pays ${p.months_arrears && p.months_arrears !== 1 ? `${p.months_arrears} months` : "a month"} behind` };
+  if (p.rent_status === "on_time" || p.rent_status === "in_advance") return { color: "var(--door-green)", tint: "var(--success-tint)", text: "var(--success)", emoji: "🟢", label: p.rent_status === "in_advance" ? "Paid ahead" : "Paid on time" };
+  if (p.rent_status === "ground_rent") return { color: "var(--door-plum)", tint: "var(--brand-tint)", text: "var(--brand-text)", emoji: "🏛️", label: "Ground rent" };
+  return { color: "var(--door-blue)", tint: "var(--brand-tint)", text: "var(--brand-text)", emoji: "🏠", label: "No rent status" };
+}
+
 type Section = "all" | "owned" | "managed" | "freehold";
 
 const SECTIONS: { value: Section; label: string }[] = [
@@ -166,7 +177,53 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
             )}
           </div>
 
-          <Card className="overflow-hidden">
+          {/* Phones: one big card per home, coloured by how the rent is going. */}
+          <ul className="space-y-3 md:hidden">
+            {rows.map((p) => {
+              const net = netProfit(p);
+              const costsKnown = p.rent_out > 0 || p.other_costs > 0 || p.deal_type === "ground_rent" || p.ground_rent_paid > 0 || p.service_charge_paid > 0;
+              const mood = homeMood(p);
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/properties/${p.id}`)}
+                    className="flex w-full items-stretch overflow-hidden rounded-2xl bg-card text-left shadow-card transition active:scale-[0.99]"
+                  >
+                    <span className="w-2 shrink-0" style={{ background: mood.color }} aria-hidden />
+                    <span className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+                      <span className="flex items-start gap-3">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[1.0625rem] font-semibold leading-snug">{p.name}</span>
+                          <span className="block truncate text-[0.8125rem] text-muted-foreground">
+                            {[p.ref ? `Ref ${p.ref}` : null, p.zip, p.bedrooms ? `${p.bedrooms} bed` : null, p.room_count ? `${p.rooms_let ?? 0}/${p.room_count} rooms let` : null].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                        <span className="text-xl" aria-hidden>{mood.emoji}</span>
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full px-2.5 py-1 text-[0.8125rem] font-semibold" style={{ background: mood.tint, color: mood.text }}>{mood.label}</span>
+                        <span className="rounded-full bg-muted px-2.5 py-1 text-[0.8125rem] text-muted-foreground">{occupancyLabel(p.occupancy)}</span>
+                      </span>
+                      <span className="flex items-end justify-between gap-3 pt-1">
+                        <span>
+                          <span className="block text-xs text-muted-foreground">Rent in</span>
+                          <span className="display block text-xl tabular-nums">{money(p.rent_in)}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="block text-xs text-muted-foreground">We keep</span>
+                          <span className={cn("block font-semibold tabular-nums", costsKnown && net < 0 && "text-destructive")}>{costsKnown ? money(net) : "—"}</span>
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {rows.length === 0 && <li className="rounded-2xl bg-card p-6 text-center text-muted-foreground">No homes match these filters.</li>}
+          </ul>
+
+          <Card className="hidden overflow-hidden md:block">
             <div className="overflow-x-auto">
               <table className={cn("w-full text-sm", showCharges ? "min-w-[1180px]" : "min-w-[960px]")}>
                 <thead className="border-b bg-muted/40 text-left text-[0.8125rem] text-muted-foreground">

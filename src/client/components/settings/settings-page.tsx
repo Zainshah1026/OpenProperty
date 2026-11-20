@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ContactButtons } from "@/components/contact-buttons";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useApp } from "@/context";
 import { api } from "@/api";
@@ -105,6 +106,7 @@ function VendorsTab() {
                     <div className="text-xs text-muted-foreground">
                       {[v.phone, v.email].filter(Boolean).join(" · ") || "—"}
                     </div>
+                    <ContactButtons phone={v.phone} size="sm" className="mt-1.5" />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

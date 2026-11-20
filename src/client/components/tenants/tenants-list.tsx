@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ContactButtons } from "@/components/contact-buttons";
 import { Mail, Phone, Plus, Search, User } from "lucide-react";
 import { useApp } from "@/context";
 import { Button } from "@/components/ui/button";
@@ -121,8 +122,9 @@ export function TenantsList({ navigate }: { navigate: (to: string) => void }) {
                     </TableCell>
                     <TableCell>
                       {t.phone ? (
-                        <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                          <Phone className="h-3 w-3" /> {t.phone}
+                        <span className="flex flex-col gap-1">
+                          <span className="text-xs text-muted-foreground">{t.phone}</span>
+                          <ContactButtons phone={t.phone} size="sm" />
                         </span>
                       ) : <span className="text-xs text-muted-foreground">—</span>}
                     </TableCell>
