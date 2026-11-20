@@ -556,3 +556,19 @@ CREATE TABLE IF NOT EXISTS rent_reviews (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_rent_reviews_property ON rent_reviews(property_id);
+
+-- ── Emails filed against homes (by Jarvis) ──────────────────────────
+CREATE TABLE IF NOT EXISTS email_links (
+  mailbox TEXT NOT NULL,                       -- lower-case address
+  uid INTEGER NOT NULL,                        -- IMAP uid in INBOX
+  sent_at TEXT,
+  from_name TEXT,
+  from_address TEXT,
+  subject TEXT,
+  property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL,
+  category TEXT NOT NULL DEFAULT 'other',
+  summary TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (mailbox, uid)
+);
+CREATE INDEX IF NOT EXISTS idx_email_links_property ON email_links(property_id);

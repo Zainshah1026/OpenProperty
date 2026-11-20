@@ -17,6 +17,7 @@ import { TenantPicker } from "@/components/tenants/tenant-picker";
 import { AccessCard, MediaCard, RepairQrCard, VoidsCard } from "./property-extras";
 import { FinanceCard } from "./finance-card";
 import { LettersCard } from "@/components/letters/letters-card";
+import { PropertyEmails } from "./property-emails";
 import { MortgagesCard } from "@/components/mortgages/mortgages-card";
 import {
   CERTIFICATES, CERT_LABEL, CERT_TONE, ENERGY_LABEL, SECTIONS, certNeeded, certState, dealLabel, netProfit,
@@ -24,7 +25,7 @@ import {
 } from "@/lib/portfolio";
 
 
-type Tab = "overview" | "compliance" | "money" | "rooms" | "letters" | "maintenance" | "files";
+type Tab = "overview" | "compliance" | "money" | "rooms" | "letters" | "emails" | "maintenance" | "files";
 
 const STATUS_TONE: Record<string, string> = {
   vacant: "bg-warning-tint text-warning",
@@ -106,11 +107,12 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   const certIssues = CERTIFICATES.filter((c) => certNeeded(property, c.key) && ["expired", "due_soon"].includes(certState(property[c.key])));
   const tabs: { id: Tab; label: string; count?: number; hidden?: boolean }[] = [
     { id: "overview", label: "Overview" },
-    { id: "compliance", label: "Compliance", count: certIssues.length || undefined },
+    { id: "compliance", label: "Certificates", count: certIssues.length || undefined },
     { id: "money", label: "Money", hidden: !showMoney },
     { id: "rooms", label: showRooms ? "Rooms & units" : "Units" },
     { id: "letters", label: "Letters" },
-    { id: "maintenance", label: "Maintenance", count: openWorkOrders.length || undefined },
+    { id: "emails", label: "Emails" },
+    { id: "maintenance", label: "Repairs", count: openWorkOrders.length || undefined },
     { id: "files", label: "Access & files" },
   ];
   const current = tabs.find((t) => t.id === tab && !t.hidden) ? tab : "overview";
@@ -355,6 +357,8 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
           )}
 
           {current === "letters" && <LettersCard propertyId={property.id} navigate={navigate} />}
+
+          {current === "emails" && <PropertyEmails propertyId={property.id} navigate={navigate} />}
 
           {current === "maintenance" && (
             <section className="space-y-5">

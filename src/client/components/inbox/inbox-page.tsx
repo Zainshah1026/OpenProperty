@@ -73,6 +73,12 @@ export function InboxPage() {
   const [openUid, setOpenUid] = useState<number | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [reading, setReading] = useState(false);
+  // Opened from a link (e.g. a home's Emails tab): which message to show once its mailbox is selected.
+  const [pending, setPending] = useState<{ mailbox: string; uid: number } | null>(() => {
+    const q = new URLSearchParams(window.location.search);
+    const uid = Number(q.get("uid"));
+    return q.get("mailbox") && Number.isInteger(uid) ? { mailbox: q.get("mailbox")!.toLowerCase(), uid } : null;
+  });
 
   useEffect(() => {
     api<{ enabled: boolean; accounts: string[] }>("GET", "/api/mail/accounts")
@@ -120,6 +126,18 @@ export function InboxPage() {
       setReading(false);
     }
   }
+
+  useEffect(() => {
+    if (!pending || !accounts.length) return;
+    const idx = accounts.findIndex((a) => a.toLowerCase() === pending.mailbox);
+    if (idx < 0) { setPending(null); return; }
+    if (idx !== account) { setAccount(idx); setFolder("INBOX"); return; }
+    const uid = pending.uid;
+    setPending(null);
+    window.history.replaceState(null, "", "/inbox");
+    void open(uid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, accounts, account]);
 
   const unread = useMemo(() => list?.messages.filter((m) => !m.seen).length ?? 0, [list]);
   const pages = list ? Math.max(1, Math.ceil(list.total / PAGE_SIZE)) : 1;
