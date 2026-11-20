@@ -385,6 +385,92 @@ export async function scanEmailOnce(env: Env) {
   }
 }
 
+// ── Morning money notification ───────────────────────────────────────
+// Once a day (from JARVIS_MONEY_HOUR, default 8, London time) a notification
+// lists the rent due in today and what goes out: mortgages (from the
+// Mortgages page, or the property's payment-out day), rent to landlords and
+// ground rent. Off with JARVIS_DAILY_MONEY=off.
+
+const gbp = (n: number) => `£${Math.round(n).toLocaleString("en-GB")}`;
+
+function londonNow(now = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", hourCycle: "h23" })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, month: `${parts.year}-${parts.month}`, day: Number(parts.day), hour: Number(parts.hour) };
+}
+
+interface MoneyItem { ref: string | null; label: string; amount: number; what: string }
+
+/** What comes in and goes out on a London date (YYYY-MM-DD). */
+export async function moneyForDay(app: AnyApp, env: Env, date: string) {
+  const month = date.slice(0, 7);
+  const day = Number(date.slice(8, 10));
+  const res = await app.fetch(new Request(`http://internal/api/calendar?month=${month}`), { ...env, ALLOW_NO_AUTH: "true" });
+  const cal = (await res.json()) as { days_in_month: number; events: { date: string; kind: string; amount?: number; title: string; detail: string; property_id: number; ref: string | null }[] };
+  const today = cal.events.filter((e) => e.date === date);
+
+  const mortgages = await query<{ property_id: number | null; lender: string; monthly_payment: number | null; payment_day: number | null; ref: string | null; name: string | null }>(
+    `SELECT m.property_id, m.lender, m.monthly_payment, m.payment_day, p.ref, p.name
+     FROM mortgages m LEFT JOIN properties p ON p.id = m.property_id
+     WHERE COALESCE(m.status, 'active') = 'active' AND m.payment_day IS NOT NULL`,
+  ).catch(() => []);
+  const dueMortgages = mortgages.filter((m) => Math.min(m.payment_day!, cal.days_in_month) === day);
+  // A home with its own mortgage record: use that instead of the property's payment-out figure.
+  const covered = new Set(mortgages.map((m) => m.property_id).filter((id): id is number => id != null));
+
+  const rentIn: MoneyItem[] = today
+    .filter((e) => e.kind === "in")
+    .map((e) => ({ ref: e.ref, label: e.title, amount: e.amount ?? 0, what: e.detail }));
+  const out: MoneyItem[] = [
+    ...today
+      .filter((e) => e.kind === "out" && !(e.detail === "Mortgage" && covered.has(e.property_id)))
+      .map((e) => ({ ref: e.ref, label: e.title, amount: e.amount ?? 0, what: e.detail })),
+    ...dueMortgages.map((m) => ({ ref: m.ref, label: m.name ?? "", amount: m.monthly_payment ?? 0, what: `Mortgage (${m.lender})` })),
+  ];
+  const total = (xs: MoneyItem[]) => xs.reduce((a, x) => a + x.amount, 0);
+  return { date, rentIn, out, totalIn: total(rentIn), totalOut: total(out) };
+}
+
+export function moneyMessage(m: Awaited<ReturnType<typeof moneyForDay>>): PushMessage | null {
+  if (!m.rentIn.length && !m.out.length) return null;
+  const name = (x: MoneyItem) => (x.ref ? `Ref ${x.ref}` : x.label || "?");
+  const list = (xs: MoneyItem[]) => {
+    const shown = xs.slice(0, 4).map((x) => `${name(x)} ${gbp(x.amount)}`).join(", ");
+    return xs.length > 4 ? `${shown} +${xs.length - 4} more` : shown;
+  };
+  const lines = [];
+  if (m.rentIn.length) lines.push(`Rent due: ${list(m.rentIn)}`);
+  const mort = m.out.filter((x) => x.what.startsWith("Mortgage"));
+  const other = m.out.filter((x) => !x.what.startsWith("Mortgage"));
+  if (mort.length) lines.push(`Mortgages: ${list(mort)}`);
+  if (other.length) lines.push(`Other payments: ${list(other)}`);
+  const head = [m.rentIn.length ? `${gbp(m.totalIn)} rent in` : "", m.out.length ? `${gbp(m.totalOut)} going out` : ""].filter(Boolean).join(" · ");
+  return { title: `Today: ${head}`, body: lines.join("\n"), url: "/dashboard", tag: `money-${m.date}` };
+}
+
+let moneyRunning = false;
+
+export async function dailyMoneyOnce(app: AnyApp, env: Env) {
+  if (moneyRunning || str(env.JARVIS_DAILY_MONEY).toLowerCase() === "off") return;
+  const now = londonNow();
+  const hour = Number(str(env.JARVIS_MONEY_HOUR) || "8");
+  if (now.hour < (Number.isFinite(hour) ? hour : 8)) return;
+  if ((await setting("jarvis_money_sent")) === now.date) return;
+  moneyRunning = true;
+  try {
+    const msg = moneyMessage(await moneyForDay(app, env, now.date));
+    if (msg) await pushToAll(env, msg);
+    await saveSetting("jarvis_money_sent", now.date);
+  } catch (err) {
+    console.error(`Jarvis daily money: ${(err as Error).message}`);
+  } finally {
+    moneyRunning = false;
+  }
+}
+
 // ── Routes ───────────────────────────────────────────────────────────
 
 const view = (a: ApprovalRow) => ({ ...a, input: (() => { try { return JSON.parse(a.input); } catch { return {}; } })(), urgent: !!a.urgent });
@@ -426,6 +512,17 @@ export function registerJarvisRoutes(app: AnyApp) {
     const body = (await c.req.json().catch(() => null)) as { endpoint?: string } | null;
     await run("DELETE FROM push_subscriptions WHERE endpoint = ?", [str(body?.endpoint)]);
     return c.json({ ok: true });
+  });
+
+  app.get("/api/jarvis/money-today", async (c) => {
+    const m = await moneyForDay(app, c.env as Env, londonNow().date);
+    return c.json({ ...m, notification: moneyMessage(m) });
+  });
+
+  app.post("/api/jarvis/money-today/send", async (c) => {
+    const msg = moneyMessage(await moneyForDay(app, c.env as Env, londonNow().date));
+    if (!msg) return c.json({ sent: 0, note: "Nothing due in or out today." });
+    return c.json({ sent: await pushToAll(c.env as Env, msg) });
   });
 
   app.post("/api/push/test", async (c) => {

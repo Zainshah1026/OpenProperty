@@ -145,7 +145,7 @@ export function ApprovalsPage() {
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
             <p className="text-sm text-muted-foreground">
-              Jarvis asks here before it changes anything. Urgent requests also ring your phone, and you can answer yes or no out loud.
+              Jarvis asks here before it changes anything. Urgent requests also ring your phone, and you can answer yes or no out loud. Every morning at 8 you also get the rent due in that day and the mortgages and other payments going out.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -158,6 +158,10 @@ export function ApprovalsPage() {
               <>
                 <Badge variant="secondary"><Bell className="mr-1 size-3.5" /> Notifications on</Badge>
                 <Button size="sm" variant="outline" onClick={() => run(() => api("POST", "/api/push/test"), "Test notification sent.")}>Send a test</Button>
+                <Button size="sm" variant="outline" onClick={() => run(async () => {
+                  const r = await api<{ sent?: number; note?: string }>("POST", "/api/jarvis/money-today/send");
+                  if (r.note) throw new Error(r.note);
+                }, "Today's rent and payments sent.")}>Today's money</Button>
                 <Button size="sm" variant="ghost" onClick={() => run(push.disable, "Notifications off for this device.")}><BellOff className="size-4" /> Turn off</Button>
               </>
             )}

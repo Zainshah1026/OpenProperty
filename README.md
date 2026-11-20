@@ -157,6 +157,12 @@ Automations never change anything on their own. They queue the change on the
   match to a property become "log this job?" approvals (urgent ones ring you);
   ones it can't match send a notification. It starts from the newest email
   when first switched on. `JARVIS_SCAN_MODEL` defaults to `claude-haiku-5-5`.
+- **Morning money.** Every day from 8am (`JARVIS_MONEY_HOUR`, London time)
+  a notification lists the rent due in that day and what goes out: mortgages
+  (from the Mortgages page where recorded, otherwise the home's payment-out
+  day), rent to landlords and ground rent. Nothing due, no notification.
+  `JARVIS_DAILY_MONEY=off` turns it off; *Today's money* on the Approvals page
+  sends it now.
 - **Other automations** can queue approvals with
   `POST /api/jarvis/propose` (`Authorization: Bearer <JARVIS_TOKEN>`, JSON
   `{"tool": "log_work_order", "input": {...}, "summary": "...", "urgent": false}`).
