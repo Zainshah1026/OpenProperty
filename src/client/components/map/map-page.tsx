@@ -18,7 +18,7 @@ type Section = Property["section"];
 type Point = { lat: number; lng: number };
 
 const SECTION_STYLE: Record<Section, { label: string; color: string }> = {
-  owned: { label: "Owned", color: "#0b7cc2" },
+  owned: { label: "We own", color: "#2d5bff" },
   managed: { label: "Rent to rent", color: "#e08a1e" },
   freehold: { label: "Freehold", color: "#2f9e5b" },
 };
@@ -214,7 +214,7 @@ export function MapPage({ navigate }: { navigate: (to: string) => void }) {
 
   return (
     <PageShell
-      title="Portfolio map"
+      title="Map"
       meta={points ? `${pinned} of ${properties.length} homes on the map` : "Finding homes…"}
     >
       <div className="flex flex-wrap gap-2">

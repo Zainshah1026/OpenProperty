@@ -56,7 +56,7 @@ export function LeasesPage({ navigate }: { navigate: (to: string) => void }) {
 
   return (
     <PageShell
-      title="Leases"
+      title="Tenancies"
       meta={`${leases.length} total · ${leases.filter((l) => l.status === "active").length} active`}
       actions={
         leases.length > 0 ? (

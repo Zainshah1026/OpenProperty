@@ -12,6 +12,7 @@ import { SyncBanner } from "@/components/sync-banner";
 import { CalendarCard } from "./calendar-card";
 import { RentReady } from "@/components/invoices/rent-ready";
 import { FinanceSection } from "./finance-section";
+import { FrontDoors } from "./front-doors";
 
 export function DashboardPage({ navigate }: { navigate: (to: string) => void }) {
   const { settings, setError, me } = useApp();
@@ -34,7 +35,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
 
   if (s.properties === 0) {
     return (
-      <PageShell title="Dashboard">
+      <PageShell title="Home">
         <SyncBanner onSynced={() => setVersion((v) => v + 1)} />
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
           <Building2 className="size-8 text-faint" aria-hidden />
@@ -58,6 +59,8 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
       meta={`${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })}. ${s.properties} properties, ${s.occupied} let. Figures are per calendar month.`}
     >
       <SyncBanner onSynced={() => setVersion((v) => v + 1)} />
+      <FrontDoors summary={s} navigate={navigate} />
+      <h2 className="display pt-4 text-2xl">The full picture</h2>
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi
           label="Rent in"
@@ -191,7 +194,7 @@ export function DashboardPage({ navigate }: { navigate: (to: string) => void }) 
         </Card>
         <Card className="p-5">
           <CardTitle title="By section" sub="Owned (with joint ventures), Freehold, and Rent to rent homes we manage or rent from landlords" />
-          <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "Rent to rent" : k === "freehold" ? "Freehold" : "Owned")} money={money} />
+          <GroupTable rows={s.by_section ?? []} label={(k) => (k === "managed" ? "We rent & let" : k === "freehold" ? "Freehold" : "We own")} money={money} />
           <div className="mt-5">
             <CardTitle title="By deal type" sub="Owned, joint venture, managed, rent to rent, ground rent" />
             <GroupTable rows={s.by_deal} label={dealLabel} money={money} />

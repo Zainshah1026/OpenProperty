@@ -136,7 +136,7 @@ export function ApprovalsPage() {
 
   return (
     <PageShell
-      title="Approvals"
+      title="Needs my OK"
       meta={loading ? "Loading…" : pending.length ? `${pending.length} waiting for you` : "Nothing waiting"}
       width="max-w-3xl"
     >

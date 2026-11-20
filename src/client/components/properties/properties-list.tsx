@@ -21,8 +21,8 @@ type Section = "all" | "owned" | "managed" | "freehold";
 
 const SECTIONS: { value: Section; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "owned", label: "Owned" },
-  { value: "managed", label: "Rent to rent (managed)" },
+  { value: "owned", label: "We own" },
+  { value: "managed", label: "We rent & let" },
   { value: "freehold", label: "Freehold" },
 ];
 
@@ -91,7 +91,7 @@ export function PropertiesList({ navigate, section = "all" }: { navigate: (to: s
 
   return (
     <PageShell
-      title={section === "managed" ? "Rent to rent" : section === "owned" ? "Owned" : section === "freehold" ? "Freehold" : "Properties"}
+      title={section === "managed" ? "Homes we rent & let" : section === "owned" ? "Homes we own" : section === "freehold" ? "Freehold buildings" : "All homes"}
       meta={`${filtered ? `${rows.length} of ` : ""}${properties.length} ${properties.length === 1 ? "home" : "homes"} · ${money(totals.in)} rent in · ${money(totals.net)} net`}
       actions={
         <Button onClick={() => setDialogOpen(true)}>

@@ -64,7 +64,7 @@ export function App() {
     <AppContext.Provider value={state}>
       <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-background text-foreground md:flex-row">
         <Sidebar active={activeFor(route, path)} userName={state.me?.name} onNavigate={(href) => navigate(href)} onSearch={() => setSearching(true)} />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
           {state.loading ? (
             <div className="flex flex-1 items-center justify-center text-muted-foreground">
               Loading…
@@ -103,7 +103,7 @@ export function App() {
               {route.name === "approvals" && <ApprovalsPage />}
               {route.name === "bank" && <BankPage />}
               {route.name === "not-found" && (
-                <Placeholder title="Not found" message="That page doesn't exist." />
+                <Placeholder title="This page doesn't exist" message="Use the menu to find what you need, or tap Home." />
               )}
             </>
           )}

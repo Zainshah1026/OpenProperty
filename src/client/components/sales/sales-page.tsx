@@ -63,7 +63,7 @@ export function SalesPage() {
 
   return (
     <PageShell
-      title="Sales leads"
+      title="Houses for sale"
       meta={`${leads.length} leads · ${active} active`}
       actions={<Button onClick={() => setEditing(null)}><Plus className="h-4 w-4" /> New lead</Button>}
     >

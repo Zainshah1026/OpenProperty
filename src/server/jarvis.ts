@@ -514,6 +514,22 @@ export function registerJarvisRoutes(app: AnyApp) {
     return c.json({ ok: true });
   });
 
+  // The home screen's doors: one call, small numbers.
+  app.get("/api/home", async (c) => {
+    const env = c.env as Env;
+    const today = londonNow().date;
+    const money = await moneyForDay(app, env, today).catch(() => null);
+    const n = async (sql: string) => Number((await get<{ n: number }>(sql).catch(() => undefined))?.n ?? 0);
+    return c.json({
+      rent_today: { count: money?.rentIn.length ?? 0, total: money?.totalIn ?? 0 },
+      out_today: { count: money?.out.length ?? 0, total: money?.totalOut ?? 0 },
+      approvals: await n("SELECT COUNT(*) AS n FROM approvals WHERE status = 'pending'"),
+      repairs_open: await n("SELECT COUNT(*) AS n FROM work_orders WHERE status IN ('open', 'assigned', 'in_progress')"),
+      repairs_urgent: await n("SELECT COUNT(*) AS n FROM work_orders WHERE status IN ('open', 'assigned', 'in_progress') AND priority IN ('urgent', 'high')"),
+      leads_new: (await n("SELECT COUNT(*) AS n FROM sales_leads WHERE status = 'new'")) + (await n("SELECT COUNT(*) AS n FROM lettings_leads WHERE status = 'new'")),
+    });
+  });
+
   app.get("/api/jarvis/money-today", async (c) => {
     const m = await moneyForDay(app, c.env as Env, londonNow().date);
     return c.json({ ...m, notification: moneyMessage(m) });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  Banknote, Briefcase, Building2, CircleDollarSign, ClipboardCheck, ClipboardList, FileSignature, FileText, Home, Inbox, KeyRound, Landmark,
-  LayoutDashboard, LogOut, Map as MapIcon, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Users, Wrench, X,
+  Banknote, Briefcase, Building2, CircleDollarSign, ClipboardList, FileSignature, FileText, Home, House, Inbox, KeyRound, Landmark,
+  LogOut, Map as MapIcon, Menu, Mic, PanelLeftClose, PanelLeftOpen, Search, Settings, ShieldCheck, Users, Wrench, X, Flame,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,51 +13,61 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
+/** Each group keeps one door colour, so you learn where things are by colour as much as by name. */
+export const NAV_GROUPS: { label?: string; color: string; items: NavItem[] }[] = [
   {
-    items: [
-      { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    ],
+    color: "var(--door-yellow)",
+    items: [{ id: "dashboard", label: "Home", href: "/dashboard", icon: House }],
   },
   {
-    label: "Portfolio",
+    label: "Things to do",
+    color: "var(--door-red)",
     items: [
-      { id: "properties", label: "Owned", href: "/properties?section=owned", icon: Building2 },
-      { id: "managed", label: "Rent to rent", href: "/properties?section=managed", icon: Home },
-      { id: "freehold", label: "Freehold", href: "/properties?section=freehold", icon: Landmark },
-      { id: "map", label: "Map", href: "/map", icon: MapIcon },
-      { id: "mortgages", label: "Mortgages", href: "/mortgages", icon: Banknote },
-      { id: "tenants", label: "Tenants", href: "/tenants", icon: Users },
-    ],
-  },
-  {
-    label: "Day to day",
-    items: [
-      { id: "approvals", label: "Approvals", href: "/approvals", icon: ShieldCheck },
-      { id: "inbox", label: "Inbox", href: "/inbox", icon: Inbox },
-      { id: "maintenance", label: "Maintenance", href: "/maintenance", icon: Wrench },
-      { id: "compliance", label: "Compliance", href: "/compliance", icon: ClipboardCheck },
+      { id: "approvals", label: "Needs my OK", href: "/approvals", icon: ShieldCheck },
+      { id: "maintenance", label: "Repairs", href: "/maintenance", icon: Wrench },
+      { id: "compliance", label: "Safety certificates", href: "/compliance", icon: Flame },
+      { id: "inbox", label: "Emails", href: "/inbox", icon: Inbox },
       { id: "letters", label: "Letters & contracts", href: "/letters", icon: FileSignature },
+    ],
+  },
+  {
+    label: "Our homes",
+    color: "var(--door-blue)",
+    items: [
+      { id: "properties", label: "Homes we own", href: "/properties?section=owned", icon: Building2 },
+      { id: "managed", label: "Homes we rent & let", href: "/properties?section=managed", icon: Home },
+      { id: "freehold", label: "Freehold buildings", href: "/properties?section=freehold", icon: Landmark },
+      { id: "tenants", label: "Tenants", href: "/tenants", icon: Users },
+      { id: "leases", label: "Tenancies", href: "/leases", icon: ClipboardList },
+      { id: "map", label: "Map", href: "/map", icon: MapIcon },
+    ],
+  },
+  {
+    label: "Money",
+    color: "var(--door-green)",
+    items: [
+      { id: "rent", label: "Rent & payments", href: "/rent", icon: CircleDollarSign },
+      { id: "bank", label: "Bank", href: "/bank", icon: Landmark },
+      { id: "mortgages", label: "Mortgages", href: "/mortgages", icon: Banknote },
       { id: "invoices", label: "Invoices", href: "/invoices", icon: FileText },
     ],
   },
   {
-    label: "Leads",
+    label: "New business",
+    color: "var(--door-plum)",
     items: [
-      { id: "sales", label: "Sales leads", href: "/sales", icon: Briefcase },
-      { id: "lettings-leads", label: "Lettings leads", href: "/lettings-leads", icon: KeyRound },
+      { id: "sales", label: "Houses for sale", href: "/sales", icon: Briefcase },
+      { id: "lettings-leads", label: "Landlords to sign up", href: "/lettings-leads", icon: KeyRound },
     ],
   },
   {
-    label: "More",
-    items: [
-      { id: "leases", label: "Leases", href: "/leases", icon: ClipboardList },
-      { id: "rent", label: "Rent ledger", href: "/rent", icon: CircleDollarSign },
-      { id: "bank", label: "Bank", href: "/bank", icon: Landmark },
-      { id: "settings", label: "Settings", href: "/settings", icon: Settings },
-    ],
+    color: "#8a90b8",
+    items: [{ id: "settings", label: "Settings", href: "/settings", icon: Settings }],
   },
 ];
+
+/** Opens the Jarvis chat from anywhere (the panel listens for this). */
+export const openJarvis = () => window.dispatchEvent(new Event("open-jarvis"));
 
 const KEY = "nav-collapsed";
 const readCollapsed = () => {
@@ -107,7 +117,7 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
         </button>
         <button type="button" onClick={() => go("/dashboard")} className="flex items-center gap-2">
           <img src="/brand/favicon.svg" alt="" className="size-7 rounded-md" />
-          <span className="display text-lg font-medium">Chisti &amp; Co.</span>
+          <span className="display text-lg">Chisti &amp; Co.</span>
         </button>
         {onSearch && (
           <button type="button" onClick={onSearch} aria-label="Search" className="ml-auto inline-flex size-10 items-center justify-center rounded-lg hover:bg-white/10">
@@ -138,7 +148,7 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
           {!narrow && (
             <button type="button" onClick={() => go("/dashboard")} className="flex min-w-0 flex-1 items-center gap-2.5 text-left text-white">
               <img src="/brand/favicon.svg" alt="" className="size-7 shrink-0 rounded-md ring-1 ring-white/15" />
-              <span className="display truncate text-[1.1875rem] font-medium">Chisti &amp; Co.</span>
+              <span className="display truncate text-[1.25rem]">Chisti &amp; Co.</span>
             </button>
           )}
           {/* Fold / unfold on a computer; close on a phone. */}
@@ -183,12 +193,30 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
           </div>
         )}
 
+        <div className={cn("shrink-0 px-3 pt-3", narrow && "px-2")}>
+          <button
+            type="button"
+            onClick={() => { setMobileOpen(false); openJarvis(); }}
+            title={narrow ? "Talk to Jarvis" : undefined}
+            className={cn(
+              "flex h-12 w-full items-center gap-3 rounded-2xl bg-[var(--door-yellow)] font-semibold text-[var(--door-ink)] shadow-[inset_0_-3px_0_rgba(0,0,0,0.12)] transition hover:brightness-105 active:translate-y-px",
+              narrow ? "justify-center" : "px-4",
+            )}
+          >
+            <Mic className="size-5 shrink-0" />
+            {!narrow && <span>Talk to Jarvis</span>}
+          </button>
+        </div>
+
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {NAV_GROUPS.map((g, gi) => (
-            <div key={gi} className={cn(gi > 0 && "mt-5")}>
+            <div key={gi} className={cn(gi > 0 && "mt-4")}>
               {g.label && (narrow
-                ? <div className="mx-auto mb-2 h-px w-6 bg-white/10" aria-hidden />
-                : <p className="mb-1.5 px-3 text-xs font-medium text-sidebar-foreground/45">{g.label}</p>)}
+                ? <div className="mx-auto mb-2 h-1 w-6 rounded-full" style={{ background: g.color }} aria-hidden />
+                : <p className="mb-1 flex items-center gap-2 px-3 text-[0.8125rem] font-semibold text-sidebar-foreground/60">
+                    <span className="size-2 rounded-full" style={{ background: g.color }} aria-hidden />
+                    {g.label}
+                  </p>)}
               <ul className="space-y-0.5">
                 {g.items.map((item) => {
                   const on = item.id === active;
@@ -201,12 +229,17 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
                         aria-current={on ? "page" : undefined}
                         title={narrow ? item.label : undefined}
                         className={cn(
-                          "flex h-10 items-center gap-3 rounded-lg text-[0.9375rem] font-medium transition-colors duration-150",
-                          narrow ? "justify-center px-0" : "px-3",
-                          on ? "bg-white/10 text-white shadow-[inset_2px_0_0_#4aa8e6]" : "text-sidebar-foreground/80 hover:bg-white/5 hover:text-white",
+                          "flex h-11 items-center gap-3 rounded-xl text-[0.9375rem] font-medium transition-colors duration-150",
+                          narrow ? "justify-center px-0" : "px-2",
+                          on ? "bg-white/12 text-white" : "text-sidebar-foreground/85 hover:bg-white/6 hover:text-white",
                         )}
                       >
-                        <Icon className={cn("size-[18px] shrink-0", on ? "text-[#7cc3f0]" : "opacity-80")} />
+                        <span
+                          className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors", on ? "text-white" : "text-white/85")}
+                          style={{ background: on ? g.color : "rgba(255,255,255,0.07)", color: on && g.color.includes("yellow") ? "var(--door-ink)" : undefined }}
+                        >
+                          <Icon className="size-[18px]" />
+                        </span>
                         {!narrow && <span className="truncate">{item.label}</span>}
                       </a>
                     </li>
@@ -228,6 +261,54 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
           </a>
         </div>
       </aside>
+
+      {/* Phone: the five things you reach for most, under your thumb. */}
+      <nav aria-label="Quick menu" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <ul className="grid grid-cols-5">
+          {[
+            { id: "dashboard", label: "Home", href: "/dashboard", icon: House, color: "var(--door-yellow)" },
+            { id: "properties", label: "Homes", href: "/properties?section=owned", icon: Building2, color: "var(--door-blue)" },
+            { id: "jarvis", label: "Jarvis", href: "", icon: Mic, color: "var(--door-yellow)" },
+            { id: "rent", label: "Money", href: "/rent", icon: CircleDollarSign, color: "var(--door-green)" },
+            { id: "maintenance", label: "Repairs", href: "/maintenance", icon: Wrench, color: "var(--door-red)" },
+          ].map((t) => {
+            const on = t.id === active;
+            const Icon = t.icon;
+            if (t.id === "jarvis") {
+              return (
+                <li key={t.id} className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={openJarvis}
+                    aria-label="Talk to Jarvis"
+                    className="-mt-5 inline-flex size-16 items-center justify-center rounded-full bg-[var(--door-yellow)] text-[var(--door-ink)] shadow-[0_8px_20px_-8px_rgba(26,29,58,0.6),inset_0_-4px_0_rgba(0,0,0,0.12)] active:translate-y-px"
+                  >
+                    <Mic className="size-7" />
+                  </button>
+                </li>
+              );
+            }
+            return (
+              <li key={t.id}>
+                <a
+                  href={t.href}
+                  onClick={(e) => { e.preventDefault(); go(t.href); }}
+                  aria-current={on ? "page" : undefined}
+                  className="flex h-16 flex-col items-center justify-center gap-1 text-[0.75rem] font-semibold"
+                >
+                  <span
+                    className="inline-flex h-8 w-12 items-center justify-center rounded-full transition-colors"
+                    style={{ background: on ? t.color : "transparent", color: on ? (t.color.includes("yellow") ? "var(--door-ink)" : "#fff") : "var(--muted-foreground)" }}
+                  >
+                    <Icon className="size-5" />
+                  </span>
+                  <span className={on ? "text-foreground" : "text-muted-foreground"}>{t.label}</span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </>
   );
 }

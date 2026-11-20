@@ -82,7 +82,7 @@ export function MaintenancePage() {
 
   return (
     <PageShell
-      title="Maintenance"
+      title="Repairs"
       meta={<>
           {counts.open + counts.assigned + counts.in_progress} open
           {counts.urgent > 0 && (

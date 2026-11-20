@@ -20,37 +20,37 @@
  */
 :root {
   /* ── Surfaces (warm neutral, hue 85 — never blue-gray) ── */
-  --background: #f3f5f8;          /* canvas: a cool, airy blue-grey */
-  --foreground: #13202e;          /* deep navy ink */
+  --background: #f2f5fc;          /* canvas: a clear London morning */
+  --foreground: #1a1d3a;          /* door-knocker indigo */
   --card: #ffffff;                /* cards are the same white; the BORDER separates them */
-  --card-foreground: #13202e;
+  --card-foreground: #1a1d3a;
   --popover: #ffffff;
-  --popover-foreground: #13202e;
-  --muted: #eef2f6;
-  --muted-foreground: #5b6878;
+  --popover-foreground: #1a1d3a;
+  --muted: #e9eef9;
+  --muted-foreground: #565c80;
   --faint: #94a0ad;
-  --border: #e2e7ee;
-  --input: #d9e0e8;
+  --border: #dfe5f3;
+  --input: #cfd7ea;
 
   /* ── Action: the ONE solid button per screen is ink, not the brand hue ── */
-  --primary: #0b7cc2;             /* Chisti & Co. blue */
+  --primary: #2d5bff;             /* painted-door blue: the action colour */
   --primary-foreground: #ffffff;
   /* Secondary is white with a raised shadow ring rather than a border. */
   --secondary: #ffffff;
-  --secondary-foreground: #13202e;
+  --secondary-foreground: #1a1d3a;
   /* shadcn's neutral hover wash — deliberately NOT the brand. */
-  --accent: #eef2f6;
-  --accent-foreground: #13202e;
+  --accent: #e9eef9;
+  --accent-foreground: #1a1d3a;
 
   /* ── Brand: OpenProperty's own hue (H 149.2, from icon.svg #16A34A). ──
      It appears in exactly three places — the app icon, count badges, and the
      focus ring — and never as a status badge. */
-  --brand: #0b7cc2;               /* Chisti & Co. blue, from the logo */
-  --brand-hover: #0968a3;
-  --brand-tint: #e1f0fb;
-  --brand-text: #075a8e;          /* passes on the tint and on white */
+  --brand: #2d5bff;
+  --brand-hover: #1f47e0;
+  --brand-tint: #e3e9ff;
+  --brand-text: #1f3fc4;
   --on-brand: #ffffff;
-  --ring: #0b7cc2;                /* focus ring = the brand solid */
+  --ring: #2d5bff;
 
   /* ── Status: hue only differs; L and C% are shared across all four ── */
   --info: #173ec4;
@@ -69,8 +69,8 @@
 
   /* ── The rail: surface-sunken, and its active row is a neutral ink wash.
         Colour in the sidebar is reserved for counts, never for location. ── */
-  --sidebar: #0e2133;             /* the navy rail, from the logo blue */
-  --sidebar-foreground: #dce5ee;
+  --sidebar: #1a1d3a;             /* indigo rail */
+  --sidebar-foreground: #e3e6ff;
   --sidebar-accent: rgba(255, 255, 255, 0.1);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.08);
@@ -90,28 +90,28 @@
 /* Same hues, re-tuned L and C% — a mirror of the light ramp reads muddy. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a121b;
+    --background: #0e1024;
     --foreground: #e7edf3;
-    --card: #111b26;
+    --card: #161a33;
     --card-foreground: #e7edf3;
-    --popover: #142130;
+    --popover: #1b2040;
     --popover-foreground: #e7edf3;
-    --muted: #172331;
+    --muted: #1c2142;
     --muted-foreground: #9aa7b5;
     --faint: #6c7a89;
-    --border: #1f2b39;
-    --input: #263445;
-    --primary: #4aa8e6;           /* lighter brand blue on dark */
+    --border: #262c52;
+    --input: #2e355f;
+    --primary: #6f8cff;
     --primary-foreground: #06121c;
-    --secondary: #142130;
+    --secondary: #1b2040;
     --secondary-foreground: #e7edf3;
-    --accent: #172331;
+    --accent: #1c2142;
     --accent-foreground: #e7edf3;
-    --brand: #2b93d6;
-    --brand-hover: #4aa8e6;
-    --brand-tint: #10263a;
-    --brand-text: #8cc8f2;
-    --ring: #4aa8e6;
+    --brand: #5a7bff;
+    --brand-hover: #6f8cff;
+    --brand-tint: #1a2148;
+    --brand-text: #b3c2ff;
+    --ring: #6f8cff;
     --info: #b5c4e5;
     --info-tint: #12234f;
     --info-solid: #5580e8;
@@ -124,7 +124,7 @@
     --destructive: #e6b7b2;
     --destructive-tint: #3b1c1a;
     --destructive-solid: #e64243;
-    --sidebar: #071019;
+    --sidebar: #0b0d1f;
     --sidebar-foreground: #c9d4df;
     --sidebar-accent: rgba(255, 255, 255, 0.08);
     --sidebar-accent-foreground: #ffffff;
@@ -194,9 +194,10 @@
   --shadow-float: var(--edge-float);
   --shadow-card: var(--edge-card);
 
-  --font-sans: "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Lexend was drawn to be easy to read for everyone; Bricolage Grotesque gives titles and numbers their character. */
+  --font-sans: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* Titles and money are set like a private-bank statement. */
-  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-display: "Bricolage Grotesque", "Lexend", -apple-system, sans-serif;
 }
 
 /*
@@ -319,7 +320,7 @@
 
 @layer components {
   /* Page titles and headline figures. */
-  .display { font-family: var(--font-display); font-optical-sizing: auto; letter-spacing: -0.015em; }
+  .display { font-family: var(--font-display); font-optical-sizing: auto; font-weight: 700; letter-spacing: -0.025em; }
 
   /* Numbers are instrumentation: tabular figures so digits and totals stack. */
   .data { font-variant-numeric: tabular-nums; }
@@ -502,4 +503,58 @@ body,
   textarea {
     font-size: 1rem !important;
   }
+}
+
+/* ── Front doors ────────────────────────────────────────────────────
+ * The home screen's signature: each job is a painted London front door —
+ * an arched top, its own colour, one big number, one plain sentence. Only the
+ * home screen uses the arch; everything else stays calm.
+ */
+:root {
+  --door-blue: #2d5bff;
+  --door-red: #e8454a;
+  --door-green: #12a06a;
+  --door-yellow: #ffc531;
+  --door-plum: #7a4de8;
+  --door-teal: #0f9fb0;
+  --door-ink: #1a1d3a;
+}
+.door {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-height: 11.5rem;
+  padding: 1.25rem 1.1rem 1.1rem;
+  border-radius: 999px 999px 1.25rem 1.25rem / 6.5rem 6.5rem 1.25rem 1.25rem;
+  color: #fff;
+  background: var(--door, var(--door-blue));
+  text-align: left;
+  box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.12), 0 10px 22px -16px rgba(26, 29, 58, 0.55);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.door:hover { transform: translateY(-3px); box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.12), 0 16px 28px -16px rgba(26, 29, 58, 0.6); }
+.door:active { transform: translateY(1px) scale(0.985); }
+.door:focus-visible { outline: 3px solid var(--door-ink); outline-offset: 3px; }
+/* The knocker: a small ring where a real door would have one. */
+.door::before {
+  content: "";
+  position: absolute;
+  top: 2.6rem;
+  left: 50%;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-left: -0.475rem;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.55);
+}
+.door[data-tone="yellow"] { color: var(--door-ink); }
+.door[data-tone="yellow"]::before { border-color: rgba(26, 29, 58, 0.35); }
+.door .door-count { font-family: var(--font-display); font-weight: 800; font-size: 2.6rem; line-height: 1; letter-spacing: -0.03em; }
+.door .door-name { font-weight: 600; font-size: 1.05rem; }
+.door .door-say { font-size: 0.85rem; opacity: 0.9; line-height: 1.3; }
+@media (prefers-reduced-motion: reduce) {
+  .door, .door:hover, .door:active { transition: none; transform: none; }
 }

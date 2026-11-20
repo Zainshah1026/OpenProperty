@@ -64,7 +64,7 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
 
   return (
     <PageShell
-      title="Compliance"
+      title="Safety certificates"
       actions={<Button onClick={() => setBulkOpen(true)}><Upload className="h-4 w-4" /> Upload certificates</Button>}
       meta={`${counts.expired} expired · ${counts.due_soon} due within 60 days · ${counts.missing} with no dates recorded`}
     >

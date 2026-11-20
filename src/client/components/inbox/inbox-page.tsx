@@ -127,7 +127,7 @@ export function InboxPage() {
 
   if (enabled === false) {
     return (
-      <PageShell title="Inbox">
+      <PageShell title="Emails">
         <Card className="mx-auto max-w-xl p-6">
           <div className="mb-2 flex items-center gap-2 font-semibold"><Inbox className="size-5 text-primary" /> Connect your email</div>
           <p className="text-sm text-muted-foreground">
@@ -145,7 +145,7 @@ export function InboxPage() {
 
   if (enabled && accounts.length === 0) {
     return (
-      <PageShell title="Inbox">
+      <PageShell title="Emails">
         <Card className="mx-auto max-w-xl p-6 text-sm text-muted-foreground">
           No mailboxes are shared with you yet. Ask an admin to tick them for you under Settings → Users.
         </Card>
@@ -211,7 +211,7 @@ export function InboxPage() {
 
   return (
     <PageShell
-      title="Inbox"
+      title="Emails"
       meta={enabled === null ? "Connecting…" : `${accounts[account] ?? ""}${list ? ` · ${list.total} emails${unread ? ` · ${unread} unread on this page` : ""}` : ""}`}
       actions={
         <Button variant="outline" onClick={load} disabled={loading}>

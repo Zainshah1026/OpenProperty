@@ -87,7 +87,7 @@ export function LettingsLeadsPage() {
 
   return (
     <PageShell
-      title="Lettings leads"
+      title="Landlords to sign up"
       meta={leads ? `${counts.total} landlords · ${counts.fresh} new · ${counts.signed} signed` : "Loading…"}
       actions={
         <>

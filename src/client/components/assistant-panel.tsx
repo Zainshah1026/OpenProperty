@@ -1,9 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle, FileText, Search, Send, Sparkles, X } from "lucide-react";
+import { ArrowRight, CheckCircle, FileText, Mic, Search, Send, Sparkles, X } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
 import { cn } from "@/lib/utils";
 import { QUICK_QUESTIONS, quickAnswer, searchProperties, type QuickId, type QuickLink } from "./quick-answers";
+
+// Talk to Jarvis: the browser's own speech recognition where it has one
+// (Safari on iPhone, Chrome), and its own voice to read answers back.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SpeechRec: any = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+
+function speak(text: string) {
+  try {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/\*\*/g, "").replace(/[#>`|]/g, ""));
+    u.lang = "en-GB";
+    window.speechSynthesis.speak(u);
+  } catch { /* no voice available */ }
+}
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -45,6 +60,13 @@ function Rich({ text }: { text: string }) {
  */
 export function AssistantPanel({ navigate }: { navigate: (to: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [listening, setListening] = useState(false);
+  const spokenRef = useRef(false);
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener("open-jarvis", show);
+    return () => window.removeEventListener("open-jarvis", show);
+  }, []);
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -85,9 +107,27 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
 
-  async function ask(text: string) {
+  function listen() {
+    if (!SpeechRec || listening) return;
+    const rec = new SpeechRec();
+    rec.lang = "en-GB";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    setListening(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (e: any) => {
+      const said = String(e.results?.[0]?.[0]?.transcript ?? "").trim();
+      if (said) { spokenRef.current = true; void ask(said, true); }
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    try { rec.start(); } catch { setListening(false); }
+  }
+
+  async function ask(text: string, spoken = false) {
     const q = text.trim();
     if (!q || busy) return;
+    spokenRef.current = spoken;
     const next: ChatMessage[] = [...messages, { role: "user", content: q }];
     setMessages(next);
     setInput("");
@@ -96,6 +136,7 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
       const history = next.filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content }));
       const res = await api<{ reply: string; invoices: { id: number; number: string }[]; changes?: { tool: string; summary: string }[] }>("POST", "/api/assistant", { messages: history });
       setMessages([...next, { role: "assistant", content: res.reply, invoices: res.invoices, changes: res.changes }]);
+      if (spokenRef.current) speak(res.reply);
       if (res.invoices?.length) window.dispatchEvent(new Event("invoices-changed"));
       if (res.changes?.length) {
         window.dispatchEvent(new Event("assistant-changed"));
@@ -114,18 +155,18 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-transform hover:scale-[1.03]"
+          className="fixed bottom-5 right-5 z-40 hidden items-center gap-2 rounded-full bg-[var(--door-yellow)] px-5 py-3.5 text-[0.9375rem] font-semibold text-[var(--door-ink)] shadow-[0_10px_24px_-10px_rgba(26,29,58,0.55),inset_0_-3px_0_rgba(0,0,0,0.12)] transition-transform hover:scale-[1.03] md:inline-flex"
         >
-          <Sparkles className="size-4" /> {free ? "Quick answers" : "Ask"}
+          <Sparkles className="size-4" /> {free ? "Quick answers" : "Ask Jarvis"}
         </button>
       )}
       {open && (
-        <div className="fixed inset-x-0 bottom-0 z-50 flex h-[80vh] flex-col border-t bg-card shadow-2xl sm:inset-x-auto sm:bottom-5 sm:right-5 sm:h-[36rem] sm:w-[26rem] sm:rounded-xl sm:border">
+        <div className="fixed inset-x-0 bottom-0 z-50 flex h-[85vh] flex-col rounded-t-3xl border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-2xl sm:inset-x-auto sm:bottom-5 sm:right-5 sm:h-[36rem] sm:w-[26rem] sm:rounded-3xl sm:border sm:pb-0">
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <Sparkles className="size-4 text-primary" />
             <div className="flex-1">
-              <div className="text-sm font-semibold">{free ? "Quick answers" : "Ask about the portfolio"}</div>
-              <div className="text-[11px] text-muted-foreground">{free ? "Straight from your live data. Free, nothing leaves the app." : "Answers from live data. Invoices are drafted, never sent without you."}</div>
+              <div className="display text-base">{free ? "Quick answers" : "Jarvis"}</div>
+              <div className="text-[11px] text-muted-foreground">{free ? "Straight from your live data. Free, nothing leaves the app." : "Ask anything, or tap the mic and talk. He asks before changing anything."}</div>
             </div>
             {messages.length > 0 && (
               <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setMessages([])}>Clear</button>
@@ -203,11 +244,25 @@ export function AssistantPanel({ navigate }: { navigate: (to: string) => void })
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={free ? "Find a property: ref, address, postcode or tenant" : "Ask anything about the properties…"}
+              placeholder={free ? "Find a property: ref, address, postcode or tenant" : listening ? "Listening…" : "Type, or tap the mic and talk"}
               disabled={busy || enabled === null}
-              className="min-w-0 flex-1 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="min-w-0 flex-1 rounded-xl border bg-transparent px-3 py-2.5 text-[0.9375rem] outline-none focus:ring-2 focus:ring-ring"
             />
-            <button type="submit" disabled={busy || !input.trim() || enabled === null} className="rounded-md bg-primary px-3 text-primary-foreground disabled:opacity-50" aria-label={free ? "Search" : "Send question"}>
+            {!free && SpeechRec && (
+              <button
+                type="button"
+                onClick={listen}
+                disabled={busy || enabled === null}
+                aria-label={listening ? "Listening" : "Talk to Jarvis"}
+                className={cn(
+                  "inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--door-yellow)] text-[var(--door-ink)] disabled:opacity-50",
+                  listening && "animate-pulse ring-4 ring-[var(--door-yellow)]/40",
+                )}
+              >
+                <Mic className="size-5" />
+              </button>
+            )}
+            <button type="submit" disabled={busy || !input.trim() || enabled === null} className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50" aria-label={free ? "Search" : "Send question"}>
               {free ? <Search className="size-4" /> : <Send className="size-4" />}
             </button>
           </form>

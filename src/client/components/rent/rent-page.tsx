@@ -65,7 +65,7 @@ export function RentPage() {
 
   return (
     <PageShell
-      title="Rent ledger"
+      title="Rent & payments"
       meta="Charges and payments per period"
       actions={
         <>
