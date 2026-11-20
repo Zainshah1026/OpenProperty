@@ -664,3 +664,16 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .door, .door:hover, .door:active { transition: none; transform: none; }
 }
+
+/* ── Printing / Save as PDF (the portfolio report) ─────────────────── */
+@media print {
+  @page { margin: 14mm; }
+  html, body { background: #fff !important; }
+  .no-print, aside, nav[aria-label="Quick menu"], [aria-label="Main menu"], .fixed { display: none !important; }
+  /* The app is a fixed-height shell; let the page flow onto as many sheets as it needs. */
+  .h-screen, .min-h-0 { height: auto !important; min-height: 0 !important; }
+  * { overflow: visible !important; }
+  main { padding: 0 !important; }
+  .report { color: #1a1d3a !important; }
+  .break-inside-avoid { break-inside: avoid; }
+}
