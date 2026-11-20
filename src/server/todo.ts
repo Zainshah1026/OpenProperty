@@ -1,6 +1,6 @@
 // One to-do list for everything: what the rest of the app already knows
 // needs doing (approvals, repairs, certificates, missed rent, tenancy and
-// mortgage dates, rent reviews) plus your own tasks. Leads are not included.
+// mortgage dates) plus your own tasks. Leads are not included.
 //
 // Items from elsewhere can be ticked "done for now", which hides them for a
 // while (todo_hidden); they come back if the thing still needs doing. Your
@@ -115,18 +115,6 @@ export async function buildTodos(): Promise<TodoItem[]> {
     items.push({
       key: `mortgage:${m.id}:${m.deal_end}`, kind: "mortgage", title: `Sort a new mortgage deal (${m.lender})`,
       detail: `${home(m)} · the current deal ends`, due: m.deal_end, urgent: m.deal_end <= addDays(today, 30), href: "/mortgages", property_ref: m.ref,
-    });
-  }
-
-  // Rent reviews whose window has just opened or opens within a fortnight
-  // (not the ones we know nothing about: those would flood the list).
-  const { buildTenancies } = await import("./renewals");
-  for (const t of await buildTenancies({}).catch(() => [])) {
-    if (t.kind !== "assured" || !t.notice_from || t.status === "unknown" || t.status === "pending") continue;
-    if (t.notice_from < addDays(today, -30) || t.notice_from > addDays(today, 14)) continue;
-    items.push({
-      key: `review:${t.key}:${t.notice_from}`, kind: "review", title: `Rent review: you can send Form 4A${t.tenant ? ` to ${t.tenant}` : ""}`,
-      detail: `${home(t)}${t.room ? ` · ${t.room}` : ""} · now ${gbp(t.rent)}`, due: t.notice_from, href: "/renewals", property_ref: t.ref,
     });
   }
 
