@@ -542,3 +542,17 @@ CREATE TABLE IF NOT EXISTS todo_hidden (
   key TEXT PRIMARY KEY,
   until TEXT NOT NULL                          -- YYYY-MM-DD
 );
+
+-- ── Rent reviews (Form 4A / section 13 notices served) ─────────────
+CREATE TABLE IF NOT EXISTS rent_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  room TEXT,                                   -- NULL for a whole-home let
+  notice_served TEXT NOT NULL,                 -- YYYY-MM-DD
+  takes_effect TEXT NOT NULL,                  -- YYYY-MM-DD the new rent starts
+  old_rent REAL,
+  new_rent REAL NOT NULL,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_rent_reviews_property ON rent_reviews(property_id);

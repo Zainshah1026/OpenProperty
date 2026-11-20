@@ -38,7 +38,7 @@ const CERTS: [string, string][] = [
 const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const gbp = (n: number) => `£${Math.round(n).toLocaleString("en-GB")}`;
-const home = (p: { ref: string | null; name: string | null }) => (p.ref ? `Ref ${p.ref}${p.name ? `, ${p.name}` : ""}` : p.name ?? "a home");
+const home = (p: { ref: string | null; name?: string | null; home?: string | null }) => { const n = p.name ?? p.home ?? null; return p.ref ? `Ref ${p.ref}${n ? `, ${n}` : ""}` : n ?? "a home"; };
 
 export async function buildTodos(): Promise<TodoItem[]> {
   const today = londonToday();
@@ -126,6 +126,18 @@ export async function buildTodos(): Promise<TodoItem[]> {
     items.push({
       key: `mortgage:${m.id}:${m.deal_end}`, kind: "mortgage", title: `Sort a new mortgage deal (${m.lender})`,
       detail: `${home(m)} · the current deal ends`, due: m.deal_end, urgent: m.deal_end <= addDays(today, 30), href: "/mortgages", property_ref: m.ref,
+    });
+  }
+
+  // Rent reviews whose window has just opened or opens within a fortnight
+  // (not the ones we know nothing about: those would flood the list).
+  const { buildTenancies } = await import("./renewals");
+  for (const t of await buildTenancies({}).catch(() => [])) {
+    if (t.kind !== "assured" || !t.notice_from || t.status === "unknown" || t.status === "pending") continue;
+    if (t.notice_from < addDays(today, -30) || t.notice_from > addDays(today, 14)) continue;
+    items.push({
+      key: `review:${t.key}:${t.notice_from}`, kind: "review", title: `Rent review: you can send Form 4A${t.tenant ? ` to ${t.tenant}` : ""}`,
+      detail: `${home(t)}${t.room ? ` · ${t.room}` : ""} · now ${gbp(t.rent)}`, due: t.notice_from, href: "/renewals", property_ref: t.ref,
     });
   }
 
