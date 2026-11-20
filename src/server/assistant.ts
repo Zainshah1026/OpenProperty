@@ -607,7 +607,7 @@ async function callClaude(env: Record<string, unknown>, messages: Msg[], who: st
     },
     body: JSON.stringify({
       model: (env.ASSISTANT_MODEL as string) || DEFAULT_MODEL,
-      max_tokens: voice ? 400 : 1500,
+      max_tokens: voice ? 800 : 1500,
       system: systemPrompt(who, voice),
       tools: TOOLS,
       messages,
@@ -639,7 +639,13 @@ async function converse(
     const uses = reply.content.filter((b) => b.type === "tool_use");
     if (reply.stop_reason !== "tool_use" || !uses.length) {
       const text = reply.content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-      return { reply: text || "Done.", invoices: created, changes };
+      // Sometimes the model ends a turn with no words (e.g. it ran out of room mid tool call). Ask once for the answer itself.
+      if (!text && round < MAX_ROUNDS - 1) {
+        if (uses.length) messages.pop();
+        messages.push({ role: "user", content: "Please answer my question in words now, using what you have already looked up." });
+        continue;
+      }
+      return { reply: text || "Sorry, I couldn't put that into words. Try asking a different way.", invoices: created, changes };
     }
     const results = [];
     for (const u of uses) {
