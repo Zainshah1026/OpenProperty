@@ -488,3 +488,36 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   auth TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ── Bank (open banking, read-only, via TrueLayer) ───────────────────
+CREATE TABLE IF NOT EXISTS bank_connections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  connection_id TEXT NOT NULL UNIQUE,          -- TrueLayer Data v3 connection
+  status TEXT NOT NULL DEFAULT 'authorizing',  -- 'authorizing' | 'active' | 'expired' | 'failed' | 'removed'
+  accounts TEXT,                               -- JSON from /v3/connected-accounts
+  last_sync_at TEXT,
+  synced_until TEXT,                           -- YYYY-MM-DD
+  error TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS bank_transactions (
+  id TEXT PRIMARY KEY,                         -- TrueLayer transaction id
+  connection_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  date TEXT NOT NULL,                          -- YYYY-MM-DD
+  timestamp TEXT,
+  description TEXT NOT NULL DEFAULT '',
+  amount REAL NOT NULL,                        -- pounds; negative = money out
+  currency TEXT NOT NULL DEFAULT 'GBP',
+  status TEXT,                                 -- 'pending' | 'settled'
+  transaction_type TEXT,
+  match_key TEXT,                              -- what it paid: 'in:<property>:<room>', 'mortgage:<id>', ...
+  match_month TEXT,                            -- YYYY-MM of the payment it matched
+  match_label TEXT,
+  matched_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_bank_tx_date ON bank_transactions(date);
+CREATE INDEX IF NOT EXISTS idx_bank_tx_match ON bank_transactions(match_key, match_month);

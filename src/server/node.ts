@@ -19,6 +19,7 @@ import { createSmtpMailer } from "./smtp";
 import { setLeadMailer } from "./lead-email";
 import { generateRentInvoices } from "./rent-invoices";
 import { dailyMoneyOnce, scanEmailOnce } from "./jarvis";
+import { syncBank } from "./bank";
 import { setDocumentStore } from "./documents";
 import { recordVoids } from "./extras";
 
@@ -290,6 +291,10 @@ async function start() {
   await rentInvoicesOnce();
   setInterval(rentInvoicesOnce, 60 * 60_000).unref();
   listen();
+  // Bank: new transactions every 6 hours (TrueLayer allows 4 unattended calls a day).
+  const bankSync = () => syncBank(app, env).then((s) => { if ("connections" in s && s.connections) console.log(`Bank sync: ${JSON.stringify(s)}`); }).catch((err) => console.error(`Bank sync: ${(err as Error).message}`));
+  setTimeout(bankSync, 120_000).unref();
+  setInterval(bankSync, 6 * 3600_000).unref();
   // Jarvis: the morning "rent due and mortgages today" notification.
   setTimeout(() => dailyMoneyOnce(app, env), 60_000).unref();
   setInterval(() => dailyMoneyOnce(app, env), 10 * 60_000).unref();

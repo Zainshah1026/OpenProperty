@@ -53,6 +53,7 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     items: [
       { id: "leases", label: "Leases", href: "/leases", icon: ClipboardList },
       { id: "rent", label: "Rent ledger", href: "/rent", icon: CircleDollarSign },
+      { id: "bank", label: "Bank", href: "/bank", icon: Landmark },
       { id: "settings", label: "Settings", href: "/settings", icon: Settings },
     ],
   },

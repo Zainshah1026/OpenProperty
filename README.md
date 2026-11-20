@@ -167,6 +167,23 @@ Automations never change anything on their own. They queue the change on the
   `POST /api/jarvis/propose` (`Authorization: Bearer <JARVIS_TOKEN>`, JSON
   `{"tool": "log_work_order", "input": {...}, "summary": "...", "urgent": false}`).
 
+## Bank (open banking)
+
+**Bank** in the sidebar connects your bank account read-only through
+[TrueLayer](https://console.truelayer.com): you sign in at your own bank, and
+the app never sees the login. Every 6 hours it fetches new transactions,
+matches money in to the rent each home or room expects (by amount, name and
+date) and money out to mortgages and landlord rent, and tells you by
+notification when rent arrives or hasn't arrived 3 days after it was due
+(`JARVIS_RENT_GRACE_DAYS`). It never changes a property by itself: when a home
+marked as behind gets paid, it asks on the Approvals page first.
+
+Setup: in the TrueLayer Console create an app, add
+`https://<your-app>/bank` as a redirect URI, and set `TRUELAYER_CLIENT_ID`,
+`TRUELAYER_CLIENT_SECRET` and `TRUELAYER_ENV` (`sandbox` to test with
+TrueLayer's mock bank, `live` for real banks) in Render. Banks ask you to
+renew access from time to time; the app tells you when.
+
 ## Inbox
 
 The **Inbox** page shows the company's existing mailboxes (read over IMAP;

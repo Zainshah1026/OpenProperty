@@ -5,6 +5,7 @@ import { keyOf, runSync, syncStatus } from "./sync";
 import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
 import { registerJarvisRoutes } from "./jarvis";
+import { registerBankRoutes } from "./bank";
 import { mailProvider, registerMailRoutes } from "./mail";
 import { registerDocumentRoutes } from "./documents";
 import { registerExtras } from "./extras";
@@ -47,6 +48,10 @@ type Env = {
     JARVIS_SCAN_MODEL?: string;
     PUBLIC_URL?: string;
     VAPID_SUBJECT?: string;
+    /** Bank connection (see src/server/bank.ts). */
+    TRUELAYER_CLIENT_ID?: string;
+    TRUELAYER_CLIENT_SECRET?: string;
+    TRUELAYER_ENV?: string;
     SHEET_SCRIPT_URL?: string;
     SHEET_SCRIPT_KEY?: string;
     SHEET_PUB_URL?: string;
@@ -1520,6 +1525,7 @@ app.post("/api/sync", async (c) => {
 registerInvoiceRoutes(app);
 registerAssistantRoutes(app);
 registerJarvisRoutes(app);
+registerBankRoutes(app);
 registerMailRoutes(app);
 registerDocumentRoutes(app);
 registerExtras(app);
