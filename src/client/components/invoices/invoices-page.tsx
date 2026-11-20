@@ -37,6 +37,14 @@ export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<Invoice | null | undefined>(undefined); // null = new
+  const [clearing, setClearing] = useState(false);
+  const [restartOn, setRestartOn] = useState(() => {
+    // Next Monday by default.
+    const d = new Date();
+    d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
+    return toIsoDate(d);
+  });
+  const [cleared, setCleared] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -66,8 +74,51 @@ export function InvoicesPage() {
     <PageShell
       title="Invoices"
       meta={`${invoices.length} invoices · ${money(outstanding)} awaiting payment${overdue.length ? ` · ${overdue.length} overdue` : ""}`}
-      actions={<Button onClick={() => setOpen(null)}><Plus className="h-4 w-4" /> New invoice</Button>}
+      actions={
+        <>
+          {invoices.some((i) => i.status === "draft") && (
+            <Button variant="outline" onClick={() => setClearing(true)}><Trash2 className="h-4 w-4" /> Clear drafts</Button>
+          )}
+          <Button onClick={() => setOpen(null)}><Plus className="h-4 w-4" /> New invoice</Button>
+        </>
+      }
     >
+      {cleared && <p className="text-sm font-medium text-primary">{cleared}</p>}
+      <Dialog open={clearing} onOpenChange={setClearing}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Clear all draft invoices?</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              This permanently deletes <b>{invoices.filter((i) => i.status === "draft").length} draft invoices</b>
+              {" "}({money(invoices.filter((i) => i.status === "draft").reduce((a, i) => a + i.total, 0))}). None of them have been sent.
+              Sent, paid and void invoices aren't touched. This can't be undone.
+            </p>
+            <label className="block font-medium">
+              Start drafting rent invoices again on
+              <input type="date" value={restartOn} onChange={(e) => setRestartOn(e.target.value)} className="mt-1 block h-10 w-full rounded-xl border bg-card px-2 text-sm" />
+            </label>
+            <p className="text-muted-foreground">From that day, drafts are made as usual for rent falling due from then on.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setClearing(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                try {
+                  const r = await api<{ deleted: number; start_on: string | null }>("POST", "/api/invoices/clear-drafts", { start_on: restartOn });
+                  setCleared(`Deleted ${r.deleted} drafts. Rent invoices start again on ${r.start_on ? formatDate(r.start_on) : "the next check"}.`);
+                  setClearing(false);
+                  void load();
+                } catch (err) {
+                  setError((err as Error).message);
+                }
+              }}
+            >
+              Yes, delete the drafts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <RentReady onChanged={load} />
       {loading ? (
         <div className="py-16 text-center text-muted-foreground">Loading invoices…</div>

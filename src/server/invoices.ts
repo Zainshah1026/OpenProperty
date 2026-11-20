@@ -368,6 +368,28 @@ export function registerInvoiceRoutes(app: Hono<any>) {
     return c.json({ invoice: { ...inv, items: parseItems(inv.items), total: invoiceTotal(inv) } });
   });
 
+  // Delete every draft and stop drafting rent invoices until a date; from then
+  // on they're drafted as usual (rents due from that date). Sent, paid and void
+  // invoices are never touched.
+  app.post("/api/invoices/clear-drafts", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { start_on?: string };
+    const start = String(body.start_on ?? "").trim();
+    if (start && !/^\d{4}-\d{2}-\d{2}$/.test(start)) return c.json({ error: "Choose a date to restart." }, 400);
+    const drafts = await query<{ id: number }>("SELECT id FROM invoices WHERE status = 'draft'");
+    const ids = drafts.map((d) => d.id);
+    if (ids.length) {
+      const marks = ids.map(() => "?").join(", ");
+      // Forget these rents were drafted, so rents due on or after the restart date get fresh drafts.
+      await run(`DELETE FROM rent_invoice_log WHERE invoice_id IN (${marks})`, ids);
+      await run(`DELETE FROM invoices WHERE id IN (${marks}) AND status = 'draft'`, ids);
+    }
+    await run(
+      "INSERT INTO settings (key, value) VALUES ('rent_invoices_start', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')",
+      [start],
+    );
+    return c.json({ deleted: ids.length, start_on: start || null });
+  });
+
   app.delete("/api/invoices/:id", async (c) => {
     const id = intId(c);
     if (!id) return c.json({ error: "Invalid ID" }, 400);

@@ -90,6 +90,9 @@ export async function generateRentInvoices(now = new Date()): Promise<RentRunRes
   running = true;
   try {
     if ((await setting("rent_invoices_auto", "on")) === "off") return result;
+    // Paused until a date (Invoices → Clear drafts and restart): nothing is drafted before then.
+    const startOn = (await setting("rent_invoices_start", "")).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(startOn) && londonToday(now) < startOn) return result;
     const daysBefore = Math.min(31, Math.max(0, parseInt(await setting("rent_invoice_days_before", "7"), 10) || 7));
     const today = londonToday(now);
     const horizon = addDays(today, daysBefore);
