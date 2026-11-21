@@ -16,7 +16,7 @@ export interface MissingItem {
   home: string;
   postcode: string | null;
   section: string;
-  area: "Tenant" | "Rent" | "Certificates" | "Mortgage" | "Home details";
+  area: "Tenant" | "Rent" | "Certificates" | "Insurance" | "Mortgage" | "Home details";
   item: string;
   priority: "High" | "Medium" | "Low";
 }
@@ -89,7 +89,12 @@ export async function buildMissing(): Promise<MissingItem[]> {
     cert("eicr", "EICR", p.eicr_expiry, true);
     cert("epc", "EPC", p.epc_expiry, true);
     cert("licence", "HMO licence", p.licence_expiry, !!p.hmo);
-    if (owned) cert("insurance", "Building insurance", p.insurance_expiry, true);
+    // Insurance is one item covering every policy (buildings, landlord, contents, rent guarantee).
+    if (owned) {
+      const d = p.insurance_expiry;
+      if (!d) add("Insurance", hasDoc.has(`${p.id}:insurance`) ? "Add the insurance renewal date" : "Add the insurance policy (buildings / landlord)", "Medium");
+      else if (d < now) add("Insurance", `Insurance ran out on ${d.split("-").reverse().join("/")}: renew it or add the new policy`, "High");
+    }
 
     // Mortgage (owned homes paying something out each month)
     if (owned && p.rent_out > 0) {

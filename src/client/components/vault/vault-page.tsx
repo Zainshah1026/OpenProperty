@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Download, ExternalLink, FileText, Flame, FolderOpen, Image as ImageIcon, Landmark, Search, Sparkles, Upload } from "lucide-react";
+import { Camera, Download, ExternalLink, FileText, Flame, FolderOpen, Image as ImageIcon, Landmark, Search, Sparkles, Umbrella, Upload } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,8 @@ interface Doc {
 
 /** Folders a person thinks in; each holds several of the server's document kinds. */
 const FOLDERS = [
-  { id: "certs", name: "Safety certificates", color: "var(--door-plum)", icon: Flame, kinds: ["gas", "eicr", "epc", "licence", "insurance"] },
+  { id: "certs", name: "Safety certificates", color: "var(--door-plum)", icon: Flame, kinds: ["gas", "eicr", "epc", "licence"] },
+  { id: "insurance", name: "Insurance", color: "var(--door-teal)", icon: Umbrella, kinds: ["insurance"] },
   { id: "legal", name: "Tenancy & legal", color: "var(--door-blue)", icon: FileText, kinds: ["agreement", "notice", "letter"] },
   { id: "money", name: "Mortgages", color: "var(--door-green)", icon: Landmark, kinds: ["mortgage_statement", "mortgage_offer", "mortgage_other"] },
   { id: "photos", name: "Photos & inventories", color: "var(--door-teal)", icon: ImageIcon, kinds: ["photo", "inventory", "checkin", "checkout", "repair"] },
