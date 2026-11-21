@@ -26,7 +26,7 @@ interface Doc {
 /** Folders a person thinks in; each holds several of the server's document kinds. */
 const FOLDERS = [
   { id: "certs", name: "Safety certificates", color: "var(--door-plum)", icon: Flame, kinds: ["gas", "eicr", "epc", "licence"] },
-  { id: "insurance", name: "Insurance", color: "var(--door-teal)", icon: Umbrella, kinds: ["insurance"] },
+  { id: "insurance", name: "Insurance", color: "var(--door-orange, #e8833a)", icon: Umbrella, kinds: ["insurance"] },
   { id: "legal", name: "Tenancy & legal", color: "var(--door-blue)", icon: FileText, kinds: ["agreement", "notice", "letter"] },
   { id: "money", name: "Mortgages", color: "var(--door-green)", icon: Landmark, kinds: ["mortgage_statement", "mortgage_offer", "mortgage_other"] },
   { id: "photos", name: "Photos & inventories", color: "var(--door-teal)", icon: ImageIcon, kinds: ["photo", "inventory", "checkin", "checkout", "repair"] },
@@ -43,7 +43,7 @@ const KIND_LABEL: Record<string, string> = {
 /** What you can file from here (certificates go through Jarvis's reader instead). */
 const UPLOAD_KINDS = ["agreement", "notice", "letter", "inventory", "checkin", "checkout", "photo", "mortgage_statement", "mortgage_offer", "mortgage_other", "other"];
 
-const folderOf = (kind: string) => FOLDERS.find((f) => (f.kinds as readonly string[]).includes(kind)) ?? FOLDERS[4];
+const folderOf = (kind: string) => FOLDERS.find((f) => (f.kinds as readonly string[]).includes(kind)) ?? FOLDERS[FOLDERS.length - 1];
 const when = (d: Doc) => new Date((d.taken_on ?? d.created_at.slice(0, 10)) + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
