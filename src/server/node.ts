@@ -261,7 +261,10 @@ const SYNC_MINUTES = Math.max(1, Number(process.env.SYNC_MINUTES || 5));
 
 async function syncOnce(when: string) {
   try {
-    const s = await runSync(env);
+    const s = await Promise.race([
+      runSync(env),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("took over 2 minutes, skipped")), 120_000).unref()),
+    ]);
     console.log(`Sheet sync (${when}): ${s.properties} properties, ${s.rooms} rooms, ${s.leads} leads, ${s.lettings} lettings leads`);
     await recordVoids().catch((err) => console.error(`Empty periods: ${(err as Error).message}`));
     // Certificates on file with a later expiry than the sheet: keep the newer date.
@@ -288,6 +291,8 @@ async function scanOnce() {
 }
 
 async function start() {
+  // Open the door first: a slow Google Sheet or mail server must never keep the app offline.
+  listen();
   if (syncEnabled(env)) {
     await syncOnce("start");
     setInterval(() => syncOnce("scheduled"), SYNC_MINUTES * 60_000).unref();
@@ -297,7 +302,6 @@ async function start() {
   }
   await rentInvoicesOnce();
   setInterval(rentInvoicesOnce, 60 * 60_000).unref();
-  listen();
   // Bank: new transactions every 6 hours (TrueLayer allows 4 unattended calls a day).
   const bankSync = () => syncBank(app, env).then((s) => { if ("connections" in s && s.connections) console.log(`Bank sync: ${JSON.stringify(s)}`); }).catch((err) => console.error(`Bank sync: ${(err as Error).message}`));
   setTimeout(bankSync, 120_000).unref();
