@@ -90,16 +90,24 @@ export async function fillContactsFromInbox(env: Env) {
     let filled = 0;
     for (const g of groups.values()) {
       try {
-        const term = searchTerm(g.name);
-        if (term.length < 3) continue;
+        // Try a few spellings: "Clear Springs" / "Clearsprings" / "Clear", and the email domain if we know it.
+        const base = searchTerm(g.name);
+        const domain = /@([\w-]+)\./.exec(g.tenant?.email ?? "")?.[1];
+        const terms = [...new Set([domain, base, base.replace(/\s+/g, ""), base.split(" ")[0]].filter((t): t is string => !!t && t.length >= 4 && !/^(gmail|hotmail|yahoo|outlook|icloud|live)$/i.test(t)))];
         const found: string[] = [];
-        for (let i = 0; i < accounts.length && found.length < 4; i++) {
-          const { messages } = await p.list(i, "INBOX", { page: 1, pageSize: 10, query: term });
-          for (const m of messages.filter((m) => !/chistiandco/i.test(m.from_address)).slice(0, 4 - found.length)) {
-            const full = await p.read(i, "INBOX", m.uid);
-            const body = (full?.text ?? "").replace(/\n{3,}/g, "\n\n");
-            found.push(`From: ${m.from} <${m.from_address}>\nDate: ${m.date}\nSubject: ${m.subject}\n${body.slice(0, 600)}\n...\n${body.slice(-1400)}`);
+        const seen = new Set<string>();
+        for (const term of terms) {
+          for (let i = 0; i < accounts.length && found.length < 4; i++) {
+            const { messages } = await p.list(i, "INBOX", { page: 1, pageSize: 10, query: term });
+            for (const m of messages.filter((m) => !/chistiandco/i.test(m.from_address))) {
+              if (found.length >= 4 || seen.has(`${i}:${m.uid}`)) continue;
+              seen.add(`${i}:${m.uid}`);
+              const full = await p.read(i, "INBOX", m.uid);
+              const body = (full?.text ?? "").replace(/\n{3,}/g, "\n\n");
+              found.push(`From: ${m.from} <${m.from_address}>\nDate: ${m.date}\nSubject: ${m.subject}\n${body.slice(0, 600)}\n...\n${body.slice(-1400)}`);
+            }
           }
+          if (found.length >= 2) break;
         }
         if (!found.length) { log.push(`${g.name}: no emails found`); continue; }
         const r = await askClaude(env, g.name, g.homes.map((h) => h.address || h.name).join("; "), found.join("\n\n-----\n\n"));
@@ -135,7 +143,7 @@ export async function fillContactsFromInbox(env: Env) {
 
 /** Once per deploy version: fill contacts a couple of minutes after start. */
 export async function fillContactsOnce(env: Env) {
-  const key = "contacts_from_inbox_v1";
+  const key = "contacts_from_inbox_v2";
   if (await get("SELECT 1 FROM settings WHERE key = ?", [key]).catch(() => undefined)) return;
   await run("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [key, new Date().toISOString()]);
   await fillContactsFromInbox(env).catch((err) => console.error(`Contacts from inbox: ${(err as Error).message}`));
