@@ -129,22 +129,26 @@ export async function readDetails(env: Env, file: File): Promise<Record<string, 
   const block = isPdf
     ? { type: "document", source: { type: "base64", media_type: "application/pdf", data } }
     : { type: "image", source: { type: "base64", media_type: type, data } };
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": str(env.ANTHROPIC_API_KEY), "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({
-      model: str(env.DOC_READ_MODEL) || "claude-haiku-5-5",
-      max_tokens: 1200,
-      system: DETAILS_PROMPT,
-      messages: [{ role: "user", content: [block, { type: "text", text: `File name: ${file.name}. Read this document.` }] }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Couldn't read it (Claude API ${res.status}): ${(await res.text().catch(() => "")).slice(0, 200)}`);
-  const out = (await res.json()) as { content: { type: string; text?: string }[] };
-  const text = out.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-  const json = /\{[\s\S]*\}/.exec(text)?.[0];
-  if (!json) throw new Error("Jarvis couldn't make sense of this document.");
-  return JSON.parse(json) as Record<string, unknown>;
+  // Haiku first (cheap); Sonnet when Haiku can't make sense of it (scans, odd layouts).
+  let last = "";
+  for (const model of [str(env.DOC_READ_MODEL) || "claude-haiku-5-5", "claude-sonnet-5-5"]) {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": str(env.ANTHROPIC_API_KEY), "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1500,
+        system: DETAILS_PROMPT,
+        messages: [{ role: "user", content: [block, { type: "text", text: `File name: ${file.name}. Read this document and reply with the JSON object only.` }] }],
+      }),
+    });
+    if (!res.ok) { last = `Claude API ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`; continue; }
+    const out = (await res.json()) as { content: { type: string; text?: string }[] };
+    last = out.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+    const json = /\{[\s\S]*\}/.exec(last)?.[0];
+    if (json) { try { return JSON.parse(json) as Record<string, unknown>; } catch { /* next model */ } }
+  }
+  throw new Error(`Jarvis couldn't make sense of this document: ${last.slice(0, 160)}`);
 }
 
 export function registerCertReader(app: AnyApp) {
