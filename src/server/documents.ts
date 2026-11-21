@@ -11,7 +11,7 @@
 import type { Hono } from "hono";
 import { get, query, run } from "./db";
 import { getUser } from "./auth";
-import { readCertificate } from "./cert-reader";
+import { readCertificate, readDetails } from "./cert-reader";
 
 export interface DocumentStore {
   put(name: string, bytes: Uint8Array): Promise<void>;
@@ -297,6 +297,24 @@ export function registerDocumentRoutes(app: Hono<any>) {
       if (read) res.document.expiry_date = read;
     }
     return c.json({ document: publicRow(res.document), ...(res.duplicate ? { duplicate: true } : {}) }, res.duplicate ? 200 : 201);
+  });
+
+  // Jarvis reads a stored tenancy or mortgage document and returns its details (nothing is changed).
+  app.post("/api/documents/:id/details", async (c) => {
+    if (!store) return c.json(unavailable, 503);
+    const env = c.env as Record<string, unknown>;
+    if (!String(env.ANTHROPIC_API_KEY ?? "").trim()) return c.json({ error: "Jarvis isn't switched on." }, 503);
+    const id = parseInt(c.req.param("id") ?? "", 10);
+    const row = Number.isFinite(id) ? await get<DocRow>("SELECT * FROM compliance_documents WHERE id = ?", [id]) : undefined;
+    if (!row) return c.json({ error: "Document not found." }, 404);
+    const bytes = await store.get(row.stored_name);
+    if (!bytes) return c.json({ error: "The file is missing from the server." }, 404);
+    try {
+      const file = new File([bytes as unknown as BlobPart], row.filename, { type: row.content_type });
+      return c.json({ details: await readDetails(env, file) });
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 422);
+    }
   });
 
   app.get("/api/documents/:id/file", async (c) => {
