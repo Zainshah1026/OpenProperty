@@ -148,7 +148,7 @@ export function WorkOrderDialog({ open, onOpenChange, workOrder, defaults, onSav
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
                   {app.properties.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={String(p.id)}>{p.ref ? `${p.ref} · ` : ""}{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
