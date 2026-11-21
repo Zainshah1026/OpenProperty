@@ -22,6 +22,7 @@ import { dailyMoneyOnce, scanEmailOnce } from "./jarvis";
 import { syncBank } from "./bank";
 import { applyCertificateDates, readMissingCertificateDates, setDocumentStore } from "./documents";
 import { recordVoids } from "./extras";
+import { fillContactsOnce } from "./contacts";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
 setMailProvider(createImapProvider(process.env));
@@ -309,6 +310,8 @@ async function start() {
   // Certificates uploaded without a date: Jarvis reads them (once after start, then daily).
   const readCerts = () => readMissingCertificateDates(env).then((r) => { if (r.checked) console.log(`Certificates read: ${r.found} of ${r.checked} dated`); }).catch((err) => console.error(`Certificates read: ${(err as Error).message}`));
   setTimeout(readCerts, 90_000).unref();
+  // Tenant phone numbers and emails from the inbox: once, a few minutes after this deploy starts.
+  setTimeout(() => void fillContactsOnce(env), 150_000).unref();
   setInterval(readCerts, 24 * 3600_000).unref();
   // Jarvis: the morning "rent due and mortgages today" notification.
   setTimeout(() => dailyMoneyOnce(app, env), 60_000).unref();
