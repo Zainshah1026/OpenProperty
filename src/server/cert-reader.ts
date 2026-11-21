@@ -152,6 +152,21 @@ export async function readDetails(env: Env, file: File): Promise<Record<string, 
 }
 
 export function registerCertReader(app: AnyApp) {
+  // Read a tenancy or mortgage document's details without saving it (used to find the current one).
+  app.post("/api/documents/details-file", async (c) => {
+    const env = c.env as Env;
+    if (!str(env.ANTHROPIC_API_KEY)) return c.json({ error: "Jarvis isn't switched on (no ANTHROPIC_API_KEY)." }, 503);
+    let body: Record<string, unknown>;
+    try { body = (await c.req.parseBody()) as Record<string, unknown>; } catch { return c.json({ error: "Couldn't read the upload." }, 400); }
+    const file = body.file;
+    if (!(file instanceof File)) return c.json({ error: "Choose a file." }, 400);
+    try {
+      return c.json({ details: await readDetails(env, file) });
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 422);
+    }
+  });
+
   app.post("/api/documents/read", async (c) => {
     const env = c.env as Env;
     if (!str(env.ANTHROPIC_API_KEY)) return c.json({ error: "Jarvis isn't switched on (no ANTHROPIC_API_KEY)." }, 503);
