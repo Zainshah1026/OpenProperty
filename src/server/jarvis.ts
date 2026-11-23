@@ -21,7 +21,7 @@
 import type { Hono } from "hono";
 import { get, initDB, query, run } from "./db";
 import { CHANGE_TOOLS, confirmedBy, runApprovedChange } from "./assistant";
-import { mailProvider } from "./mail";
+import { mailProvider, type MailSummary } from "./mail";
 import { getUser } from "./auth";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -630,7 +630,7 @@ export function registerJarvisRoutes(app: AnyApp) {
         const accounts = p.accounts();
         for (let i = 0; i < accounts.length; i++) {
           const done = new Set((await query<{ uid: number }>("SELECT uid FROM email_links WHERE mailbox = ?", [accounts[i].toLowerCase()])).map((r) => r.uid));
-          let messages: Awaited<ReturnType<typeof p.list>>["messages"] = [];
+          let messages: MailSummary[] = [];
           if (days) {
             for (let page = 1; page <= 8; page++) {
               const batch = (await p.list(i, "INBOX", { page, pageSize: 50 })).messages;
