@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS properties (
   arrears_amount REAL NOT NULL DEFAULT 0,
   gas_expiry TEXT,                             -- 'YYYY-MM-DD'
   epc_expiry TEXT,
+  epc_rating TEXT,                             -- 'A'..'G' from the EPC register
   eicr_expiry TEXT,
   licence_expiry TEXT,
   insurance_expiry TEXT,

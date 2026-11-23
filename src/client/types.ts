@@ -48,6 +48,7 @@ export interface Property {
   arrears_amount: number;
   gas_expiry: string | null;
   epc_expiry: string | null;
+  epc_rating?: string | null;
   eicr_expiry: string | null;
   licence_expiry: string | null;
   insurance_expiry: string | null;

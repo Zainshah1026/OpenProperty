@@ -91,6 +91,7 @@ for (const ddl of [
   "ALTER TABLE properties ADD COLUMN lease_end TEXT",
   "ALTER TABLE properties ADD COLUMN lease_years REAL",
   "ALTER TABLE properties ADD COLUMN fixed_rate_end TEXT",
+  "ALTER TABLE properties ADD COLUMN epc_rating TEXT",
   "ALTER TABLE compliance_documents ADD COLUMN letter_id INTEGER",
   "ALTER TABLE compliance_documents ADD COLUMN mortgage_id INTEGER",
   "ALTER TABLE lettings_leads ADD COLUMN do_not_email INTEGER NOT NULL DEFAULT 0",

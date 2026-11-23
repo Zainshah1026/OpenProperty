@@ -126,6 +126,14 @@ export function CompliancePage({ navigate }: { navigate: (to: string) => void })
                           >
                             {date ? formatDate(date) : "—"}
                           </span>
+                          {c.key === "epc_expiry" && p.epc_rating ? (
+                            <span
+                              className={cn("ml-1 inline-block rounded px-1.5 py-0.5 text-xs font-bold", /^[A-C]$/.test(p.epc_rating) ? "bg-[var(--door-green)]/15 text-[var(--door-green)]" : /^[D]$/.test(p.epc_rating) ? "bg-[var(--door-yellow)]/20 text-foreground" : "bg-destructive/15 text-destructive")}
+                              title={/^[A-C]$/.test(p.epc_rating) ? "Meets the 2030 minimum (C)" : "Needs to reach C by 1 Oct 2030"}
+                            >
+                              {p.epc_rating}
+                            </span>
+                          ) : null}
                           {docCounts[p.id]?.[CERT_DOC_KIND[c.key]] ? (
                             <Paperclip className="ml-1 inline size-3.5 text-primary" aria-label="Certificate uploaded" />
                           ) : null}

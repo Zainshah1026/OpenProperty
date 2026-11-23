@@ -196,6 +196,7 @@ const PropertyInput = z.object({
   arrears_amount: z.number().min(0).optional(),
   gas_expiry: isoDate,
   epc_expiry: isoDate,
+  epc_rating: z.enum(["A", "B", "C", "D", "E", "F", "G"]).optional().nullable(),
   eicr_expiry: isoDate,
   licence_expiry: isoDate,
   insurance_expiry: isoDate,

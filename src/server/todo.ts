@@ -85,6 +85,15 @@ export async function buildTodos(): Promise<TodoItem[]> {
         detail: home(p), due: d, urgent: d < addDays(today, 14), href: "/compliance", property_ref: p.ref,
       });
     }
+    // From 1 Oct 2030 a rented home needs EPC C or better (C issued before 1 Oct 2029 counts until it expires).
+    const rating = String(p.epc_rating ?? "").toUpperCase();
+    if (/^[D-G]$/.test(rating) && p.section !== "freehold") {
+      items.push({
+        key: `epc-c:${p.id}`, kind: "certificate",
+        title: `Get the EPC up to C (now ${rating}) before 1 Oct 2030`,
+        detail: home(p), due: "2030-10-01", urgent: /^[F-G]$/.test(rating), href: "/compliance", property_ref: p.ref,
+      });
+    }
     if (p.rent_status === "missed") {
       items.push({
         key: `rent:${p.id}`, kind: "rent", title: `Chase missed rent${p.arrears_amount ? ` of ${gbp(p.arrears_amount)}` : ""}`,
