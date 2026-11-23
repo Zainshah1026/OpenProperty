@@ -496,7 +496,8 @@ const LEASE_SELECT = `
     u.name as unit_name,
     p.id as property_id, p.name as property_name, p.color as property_color,
     t.first_name as tenant_first_name, t.last_name as tenant_last_name,
-    t.email as tenant_email, t.phone as tenant_phone
+    t.email as tenant_email, t.phone as tenant_phone, t.company_name as tenant_company,
+    (SELECT COUNT(*) FROM compliance_documents d WHERE d.lease_id = l.id) as contract_count
   FROM leases l
   LEFT JOIN units u ON u.id = l.unit_id
   LEFT JOIN properties p ON p.id = u.property_id

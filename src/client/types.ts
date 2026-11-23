@@ -135,6 +135,8 @@ export interface Lease {
   tenant_last_name?: string | null;
   tenant_email?: string | null;
   tenant_phone?: string | null;
+  tenant_company?: string | null;
+  contract_count?: number;
 }
 
 export type ChargeStatus = "open" | "partial" | "paid" | "overdue" | "waived";

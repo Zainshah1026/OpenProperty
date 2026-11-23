@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Lease, LeaseStatus, Tenant, Unit } from "@/types";
+import { LeaseContract } from "./lease-contract";
 
 interface Props {
   open: boolean;
@@ -148,7 +149,7 @@ export function LeaseDialog({ open, onOpenChange, lease, defaults, onSaved }: Pr
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{lease ? "Edit lease" : "New lease"}</DialogTitle>
         </DialogHeader>
@@ -174,7 +175,7 @@ export function LeaseDialog({ open, onOpenChange, lease, defaults, onSaved }: Pr
                 <SelectContent>
                   {tenants.map((t) => (
                     <SelectItem key={t.id} value={String(t.id)}>
-                      {t.first_name} {t.last_name}
+                      {(t as Tenant & { company_name?: string | null }).company_name || `${t.first_name} ${t.last_name}`.trim()}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -224,6 +225,7 @@ export function LeaseDialog({ open, onOpenChange, lease, defaults, onSaved }: Pr
             <Label htmlFor="l-notes">Notes</Label>
             <Textarea id="l-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
+          {lease && <LeaseContract leaseId={lease.id} propertyId={lease.property_id} />}
         </div>
         <DialogFooter className="mt-2">
           {lease && (

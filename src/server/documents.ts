@@ -64,6 +64,7 @@ export interface DocRow {
   work_order_id: number | null;
   letter_id?: number | null;
   mortgage_id?: number | null;
+  lease_id?: number | null;
   uploaded_by: string | null;
   created_at: string;
 }
@@ -76,7 +77,7 @@ export const publicRow = ({ stored_name: _s, ...rest }: DocRow) => rest;
  */
 export async function saveUpload(
   file: File,
-  row: { property_id: number; kind: DocKind; expiry_date?: string | null; label?: string | null; taken_on?: string | null; work_order_id?: number | null; letter_id?: number | null; mortgage_id?: number | null; uploaded_by?: string | null },
+  row: { property_id: number; kind: DocKind; expiry_date?: string | null; label?: string | null; taken_on?: string | null; work_order_id?: number | null; letter_id?: number | null; mortgage_id?: number | null; lease_id?: number | null; uploaded_by?: string | null },
   opts: { maxBytes?: number; imagesOnly?: boolean } = {},
 ): Promise<{ ok: true; document: DocRow; duplicate?: boolean } | { ok: false; status: 400 | 413 | 415 | 503; error: string }> {
   if (!store) return { ok: false, status: 503, error: "Uploads aren't available on this server." };
@@ -94,13 +95,17 @@ export async function saveUpload(
     "SELECT * FROM compliance_documents WHERE property_id = ? AND kind = ? AND filename = ? AND size = ?",
     [row.property_id, row.kind, cleanName, file.size],
   );
-  if (dupe && !row.work_order_id && !row.letter_id && !row.mortgage_id) return { ok: true, document: dupe, duplicate: true };
+  if (dupe && !row.work_order_id && !row.letter_id && !row.mortgage_id) {
+    // Same file already on file: just link it to the tenancy if that's what this upload is for.
+    if (row.lease_id && !dupe.lease_id) { await run("UPDATE compliance_documents SET lease_id = ? WHERE id = ?", [row.lease_id, dupe.id]); dupe.lease_id = row.lease_id; }
+    return { ok: true, document: dupe, duplicate: true };
+  }
   const stored = randomName(ext);
   await store.put(stored, new Uint8Array(await file.arrayBuffer()));
   const r = await run(
-    `INSERT INTO compliance_documents (property_id, kind, filename, content_type, size, stored_name, expiry_date, label, taken_on, work_order_id, letter_id, mortgage_id, uploaded_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [row.property_id, row.kind, cleanName, type, file.size, stored, row.expiry_date || null, row.label || null, row.taken_on || null, row.work_order_id ?? null, row.letter_id ?? null, row.mortgage_id ?? null, row.uploaded_by ?? null],
+    `INSERT INTO compliance_documents (property_id, kind, filename, content_type, size, stored_name, expiry_date, label, taken_on, work_order_id, letter_id, mortgage_id, lease_id, uploaded_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.property_id, row.kind, cleanName, type, file.size, stored, row.expiry_date || null, row.label || null, row.taken_on || null, row.work_order_id ?? null, row.letter_id ?? null, row.mortgage_id ?? null, row.lease_id ?? null, row.uploaded_by ?? null],
   );
   return { ok: true, document: (await get<DocRow>("SELECT * FROM compliance_documents WHERE id = ?", [r.lastInsertRowid]))! };
 }
@@ -204,6 +209,11 @@ export function registerDocumentRoutes(app: Hono<any>) {
       const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE letter_id = ? ORDER BY id", [letter]).catch(() => [] as DocRow[]);
       return c.json({ enabled: true, documents: rows.map(publicRow) });
     }
+    const lease = parseInt(c.req.query("lease_id") ?? "", 10);
+    if (Number.isFinite(lease)) {
+      const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE lease_id = ? ORDER BY COALESCE(taken_on, created_at) DESC, id DESC", [lease]).catch(() => [] as DocRow[]);
+      return c.json({ enabled: !!store, documents: rows.map(publicRow) });
+    }
     const mortgage = parseInt(c.req.query("mortgage_id") ?? "", 10);
     if (Number.isFinite(mortgage)) {
       const rows = await query<DocRow>("SELECT * FROM compliance_documents WHERE mortgage_id = ? ORDER BY COALESCE(taken_on, created_at) DESC, id DESC", [mortgage]).catch(() => [] as DocRow[]);
@@ -270,6 +280,11 @@ export function registerDocumentRoutes(app: Hono<any>) {
     if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return c.json({ error: "Expiry date must be a date." }, 400);
     const takenOn = String(body.taken_on ?? "").trim();
     if (takenOn && !/^\d{4}-\d{2}-\d{2}$/.test(takenOn)) return c.json({ error: "The date must be a date." }, 400);
+    const leaseId = parseInt(String(body.lease_id ?? ""), 10);
+    if (Number.isFinite(leaseId)) {
+      const l = await get<{ property_id: number | null }>("SELECT u.property_id FROM leases l JOIN units u ON u.id = l.unit_id WHERE l.id = ?", [leaseId]);
+      if (!l || l.property_id !== pid) return c.json({ error: "That tenancy isn't for this home." }, 400);
+    }
     const mortgageId = parseInt(String(body.mortgage_id ?? ""), 10);
     if (Number.isFinite(mortgageId)) {
       const m = await get<{ property_id: number | null }>("SELECT property_id FROM mortgages WHERE id = ?", [mortgageId]);
@@ -278,6 +293,7 @@ export function registerDocumentRoutes(app: Hono<any>) {
     const res = await saveUpload(file, {
       property_id: pid,
       mortgage_id: Number.isFinite(mortgageId) ? mortgageId : null,
+      lease_id: Number.isFinite(leaseId) ? leaseId : null,
       kind,
       expiry_date: expiry || null,
       label: String(body.label ?? "").trim().slice(0, 200) || null,
@@ -315,6 +331,22 @@ export function registerDocumentRoutes(app: Hono<any>) {
     } catch (err) {
       return c.json({ error: (err as Error).message }, 422);
     }
+  });
+
+  // Attach a document already on file to a tenancy (or detach it with lease_id: null).
+  app.put("/api/documents/:id/lease", async (c) => {
+    const id = parseInt(c.req.param("id") ?? "", 10);
+    const body = (await c.req.json().catch(() => ({}))) as { lease_id?: number | null };
+    const doc = Number.isFinite(id) ? await get<DocRow>("SELECT * FROM compliance_documents WHERE id = ?", [id]) : undefined;
+    if (!doc) return c.json({ error: "Document not found." }, 404);
+    const leaseId = body.lease_id == null ? null : Number(body.lease_id);
+    if (leaseId !== null) {
+      const l = await get<{ property_id: number | null }>("SELECT u.property_id FROM leases l JOIN units u ON u.id = l.unit_id WHERE l.id = ?", [leaseId]);
+      if (!l) return c.json({ error: "Tenancy not found." }, 404);
+      if (l.property_id !== doc.property_id) return c.json({ error: "That document is for a different home." }, 400);
+    }
+    await run("UPDATE compliance_documents SET lease_id = ? WHERE id = ?", [leaseId, id]);
+    return c.json({ ok: true });
   });
 
   app.get("/api/documents/:id/file", async (c) => {

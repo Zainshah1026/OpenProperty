@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, Plus, Search } from "lucide-react";
+import { ClipboardList, FileSignature, Plus, Search } from "lucide-react";
 import { useApp } from "@/context";
 import { cn, daysBetween, formatDate, formatMoney, toIsoDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +48,7 @@ export function LeasesPage({ navigate }: { navigate: (to: string) => void }) {
     if (q.trim()) {
       const needle = q.toLowerCase();
       out = out.filter((l) =>
-        `${l.tenant_first_name ?? ""} ${l.tenant_last_name ?? ""} ${l.property_name ?? ""} ${l.unit_name ?? ""}`.toLowerCase().includes(needle),
+        `${l.tenant_company ?? ""} ${l.tenant_first_name ?? ""} ${l.tenant_last_name ?? ""} ${l.property_name ?? ""} ${l.unit_name ?? ""}`.toLowerCase().includes(needle),
       );
     }
     return out;
@@ -104,6 +104,7 @@ export function LeasesPage({ navigate }: { navigate: (to: string) => void }) {
                   <TableHead>Property · Unit</TableHead>
                   <TableHead>Term</TableHead>
                   <TableHead className="text-right">Rent</TableHead>
+                  <TableHead>Contract</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -125,7 +126,7 @@ export function LeasesPage({ navigate }: { navigate: (to: string) => void }) {
                             onClick={(e) => { e.stopPropagation(); navigate(`/tenants/${l.primary_tenant_id}`); }}
                             className="text-left font-medium hover:underline"
                           >
-                            {l.tenant_first_name} {l.tenant_last_name}
+                            {l.tenant_company || `${l.tenant_first_name ?? ""} ${l.tenant_last_name ?? ""}`.trim()}
                           </button>
                         ) : (
                           <span className="text-xs text-muted-foreground">No tenant</span>
@@ -143,6 +144,13 @@ export function LeasesPage({ navigate }: { navigate: (to: string) => void }) {
                         {ending && <div className="text-xs text-warning">Ends in {daysToEnd} day{daysToEnd === 1 ? "" : "s"}</div>}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatMoney(l.monthly_rent, app.settings.currency)}/mo</TableCell>
+                      <TableCell>
+                        {l.contract_count ? (
+                          <span className="inline-flex items-center gap-1 text-sm font-medium text-primary"><FileSignature className="size-4" /> Attached</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Add</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={(STATUS_TONE[l.status] ?? "secondary") as never} className={cn("capitalize")}>
                           {l.status}

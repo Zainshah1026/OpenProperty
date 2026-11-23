@@ -288,6 +288,7 @@ CREATE TABLE IF NOT EXISTS compliance_documents (
   label TEXT,                                  -- e.g. the tenant for a check-in report
   taken_on TEXT,                               -- date the photos / report were taken
   work_order_id INTEGER,                       -- photos sent with a repair request
+  lease_id INTEGER,                            -- the tenancy this contract belongs to
   uploaded_by TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
