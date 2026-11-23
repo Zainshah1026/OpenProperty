@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PropertyDialog } from "./property-dialog";
 import { UnitDialog } from "./unit-dialog";
+import { RoomDialog } from "./room-dialog";
 import { WorkOrderDialog } from "../maintenance/work-order-dialog";
 import type { Property, Room, Unit, WorkOrder } from "@/types";
 import { PageShell } from "@/components/page-shell";
@@ -92,10 +93,13 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
   }
 
   const palette = colorClasses(property.color);
-  const linkRoom = async (room: string, tid: number | null) => {
-    await api("PUT", `/api/properties/${property.id}/room-tenant`, { room, tenant_id: tid });
+  const reloadRooms = async () => {
     const r = await api<{ rooms: Room[] }>("GET", `/api/properties/${property.id}/rooms`);
     setRooms(r.rooms);
+  };
+  const linkRoom = async (room: string, tid: number | null) => {
+    await api("PUT", `/api/properties/${property.id}/room-tenant`, { room, tenant_id: tid });
+    await reloadRooms();
   };
   const openWorkOrders = workOrders.filter((w) => w.status !== "completed" && w.status !== "cancelled");
 
@@ -278,7 +282,7 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
               </Card>
               <LeaseholdCard property={property} currency={app.settings.currency} />
               {showRooms && rooms.length > 0 && (
-                <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} onLink={linkRoom} />
+                <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} onLink={linkRoom} onChanged={reloadRooms} />
               )}
               <section>
                 <div className="mb-3 flex items-center justify-between">
@@ -317,7 +321,7 @@ export function PropertyPage({ id, navigate }: { id: number; navigate: (to: stri
 
           {current === "rooms" && (
             <>
-              {showRooms && <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} onLink={linkRoom} />}
+              <RoomsSection rooms={rooms} property={property} currency={app.settings.currency} onLink={linkRoom} onChanged={reloadRooms} />
               <section>
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-[1.0625rem] font-semibold leading-tight">Units</h2>
@@ -475,7 +479,10 @@ const ROOM_STATUS: Record<string, { label: string; tone: "success" | "destructiv
 };
 
 /** One row per room or tenant, from the Tenants tab of the sheet. */
-function RoomsSection({ rooms, property, currency, onLink }: { rooms: Room[]; property: Property; currency: string; onLink: (room: string, tenantId: number | null) => Promise<void> }) {
+function RoomsSection({ rooms, property, currency, onLink, onChanged }: { rooms: Room[]; property: Property; currency: string; onLink: (room: string, tenantId: number | null) => Promise<void>; onChanged: () => void }) {
+  const [editing, setEditing] = useState<Room | undefined>(undefined);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const openRoom = (r?: Room) => { setEditing(r); setDialogOpen(true); };
   const let_ = rooms.filter((r) => r.tenant_name && r.rent_status !== "empty");
   const total = rooms.reduce((a, r) => a + (r.rent || 0), 0);
   const diff = total - (property.rent_in || 0);
@@ -493,11 +500,14 @@ function RoomsSection({ rooms, property, currency, onLink }: { rooms: Room[]; pr
             )}
           </p>
         </div>
-        <span className="text-xs text-muted-foreground">Pick each room's tenant from your Tenants list; rents and pay days come from the sheet's Tenants tab</span>
+        <Button size="sm" onClick={() => openRoom(undefined)}>
+          <Plus className="mr-1 size-4" /> Add room
+        </Button>
       </div>
+      <RoomDialog open={dialogOpen} onOpenChange={setDialogOpen} propertyId={property.id} room={editing} onSaved={onChanged} />
       {rooms.length === 0 ? (
         <Card className="p-6 text-center text-sm text-muted-foreground">
-          Add a row per room on the sheet's Tenants tab with Ref {property.ref ?? "—"}, and each tenant will show here.
+          No rooms yet. Press Add room for each room, with who's in it and what they pay.
         </Card>
       ) : (
         <Card className="overflow-hidden">
@@ -511,6 +521,7 @@ function RoomsSection({ rooms, property, currency, onLink }: { rooms: Room[]; pr
                   <th className="h-10 px-3 font-medium">Pays on</th>
                   <th className="h-10 px-3 font-medium">Status</th>
                   <th className="h-10 px-3 font-medium">Tenancy</th>
+                  <th className="h-10 px-3" />
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -535,6 +546,11 @@ function RoomsSection({ rooms, property, currency, onLink }: { rooms: Room[]; pr
                       <td className="px-3 py-2.5 text-xs text-muted-foreground">
                         {r.start_date || r.end_date ? `${r.start_date ? formatDate(r.start_date) : "?"} – ${r.end_date ? formatDate(r.end_date) : "rolling"}` : "—"}
                       </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <Button size="sm" variant="outline" onClick={() => openRoom(r)}>
+                          <Pencil className="mr-1 size-3.5" /> Edit
+                        </Button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -543,7 +559,7 @@ function RoomsSection({ rooms, property, currency, onLink }: { rooms: Room[]; pr
                 <tr>
                   <td className="px-3 py-2.5" colSpan={2}>Total</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{formatMoney(total, currency)}</td>
-                  <td colSpan={3} />
+                  <td colSpan={4} />
                 </tr>
               </tfoot>
             </table>

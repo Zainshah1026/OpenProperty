@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { initDB, query, get, run } from "./db";
-import { keyOf, runSync, syncStatus } from "./sync";
+import { applyRoomEdits, keyOf, runSync, syncStatus } from "./sync";
 import { registerInvoiceRoutes } from "./invoices";
 import { registerAssistantRoutes } from "./assistant";
 import { registerJarvisRoutes } from "./jarvis";
@@ -1082,6 +1082,63 @@ app.get("/api/properties/:id/rooms", async (c) => {
     [id],
   ).catch(() => []);
   return c.json({ rooms: rows });
+});
+
+/**
+ * Add or change a room: name, tenant, what they pay, pay day, status, dates.
+ * Saved as an app edit so the next sheet sync keeps it.
+ * Body: { original?: room name being edited (omit to add a room), room, tenant_name, tenant_email, rent, pay_day, rent_status, start_date, end_date, notes }
+ */
+app.put("/api/properties/:id/rooms", async (c) => {
+  const id = intParam(c.req.param("id"));
+  if (!id || !(await get("SELECT id FROM properties WHERE id = ?", [id]))) return c.json({ error: "Unknown home." }, 400);
+  const b = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const name = String(b.room ?? "").trim();
+  if (!name) return c.json({ error: "Give the room a name, e.g. Room 1." }, 400);
+  const original = String(b.original ?? "").trim();
+  const key = (original || name).toLowerCase();
+  const txt = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const num = (v: unknown) => (v === "" || v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
+  const date = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  const payDay = num(b.pay_day);
+  if (payDay !== null && (payDay < 1 || payDay > 31)) return c.json({ error: "Pay day must be 1–31." }, 400);
+  const status = ["on_time", "in_arrears", "missed", "empty"].includes(String(b.rent_status)) ? String(b.rent_status) : null;
+  const onSheet = original ? !!(await get("SELECT 1 FROM rooms WHERE property_id = ? AND LOWER(room) = ?", [id, key])) : false;
+  const prior = await get<{ added: number }>("SELECT added FROM room_edits WHERE property_id = ? AND room_key = ?", [id, key]);
+  await run(
+    `INSERT INTO room_edits (property_id, room_key, room, tenant_name, tenant_email, rent, pay_day, rent_status, start_date, end_date, notes, added, removed, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
+     ON CONFLICT(property_id, room_key) DO UPDATE SET room = excluded.room, tenant_name = excluded.tenant_name, tenant_email = excluded.tenant_email,
+       rent = excluded.rent, pay_day = excluded.pay_day, rent_status = excluded.rent_status, start_date = excluded.start_date,
+       end_date = excluded.end_date, notes = excluded.notes, removed = 0, updated_at = excluded.updated_at`,
+    [id, key, name, txt(b.tenant_name), txt(b.tenant_email), num(b.rent) ?? 0, payDay, status, date(b.start_date), date(b.end_date), txt(b.notes), prior?.added ?? (onSheet ? 0 : 1)],
+  );
+  // Blank fields mean blank: clear them on the room itself too.
+  const existing = await get<{ id: number }>("SELECT id FROM rooms WHERE property_id = ? AND LOWER(room) IN (?, ?)", [id, key, name.toLowerCase()]);
+  if (existing) {
+    await run("UPDATE rooms SET room = ?, tenant_name = ?, tenant_email = ?, rent = ?, pay_day = ?, rent_status = ?, start_date = ?, end_date = ?, notes = ? WHERE id = ?",
+      [name, txt(b.tenant_name), txt(b.tenant_email), num(b.rent) ?? 0, payDay, status, date(b.start_date), date(b.end_date), txt(b.notes), existing.id]);
+  }
+  await applyRoomEdits(id);
+  // Keep a tenant linked to the room if it was renamed.
+  if (original && original.toLowerCase() !== name.toLowerCase()) {
+    await run("UPDATE room_tenants SET room = ? WHERE property_id = ? AND room = ?", [name.toLowerCase(), id, original.toLowerCase()]).catch(() => {});
+  }
+  return c.json({ ok: true });
+});
+
+/** Remove a room (stays removed after the next sheet sync). */
+app.delete("/api/properties/:id/rooms/:room", async (c) => {
+  const id = intParam(c.req.param("id"));
+  const room = decodeURIComponent(c.req.param("room") ?? "").trim();
+  if (!id || !room) return c.json({ error: "Choose a room." }, 400);
+  await run(
+    `INSERT INTO room_edits (property_id, room_key, room, removed) VALUES (?, ?, ?, 1)
+     ON CONFLICT(property_id, room_key) DO UPDATE SET removed = 1, updated_at = datetime('now')`,
+    [id, room.toLowerCase(), room],
+  );
+  await applyRoomEdits(id);
+  return c.json({ ok: true });
 });
 
 /** Link a room (by its name, which survives the sheet sync) to a tenant from the Tenants list. */

@@ -344,6 +344,7 @@ export interface Room {
   property_id: number;
   room: string | null;
   tenant_name: string | null;
+  tenant_email?: string | null;
   rent: number;
   pay_day: number | null;
   rent_status: "on_time" | "in_arrears" | "missed" | "empty" | null;

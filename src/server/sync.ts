@@ -125,6 +125,31 @@ const LETTINGS_COLUMNS = [
 
 const ROOM_COLUMNS = ["room", "tenant_name", "tenant_email", "rent", "pay_day", "rent_status", "start_date", "end_date", "notes", "sort"] as const;
 
+const ROOM_EDIT_FIELDS = ["room", "tenant_name", "tenant_email", "rent", "pay_day", "rent_status", "start_date", "end_date", "notes"] as const;
+
+/** Lay the app's room changes back over the sheet's rooms (after each sync, and after each edit). */
+export async function applyRoomEdits(propertyId?: number) {
+  const edits = await query<Record<string, unknown> & { property_id: number; room_key: string; added: number; removed: number }>(
+    `SELECT * FROM room_edits${propertyId ? " WHERE property_id = ?" : ""}`, propertyId ? [propertyId] : [],
+  );
+  for (const e of edits) {
+    const existing = await get<{ id: number }>("SELECT id FROM rooms WHERE property_id = ? AND LOWER(room) IN (?, LOWER(COALESCE(?, '')))", [e.property_id, e.room_key, e.room]);
+    if (e.removed) {
+      if (existing) await run("DELETE FROM rooms WHERE id = ?", [existing.id]);
+      continue;
+    }
+    if (existing) {
+      const sets = ROOM_EDIT_FIELDS.filter((f) => e[f] !== null && e[f] !== undefined);
+      if (sets.length) await run(`UPDATE rooms SET ${sets.map((f) => `${f} = ?`).join(", ")} WHERE id = ?`, [...sets.map((f) => e[f]), existing.id]);
+    } else {
+      await run(
+        `INSERT INTO rooms (property_id, ${ROOM_EDIT_FIELDS.join(", ")}, sort) VALUES (?, ${ROOM_EDIT_FIELDS.map(() => "?").join(", ")}, 999)`,
+        [e.property_id, ...ROOM_EDIT_FIELDS.map((f) => (f === "rent" ? e[f] ?? 0 : e[f] ?? null))],
+      );
+    }
+  }
+}
+
 export const keyOf = (ref: unknown, address: unknown) =>
   ref ? `ref:${String(ref).trim().toLowerCase()}` : `addr:${String(address ?? "").trim().toLowerCase()}`;
 
@@ -230,6 +255,7 @@ export async function runSync(cfg: SyncConfig): Promise<SyncStatus> {
           [pid, ...ROOM_COLUMNS.map((c) => (room[c] === undefined ? null : room[c]))],
         );
       }
+      await applyRoomEdits().catch((err) => console.error(`Room edits: ${(err as Error).message}`));
     }
 
     if (cfg.SHEET_SALES_GID) {

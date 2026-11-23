@@ -582,3 +582,23 @@ CREATE TABLE IF NOT EXISTS email_repairs (
   action TEXT NOT NULL,                        -- 'new' | 'note'
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Changes made to rooms in the app. The sheet's Tenants tab rewrites rooms on every
+-- sync; these are laid back on top so app edits, added rooms and removed rooms stick.
+CREATE TABLE IF NOT EXISTS room_edits (
+  property_id INTEGER NOT NULL,
+  room_key TEXT NOT NULL,                      -- lower-case room name as it was (sheet name for sheet rooms)
+  room TEXT,                                   -- name to show
+  tenant_name TEXT,
+  tenant_email TEXT,
+  rent REAL,
+  pay_day INTEGER,
+  rent_status TEXT,
+  start_date TEXT,
+  end_date TEXT,
+  notes TEXT,
+  added INTEGER NOT NULL DEFAULT 0,            -- a room that isn't on the sheet
+  removed INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (property_id, room_key)
+);
