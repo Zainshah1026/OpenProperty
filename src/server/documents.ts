@@ -345,6 +345,14 @@ export function registerDocumentRoutes(app: Hono<any>) {
     if (!row) return c.json({ error: "Document not found." }, 404);
     await run("DELETE FROM compliance_documents WHERE id = ?", [id]);
     await store.remove(row.stored_name).catch(() => {});
+    // Insurance: the home's date follows the policies on file. Remove the last one and the date goes;
+    // remove the newest and the date falls back to the next newest.
+    if (row.kind === "insurance") {
+      await run(
+        "UPDATE properties SET insurance_expiry = (SELECT MAX(expiry_date) FROM compliance_documents WHERE property_id = ? AND kind = 'insurance' AND expiry_date IS NOT NULL) WHERE id = ?",
+        [row.property_id, row.property_id],
+      );
+    }
     return c.json({ ok: true });
   });
 }
