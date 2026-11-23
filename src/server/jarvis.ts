@@ -613,7 +613,11 @@ export function registerJarvisRoutes(app: AnyApp) {
     if (!str(env.ANTHROPIC_API_KEY)) return c.json({ error: "Jarvis isn't switched on." }, 503);
     const p = mailProvider();
     if (!p) return c.json({ error: "No mailboxes are connected." }, 400);
-    const per = Math.min(100, Math.max(5, Number((await c.req.json().catch(() => ({})) as { per_mailbox?: number }).per_mailbox) || 40));
+    const body = (await c.req.json().catch(() => ({}))) as { per_mailbox?: number; days?: number };
+    const per = Math.min(100, Math.max(5, Number(body.per_mailbox) || 40));
+    // days: every email from the last N days (up to 400 a mailbox), instead of the newest `per`.
+    const days = Number(body.days) > 0 ? Math.min(60, Number(body.days)) : 0;
+    const since = days ? Date.now() - days * 86_400_000 : 0;
     const props = await query<{ id: number; ref: string; address: string | null; zip: string | null }>("SELECT id, ref, address, zip FROM properties WHERE ref IS NOT NULL ORDER BY ref");
     const propList = props.map((r) => `${r.ref} | ${r.address ?? ""} | ${r.zip ?? ""}`).join("\n");
     const refToId = new Map(props.map((r) => [r.ref, r.id]));
@@ -626,7 +630,17 @@ export function registerJarvisRoutes(app: AnyApp) {
         const accounts = p.accounts();
         for (let i = 0; i < accounts.length; i++) {
           const done = new Set((await query<{ uid: number }>("SELECT uid FROM email_links WHERE mailbox = ?", [accounts[i].toLowerCase()])).map((r) => r.uid));
-          const { messages } = await p.list(i, "INBOX", { page: 1, pageSize: per });
+          let messages: Awaited<ReturnType<typeof p.list>>["messages"] = [];
+          if (days) {
+            for (let page = 1; page <= 8; page++) {
+              const batch = (await p.list(i, "INBOX", { page, pageSize: 50 })).messages;
+              const recent = batch.filter((m) => !m.date || Date.parse(m.date) >= since);
+              messages.push(...recent);
+              if (batch.length < 50 || recent.length < batch.length) break;
+            }
+          } else {
+            messages = (await p.list(i, "INBOX", { page: 1, pageSize: per })).messages;
+          }
           for (const m of messages.filter((x) => !done.has(x.uid))) {
             try {
               const full = await p.read(i, "INBOX", m.uid);
@@ -639,6 +653,7 @@ export function registerJarvisRoutes(app: AnyApp) {
             }
           }
         }
+        console.log(`Emails filed: ${filed} read, ${matched} matched to a home${days ? ` (last ${days} days)` : ""}`);
         await pushToAll(env, { title: "Jarvis: emails filed", body: `${filed} emails read, ${matched} filed against a home. Open a home's Emails tab to see them.`, url: "/dashboard", tag: "emails-filed" }).catch(() => {});
       } finally {
         filingRecent = false;
