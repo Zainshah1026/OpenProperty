@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Bold, Check, ExternalLink, FileText, Heading2, Italic, List, Pencil, Printer, Trash2, Underline, Upload, X,
+  ArrowLeft, Bold, Check, ExternalLink, FileText, Heading2, Italic, List, Mail, Pencil, Printer, Trash2, Underline, Upload, X,
 } from "lucide-react";
 import { api } from "@/api";
 import { useApp } from "@/context";
@@ -16,6 +16,7 @@ import { CATEGORY_LABEL, LETTER_CSS, earliestCourtDate, longDate, templateById }
 import { STATUS_LABEL, StatusBadge } from "./letter-bits";
 import { LegalNote, Paper } from "./new-letter-dialog";
 import { sanitizeHtml } from "./sanitize";
+import { EmailLetterDialog } from "./email-letter-dialog";
 
 export function LetterPage({ id, navigate }: { id: number; navigate: (to: string) => void }) {
   const { setError } = useApp();
@@ -25,6 +26,8 @@ export function LetterPage({ id, navigate }: { id: number; navigate: (to: string
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [missing, setMissing] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const docRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -161,12 +164,27 @@ body { margin: 0; background: #fff; }
         <>
           <Button variant="ghost" onClick={() => navigate("/letters")} className="hidden md:inline-flex"><ArrowLeft /> All letters</Button>
           {!isUpload && !editing && <Button variant="secondary" onClick={() => setEditing(true)}><Pencil /> Edit text</Button>}
-          {!isUpload && <Button onClick={print}><Printer /> Print / PDF</Button>}
+          {!isUpload && <Button variant="secondary" onClick={print}><Printer /> Print / PDF</Button>}
+          {!isUpload && !editing && <Button onClick={() => setEmailing(true)}><Mail /> Email</Button>}
+          {!isUpload && (
+            <EmailLetterDialog
+              letter={letter}
+              open={emailing}
+              onOpenChange={setEmailing}
+              onSent={(l, to) => { setLetter((cur) => (cur ? { ...cur, ...l, body: cur.body } : cur)); setSentTo(to); }}
+            />
+          )}
         </>
       }
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
+          {sentTo && (
+            <div role="status" className="mb-3 flex items-center gap-2 rounded-xl bg-success-tint px-4 py-3 text-sm font-medium text-success">
+              <Check className="size-4" /> Emailed to {sentTo}. It's marked as sent.
+              <button className="ml-auto text-muted-foreground hover:text-foreground" aria-label="Dismiss" onClick={() => setSentTo(null)}><X className="size-4" /></button>
+            </div>
+          )}
           {editing && (
             <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-1 rounded-xl bg-card p-1.5 shadow-raised">
               <ToolBtn label="Bold" cmd="bold"><Bold /></ToolBtn>

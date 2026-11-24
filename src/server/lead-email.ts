@@ -30,6 +30,7 @@ export interface LeadMailer {
 
 let mailer: LeadMailer | null = null;
 export function setLeadMailer(m: LeadMailer) { mailer = m; }
+export function getMailer(): LeadMailer | null { return mailer; }
 
 // ── Signatures ──────────────────────────────────────────────────────
 
