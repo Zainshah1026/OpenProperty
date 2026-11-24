@@ -126,7 +126,7 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
         </button>
         <button type="button" onClick={() => go("/dashboard")} className="flex items-center gap-2">
           <img src="/brand/favicon.svg" alt="" className="size-7 rounded-md" />
-          <span className="display text-lg">Chisti &amp; Co.</span>
+          <span className="display text-lg">Sphere</span>
         </button>
         <button type="button" onClick={cycleTheme} aria-label={`Colours: ${themeLabel(theme)}. Tap to change`} className="ml-auto inline-flex size-10 items-center justify-center rounded-lg hover:bg-white/10">
           <ThemeIcon className="size-5" />
@@ -160,7 +160,7 @@ export function Sidebar({ active, userName, onNavigate, onSearch }: { active: st
           {!narrow && (
             <button type="button" onClick={() => go("/dashboard")} className="flex min-w-0 flex-1 items-center gap-2.5 text-left text-white">
               <img src="/brand/favicon.svg" alt="" className="size-7 shrink-0 rounded-md ring-1 ring-white/15" />
-              <span className="display truncate text-[1.25rem]">Chisti &amp; Co.</span>
+              <span className="display truncate text-[1.25rem]">Sphere <span className="text-sm font-semibold text-sidebar-foreground/70">Property Management</span></span>
             </button>
           )}
           {/* Fold / unfold on a computer; close on a phone. */}

@@ -229,7 +229,7 @@ label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px}
 input,textarea,select{width:100%;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid #d9e0e8;background:#fff;color:inherit}
 textarea{min-height:120px}
 .hint{font-size:13px;color:#5b6878;margin-top:4px}
-button{margin-top:20px;width:100%;font:inherit;font-weight:600;font-size:16px;padding:12px;border:0;border-radius:10px;background:#0b7cc2;color:#fff;cursor:pointer}
+button{margin-top:20px;width:100%;font:inherit;font-weight:600;font-size:16px;padding:12px;border:0;border-radius:10px;background:#c8226f;color:#fff;cursor:pointer}
 .urgent{margin-top:14px;padding:12px;border-radius:10px;background:#f9edec;color:#8a2f2d;font-size:14px}
 .hp{position:absolute;left:-9999px}
 @media (prefers-color-scheme:dark){body{background:#0a121b;color:#e7edf3}.card{background:#111b26;box-shadow:inset 0 0 0 1px #1f2b39}
@@ -240,7 +240,7 @@ const page = (title: string, body: string) => `<!doctype html><html lang="en"><h
 <title>${esc(title)}</title><link rel="icon" href="/brand/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&family=Newsreader:opsz,wght@6..72,500&display=swap" rel="stylesheet">
 <style>${PAGE_CSS}</style></head><body><div class="wrap">
-<div class="head"><img src="/brand/favicon.svg" alt=""><b>Chisti &amp; Co.</b></div>${body}</div></body></html>`;
+<div class="head"><img src="/brand/favicon.svg" alt=""><b>Sphere Property Management</b></div>${body}</div></body></html>`;
 
 /** Short, recognisable name for the home: first part of the address. */
 const homeName = (p: { name: string; address: string | null }) => (p.address ?? p.name).split(",")[0].trim() || p.name;
@@ -355,10 +355,10 @@ h1{font-family:Newsreader,serif;font-weight:500;font-size:46px;margin:34px 0 8px
 .qr{width:300px;height:300px;margin:28px auto 12px}.url{font-size:13px;color:#5b6878;word-break:break-all}
 .steps{margin:28px auto 0;max-width:460px;text-align:left;font-size:17px;line-height:1.7}
 .em{margin-top:30px;padding:14px;border:2px solid #e1363a;border-radius:12px;font-size:16px}
-.print{margin:20px;font:inherit;padding:10px 16px;border:0;border-radius:8px;background:#0b7cc2;color:#fff;cursor:pointer}
+.print{margin:20px;font:inherit;padding:10px 16px;border:0;border-radius:8px;background:#c8226f;color:#fff;cursor:pointer}
 @media print{.print{display:none}}</style></head><body>
 <button class="print" onclick="window.print()">Print poster</button>
-<div class="bar"><img src="/brand/favicon.svg" alt=""><b>Chisti &amp; Co.</b></div>
+<div class="bar"><img src="/brand/favicon.svg" alt=""><b>Sphere Property Management</b></div>
 <h1>Something needs fixing?</h1><p>${esc(homeName(p))}</p>
 <img class="qr" src="/properties/${p.id}/qr.svg" alt="QR code to report a repair">
 <p><b>Scan with your phone camera</b> to tell us about a repair and send photos.</p>
@@ -393,7 +393,7 @@ ${CATEGORIES.map((c) => `<option value="${c.id}">${esc(c.label)}</option>`).join
 <input id="contact" name="contact" required maxlength="120" autocomplete="tel" placeholder="So we can arrange a visit">
 <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
 <div class="urgent"><b>Gas smell, no electricity, flooding or fire?</b> Call the emergency number in your tenancy pack now.</div>
-<button type="submit">Send to Chisti &amp; Co.</button>
+<button type="submit">Send to Sphere Property Management</button>
 </form></div>`));
   });
 

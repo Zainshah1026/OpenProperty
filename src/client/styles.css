@@ -20,37 +20,37 @@
  */
 :root {
   /* ── Surfaces (warm neutral, hue 85 — never blue-gray) ── */
-  --background: #f2f5fc;          /* canvas: a clear London morning */
-  --foreground: #1a1d3a;          /* door-knocker indigo */
+  --background: #fff8f5;          /* canvas: a clear London morning */
+  --foreground: #1a1a1a;          /* door-knocker indigo */
   --card: #ffffff;                /* cards are the same white; the BORDER separates them */
-  --card-foreground: #1a1d3a;
+  --card-foreground: #1a1a1a;
   --popover: #ffffff;
-  --popover-foreground: #1a1d3a;
-  --muted: #e9eef9;
-  --muted-foreground: #565c80;
-  --faint: #94a0ad;
-  --border: #dfe5f3;
-  --input: #cfd7ea;
+  --popover-foreground: #1a1a1a;
+  --muted: #fbede8;
+  --muted-foreground: #5e5960;
+  --faint: #a39a9e;
+  --border: #f0dfd9;
+  --input: #e6d3cd;
 
   /* ── Action: the ONE solid button per screen is ink, not the brand hue ── */
-  --primary: #2d5bff;             /* painted-door blue: the action colour */
+  --primary: #c8226f;             /* painted-door blue: the action colour */
   --primary-foreground: #ffffff;
   /* Secondary is white with a raised shadow ring rather than a border. */
   --secondary: #ffffff;
-  --secondary-foreground: #1a1d3a;
+  --secondary-foreground: #1a1a1a;
   /* shadcn's neutral hover wash — deliberately NOT the brand. */
-  --accent: #e9eef9;
-  --accent-foreground: #1a1d3a;
+  --accent: #fbede8;
+  --accent-foreground: #1a1a1a;
 
   /* ── Brand: OpenProperty's own hue (H 149.2, from icon.svg #16A34A). ──
      It appears in exactly three places — the app icon, count badges, and the
      focus ring — and never as a status badge. */
-  --brand: #2d5bff;
-  --brand-hover: #1f47e0;
-  --brand-tint: #e3e9ff;
-  --brand-text: #1f3fc4;
+  --brand: #c8226f;
+  --brand-hover: #a81b5c;
+  --brand-tint: #fde3ee;
+  --brand-text: #a81b5c;
   --on-brand: #ffffff;
-  --ring: #2d5bff;
+  --ring: #e6378f;
 
   /* ── Status: hue only differs; L and C% are shared across all four ── */
   --info: #173ec4;
@@ -69,8 +69,8 @@
 
   /* ── The rail: surface-sunken, and its active row is a neutral ink wash.
         Colour in the sidebar is reserved for counts, never for location. ── */
-  --sidebar: #1a1d3a;             /* indigo rail */
-  --sidebar-foreground: #e3e6ff;
+  --sidebar: #1a1a1a;             /* indigo rail */
+  --sidebar-foreground: #f3e9ec;
   --sidebar-accent: rgba(255, 255, 255, 0.1);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.08);
@@ -89,28 +89,28 @@
 
 /* Same hues, re-tuned L and C% — a mirror of the light ramp reads muddy. */
 :root[data-theme="dark"] {
-    --background: #0e1024;
-    --foreground: #e7edf3;
-    --card: #161a33;
-    --card-foreground: #e7edf3;
-    --popover: #1b2040;
-    --popover-foreground: #e7edf3;
-    --muted: #1c2142;
-    --muted-foreground: #9aa7b5;
-    --faint: #6c7a89;
-    --border: #262c52;
-    --input: #2e355f;
-    --primary: #6f8cff;
-    --primary-foreground: #06121c;
-    --secondary: #1b2040;
-    --secondary-foreground: #e7edf3;
-    --accent: #1c2142;
-    --accent-foreground: #e7edf3;
-    --brand: #5a7bff;
-    --brand-hover: #6f8cff;
-    --brand-tint: #1a2148;
-    --brand-text: #b3c2ff;
-    --ring: #6f8cff;
+    --background: #141214;
+    --foreground: #f3ecee;
+    --card: #1c191c;
+    --card-foreground: #f3ecee;
+    --popover: #231f23;
+    --popover-foreground: #f3ecee;
+    --muted: #252025;
+    --muted-foreground: #b3a9ae;
+    --faint: #7e747a;
+    --border: #352d33;
+    --input: #423841;
+    --primary: #ff8ab4;
+    --primary-foreground: #1a1a1a;
+    --secondary: #231f23;
+    --secondary-foreground: #f3ecee;
+    --accent: #252025;
+    --accent-foreground: #f3ecee;
+    --brand: #f0559b;
+    --brand-hover: #ff7ab2;
+    --brand-tint: #3a1e2b;
+    --brand-text: #ffb3d1;
+    --ring: #ff8ab4;
     --info: #b5c4e5;
     --info-tint: #12234f;
     --info-solid: #5580e8;
@@ -123,8 +123,8 @@
     --destructive: #e6b7b2;
     --destructive-tint: #3b1c1a;
     --destructive-solid: #e64243;
-    --sidebar: #0b0d1f;
-    --sidebar-foreground: #c9d4df;
+    --sidebar: #0e0c0e;
+    --sidebar-foreground: #e2d8dc;
     --sidebar-accent: rgba(255, 255, 255, 0.08);
     --sidebar-accent-foreground: #ffffff;
     --sidebar-border: rgba(255, 255, 255, 0.06);
@@ -136,28 +136,28 @@
   }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: #0e1024;
-    --foreground: #e7edf3;
-    --card: #161a33;
-    --card-foreground: #e7edf3;
-    --popover: #1b2040;
-    --popover-foreground: #e7edf3;
-    --muted: #1c2142;
-    --muted-foreground: #9aa7b5;
-    --faint: #6c7a89;
-    --border: #262c52;
-    --input: #2e355f;
-    --primary: #6f8cff;
-    --primary-foreground: #06121c;
-    --secondary: #1b2040;
-    --secondary-foreground: #e7edf3;
-    --accent: #1c2142;
-    --accent-foreground: #e7edf3;
-    --brand: #5a7bff;
-    --brand-hover: #6f8cff;
-    --brand-tint: #1a2148;
-    --brand-text: #b3c2ff;
-    --ring: #6f8cff;
+    --background: #141214;
+    --foreground: #f3ecee;
+    --card: #1c191c;
+    --card-foreground: #f3ecee;
+    --popover: #231f23;
+    --popover-foreground: #f3ecee;
+    --muted: #252025;
+    --muted-foreground: #b3a9ae;
+    --faint: #7e747a;
+    --border: #352d33;
+    --input: #423841;
+    --primary: #ff8ab4;
+    --primary-foreground: #1a1a1a;
+    --secondary: #231f23;
+    --secondary-foreground: #f3ecee;
+    --accent: #252025;
+    --accent-foreground: #f3ecee;
+    --brand: #f0559b;
+    --brand-hover: #ff7ab2;
+    --brand-tint: #3a1e2b;
+    --brand-text: #ffb3d1;
+    --ring: #ff8ab4;
     --info: #b5c4e5;
     --info-tint: #12234f;
     --info-solid: #5580e8;
@@ -170,8 +170,8 @@
     --destructive: #e6b7b2;
     --destructive-tint: #3b1c1a;
     --destructive-solid: #e64243;
-    --sidebar: #0b0d1f;
-    --sidebar-foreground: #c9d4df;
+    --sidebar: #0e0c0e;
+    --sidebar-foreground: #e2d8dc;
     --sidebar-accent: rgba(255, 255, 255, 0.08);
     --sidebar-accent-foreground: #ffffff;
     --sidebar-border: rgba(255, 255, 255, 0.06);
@@ -241,9 +241,9 @@
   --shadow-card: var(--edge-card);
 
   /* Lexend was drawn to be easy to read for everyone; Bricolage Grotesque gives titles and numbers their character. */
-  --font-sans: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* Titles and money are set like a private-bank statement. */
-  --font-display: "Bricolage Grotesque", "Lexend", -apple-system, sans-serif;
+  --font-display: "Plus Jakarta Sans", -apple-system, sans-serif;
 }
 
 /*
@@ -586,40 +586,40 @@ body,
  * home screen uses the arch; everything else stays calm.
  */
 :root {
-  --door-blue: #2d5bff;
+  --door-blue: #e6378f;
   --door-red: #e8454a;
   --door-green: #12a06a;
-  --door-yellow: #ffc531;
+  --door-yellow: #ff7a59;
   --door-plum: #7a4de8;
   --door-teal: #0f9fb0;
-  --door-ink: #1a1d3a;
-  --jarvis-bar: #1a1d3a;
+  --door-ink: #1a1a1a;
+  --jarvis-bar: #1a1a1a;
 }
 /* Street at night: the doors glow a little brighter; the lamp-yellow stays. */
 :root[data-theme="dark"] {
-  --door-blue: #5a7bff;
+  --door-blue: #f0559b;
   --door-red: #ff5c61;
   --door-green: #22c188;
   --door-plum: #9a78ff;
   --door-teal: #22b8c9;
-  --jarvis-bar: #222866;
-  --background: #0e1024;
-  --foreground: #eceeff;
-  --card-foreground: #eceeff;
-  --popover-foreground: #eceeff;
+  --jarvis-bar: #2a1f26;
+  --background: #141214;
+  --foreground: #f3ecee;
+  --card-foreground: #f3ecee;
+  --popover-foreground: #f3ecee;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --door-blue: #5a7bff;
+    --door-blue: #f0559b;
     --door-red: #ff5c61;
     --door-green: #22c188;
     --door-plum: #9a78ff;
     --door-teal: #22b8c9;
-    --jarvis-bar: #222866;
-    --background: #0e1024;
-    --foreground: #eceeff;
-    --card-foreground: #eceeff;
-    --popover-foreground: #eceeff;
+    --jarvis-bar: #2a1f26;
+    --background: #141214;
+    --foreground: #f3ecee;
+    --card-foreground: #f3ecee;
+    --popover-foreground: #f3ecee;
   }
 }
 :root { color-scheme: light; }
@@ -674,6 +674,6 @@ body,
   .h-screen, .min-h-0 { height: auto !important; min-height: 0 !important; }
   * { overflow: visible !important; }
   main { padding: 0 !important; }
-  .report { color: #1a1d3a !important; }
+  .report { color: #1a1a1a !important; }
   .break-inside-avoid { break-inside: avoid; }
 }

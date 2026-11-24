@@ -213,13 +213,13 @@ export function loginPage(error = "", headExtra = ""): string {
   const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">
-<title>Sign in · Chisti &amp; Co.</title>${headExtra}
+<title>Sign in · Sphere Property Management</title>${headExtra}
 <style>
-  :root{color-scheme:light dark;--bg:#eef4f9;--card:#fff;--ink:#14212b;--muted:#5c6b77;--line:#d9e3ea;--brand:#0b7cc2;--err:#a1281f}
+  :root{color-scheme:light dark;--bg:#fff8f5;--card:#fff;--ink:#1a1a1a;--muted:#5e5960;--line:#f0dfd9;--brand:#c8226f;--err:#a1281f}
   @media (prefers-color-scheme:dark){:root{--bg:#0d1720;--card:#16222c;--ink:#eef3f7;--muted:#9aaab6;--line:#2a3945;--brand:#4aa8e6;--err:#ff8a80}}
   *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
   .wrap{width:100%;max-width:380px}
-  .logo{display:block;width:100%;border-radius:12px 12px 0 0;background:#0b7cc2}
+  .logo{display:block;width:100%;border-radius:12px 12px 0 0;background:#1a1a1a}
   form{width:100%;background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:24px 28px 28px}
   h1{font-size:20px;margin:0 0 4px}p{margin:0 0 20px;color:var(--muted);font-size:14px}
   label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
@@ -228,7 +228,7 @@ export function loginPage(error = "", headExtra = ""): string {
   button{margin-top:22px;width:100%;padding:12px;border:0;border-radius:8px;background:var(--brand);color:#fff;font-size:16px;font-weight:600;cursor:pointer}
   .err{color:var(--err);font-size:14px;margin:12px 0 0}
 </style></head><body>
-<div class="wrap"><img class="logo" src="/brand/chisti-logo.jpg" alt="Chisti &amp; Co., Ilford" width="380" height="236">
+<div class="wrap"><img class="logo" src="/brand/chisti-logo.jpg" alt="Sphere Property Management" width="380" height="236">
 <form method="post" action="/login">
   <h1>Portfolio dashboard</h1><p>Sign in with your own username and password.</p>
   <label for="u">Username</label><input id="u" name="username" autocomplete="username" autocapitalize="none" required>

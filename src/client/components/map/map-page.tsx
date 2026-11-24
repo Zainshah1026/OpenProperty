@@ -191,7 +191,7 @@ export function MapPage({ navigate }: { navigate: (to: string) => void }) {
             <div style="font-weight:600">${h.ref ? `${esc(h.ref)} · ` : ""}${esc(h.name)}</div>
             <div style="color:#666;font-size:12px">${esc(SECTION_STYLE[h.section].label)} · ${esc(g.pc)}${h.tenant_label ? ` · ${esc(h.tenant_label)}` : ""}</div>
             <div style="font-size:12px">Rent in ${esc(formatMoney(h.rent_in || 0))}/mo${arrears ? ' · <b style="color:#c0392b">Missed rent</b>' : ""}${h.occupancy === "vacant" ? ' · <b style="color:#c0392b">Vacant</b>' : ""}</div>
-            <button type="button" data-open="${h.id}" style="margin-top:4px;color:#0b7cc2;font-size:12px;background:none;border:0;padding:0;cursor:pointer">Open →</button>
+            <button type="button" data-open="${h.id}" style="margin-top:4px;color:#c8226f;font-size:12px;background:none;border:0;padding:0;cursor:pointer">Open →</button>
           </div>`;
         })
         .join("");

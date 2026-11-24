@@ -148,7 +148,7 @@ export function renderInvoiceHtml(inv: InvoiceRow, co: Record<string, string>, o
   const property = inv.property_address || inv.property_name;
   const body = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d9e3ea;border-radius:10px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#14212b">
-  <tr><td style="background:#0b7cc2;padding:22px 28px;color:#ffffff">
+  <tr><td style="background:#c8226f;padding:22px 28px;color:#ffffff">
     <table role="presentation" width="100%"><tr>
       <td style="vertical-align:middle">
         ${opts.logoUrl ? `<img src="${esc(opts.logoUrl)}" alt="${esc(co.company_name)}" height="64" style="display:block;border-radius:6px">` : `<div style="font-family:Georgia,serif;font-size:26px">${esc(co.company_name)}</div>`}
@@ -186,7 +186,7 @@ export function renderInvoiceHtml(inv: InvoiceRow, co: Record<string, string>, o
         <th align="right" style="padding:8px 0;border-bottom:2px solid #14212b;font-size:12px;text-transform:uppercase;letter-spacing:1px">Amount</th>
       </tr>
       ${items.map((i) => `<tr><td style="padding:10px 0;border-bottom:1px solid #d9e3ea">${esc(i.description)}</td><td align="right" style="padding:10px 0;border-bottom:1px solid #d9e3ea;white-space:nowrap">${gbp(i.amount)}</td></tr>`).join("")}
-      <tr><td align="right" style="padding:14px 0 0;font-weight:bold">Total due</td><td align="right" style="padding:14px 0 0;font-size:20px;font-weight:bold;color:#0b7cc2;white-space:nowrap">${gbp(total)}</td></tr>
+      <tr><td align="right" style="padding:14px 0 0;font-weight:bold">Total due</td><td align="right" style="padding:14px 0 0;font-size:20px;font-weight:bold;color:#c8226f;white-space:nowrap">${gbp(total)}</td></tr>
     </table>
     <div style="margin-top:24px;padding:14px;border:1px solid #d9e3ea;border-radius:8px;font-size:13px;line-height:1.6">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#5c6b77;margin-bottom:4px">How to pay</div>
@@ -202,7 +202,7 @@ export function renderInvoiceHtml(inv: InvoiceRow, co: Record<string, string>, o
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(inv.number)} · ${esc(co.company_name)}</title>
 <style>body{margin:0;padding:24px 12px;background:#eef4f9}.bar{max-width:680px;margin:0 auto 12px;text-align:right;font-family:Arial,sans-serif}
-.bar button{background:#0b7cc2;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer}
+.bar button{background:#c8226f;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer}
 @media print{body{background:#fff;padding:0}.bar{display:none}table{border:0!important}}</style></head>
 <body><div class="bar"><button onclick="window.print()">Print / save as PDF</button></div>${body}</body></html>`;
 }

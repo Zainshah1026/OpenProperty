@@ -76,7 +76,7 @@ export function PortfolioReport() {
           ))}
           <Button onClick={() => window.print()}><Printer className="size-4" /> Save as PDF</Button>
           {canShare && (
-            <Button variant="outline" onClick={() => navigator.share({ title: "Chisti & Co. portfolio", text: `Chisti & Co. portfolio: ${stats.homes} homes, ${stats.occupancy}% let.` }).catch(() => {})}>
+            <Button variant="outline" onClick={() => navigator.share({ title: "Sphere Property Management portfolio", text: `Sphere Property Management portfolio: ${stats.homes} homes, ${stats.occupancy}% let.` }).catch(() => {})}>
               <Share2 className="size-4" /> Share
             </Button>
           )}
@@ -87,14 +87,14 @@ export function PortfolioReport() {
       </div>
 
       {/* The report */}
-      <article className="report mx-auto my-6 max-w-4xl bg-white p-8 text-[#1a1d3a] shadow-card md:p-12 print:my-0 print:max-w-none print:p-0 print:shadow-none">
+      <article className="report mx-auto my-6 max-w-4xl bg-white p-8 text-[#1a1a1a] shadow-card md:p-12 print:my-0 print:max-w-none print:p-0 print:shadow-none">
         <header className="flex items-center gap-4 border-b-4 border-[#2d5bff] pb-5">
           <img src="/brand/chisti-logo.jpg" alt="" className="size-16 rounded-xl object-cover" />
           <div className="min-w-0 flex-1">
-            <p className="display text-3xl leading-tight">Chisti &amp; Co.</p>
-            <p className="text-base text-[#565c80]">Property portfolio overview</p>
+            <p className="display text-3xl leading-tight">Sphere Property Management</p>
+            <p className="text-base text-[#5e5960]">Property portfolio overview</p>
           </div>
-          <p className="text-right text-sm text-[#565c80]">As at<br /><b className="text-[#1a1d3a]">{today}</b></p>
+          <p className="text-right text-sm text-[#5e5960]">As at<br /><b className="text-[#1a1a1a]">{today}</b></p>
         </header>
 
         <section className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -119,7 +119,7 @@ export function PortfolioReport() {
                 </li>
               ))}
             </ul>
-            {stats.hmos > 0 && <p className="mt-3 text-sm text-[#565c80]">Including {stats.hmos} HMO{stats.hmos === 1 ? "" : "s"} (houses in multiple occupation).</p>}
+            {stats.hmos > 0 && <p className="mt-3 text-sm text-[#5e5960]">Including {stats.hmos} HMO{stats.hmos === 1 ? "" : "s"} (houses in multiple occupation).</p>}
           </div>
           <div>
             <h2 className="display text-xl">Where they are</h2>
@@ -135,7 +135,7 @@ export function PortfolioReport() {
           <section className="mt-10">
             <h2 className="display text-xl">The homes</h2>
             <table className="mt-3 w-full text-left text-sm">
-              <thead className="border-b-2 border-[#1a1d3a] text-[#565c80]">
+              <thead className="border-b-2 border-[#1a1a1a] text-[#5e5960]">
                 <tr>
                   <th className="py-2 pr-2 font-semibold">{opts.addresses ? "Address" : "Area"}</th>
                   <th className="py-2 pr-2 font-semibold">Type</th>
@@ -161,8 +161,8 @@ export function PortfolioReport() {
           </section>
         )}
 
-        <footer className="mt-10 border-t border-[#dfe5f3] pt-4 text-xs text-[#565c80]">
-          Prepared by Chisti &amp; Co. on {today}. Figures are monthly unless stated and come from our own records. Tenant details are not included.
+        <footer className="mt-10 border-t border-[#dfe5f3] pt-4 text-xs text-[#5e5960]">
+          Prepared by Sphere Property Management on {today}. Figures are monthly unless stated and come from our own records. Tenant details are not included.
         </footer>
       </article>
     </div>
@@ -173,7 +173,7 @@ function Stat({ big, label, color }: { big: string; label: string; color: string
   return (
     <div className="break-inside-avoid rounded-2xl border-2 p-4" style={{ borderColor: color }}>
       <p className="display text-3xl leading-none" style={{ color }}>{big}</p>
-      <p className="mt-1 text-sm text-[#565c80]">{label}</p>
+      <p className="mt-1 text-sm text-[#5e5960]">{label}</p>
     </div>
   );
 }

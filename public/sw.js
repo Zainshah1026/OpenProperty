@@ -9,7 +9,7 @@ self.addEventListener("fetch", (event) => {
     fetch(event.request).catch(
       () =>
         new Response(
-          '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px system-ui;display:grid;place-items:center;height:100vh;margin:0;background:#0b7cc2;color:#fff;text-align:center;padding:16px"><div><h2>You\'re offline</h2><p>Connect to the internet to see the portfolio.</p></div>',
+          '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px system-ui;display:grid;place-items:center;height:100vh;margin:0;background:#1a1a1a;color:#fff;text-align:center;padding:16px"><div><h2>You\'re offline</h2><p>Connect to the internet to see the portfolio.</p></div>',
           { headers: { "Content-Type": "text/html; charset=utf-8" } },
         ),
     ),
