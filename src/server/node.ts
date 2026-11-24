@@ -23,6 +23,7 @@ import { syncBank } from "./bank";
 import { applyCertificateDates, readMissingCertificateDates, setDocumentStore } from "./documents";
 import { recordVoids } from "./extras";
 import { fillContactsOnce } from "./contacts";
+import { rentLateAlertsOnce } from "./rent-checklist";
 
 // Inbox: the company mailboxes, read over IMAP (see src/server/imap.ts).
 setMailProvider(createImapProvider(process.env));
@@ -318,6 +319,10 @@ async function start() {
   // Jarvis: the morning "rent due and mortgages today" notification.
   setTimeout(() => dailyMoneyOnce(app, env), 60_000).unref();
   setInterval(() => dailyMoneyOnce(app, env), 10 * 60_000).unref();
+  // Rent not ticked off a few days after it was due: one notification each.
+  const rentAlerts = () => rentLateAlertsOnce(env).catch((err) => console.error(`Rent alerts: ${(err as Error).message}`));
+  setTimeout(rentAlerts, 5 * 60_000).unref();
+  setInterval(rentAlerts, 60 * 60_000).unref();
   if (process.env.JARVIS_EMAIL_SCAN?.trim().toLowerCase() === "on") {
     console.log(`Jarvis email scan: on, every ${SCAN_MINUTES} minutes.`);
     setTimeout(scanOnce, 30_000).unref();

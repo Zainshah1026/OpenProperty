@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Receipt, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useApp } from "@/context";
 import { addMonths, cn, currentPeriod, formatDate, formatMoney, formatPeriod } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PaymentDialog } from "./payment-dialog";
+import { RentChecklist } from "./rent-checklist";
 import type { ChargeStatus, RentCharge } from "@/types";
 import { PageShell } from "@/components/page-shell";
 
@@ -66,7 +67,7 @@ export function RentPage() {
   return (
     <PageShell
       title="Rent & payments"
-      meta="Charges and payments per period"
+      meta="Tick off rent as it comes in"
       actions={
         <>
           {/* The period stepper is view state, so it sits left of the one ink
@@ -99,43 +100,12 @@ export function RentPage() {
         </>
       }
     >
-        <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Stat label="Charged" value={formatMoney(totals.charged, app.settings.currency)} />
-          <Stat label="Collected" value={formatMoney(totals.collected, app.settings.currency)} tone="positive" />
-          <Stat
-            label="Outstanding"
-            value={formatMoney(totals.outstanding, app.settings.currency)}
-            tone={totals.outstanding > 0 ? "warn" : "default"}
-          />
-          <Stat
-            label="Overdue"
-            value={formatMoney(totals.overdue, app.settings.currency)}
-            tone={totals.overdue > 0 ? "danger" : "default"}
-          />
-        </section>
+        <RentChecklist month={period} />
 
-        {loading ? (
-          <Card className="divide-y divide-border overflow-hidden" role="status" aria-label="Loading rent charges">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex h-11 items-center gap-4 px-3" aria-hidden>
-                <div className="h-2.5 w-32 animate-pulse rounded-full bg-muted" />
-                <div className="h-2.5 w-24 animate-pulse rounded-full bg-muted" />
-                <div className="ml-auto h-2.5 w-16 animate-pulse rounded-full bg-muted" />
-              </div>
-            ))}
-          </Card>
-        ) : charges.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 px-6 py-20 text-center">
-            <Receipt className="size-7 text-faint" aria-hidden />
-            <p className="font-medium">No rent charges for {formatPeriod(period)}</p>
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Generate charges from active leases for this month.
-            </p>
-            <Button className="mt-2" onClick={generate} disabled={generating}>
-              <Sparkles className="size-4" /> Generate charges
-            </Button>
-          </div>
-        ) : (
+        {loading || charges.length === 0 ? null : (
+          <>
+          <h2 className="pt-4 text-base font-semibold">Tenancy charges</h2>
+          <Stats totals={totals} currency={app.settings.currency} />
           <Card className="overflow-hidden">
             <Table>
               <TableHeader>
@@ -198,6 +168,7 @@ export function RentPage() {
               </TableBody>
             </Table>
           </Card>
+          </>
         )}
 
       <PaymentDialog
@@ -207,6 +178,17 @@ export function RentPage() {
         onSaved={load}
       />
     </PageShell>
+  );
+}
+
+function Stats({ totals, currency }: { totals: { charged: number; collected: number; outstanding: number; overdue: number }; currency: string }) {
+  return (
+    <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <Stat label="Charged" value={formatMoney(totals.charged, currency)} />
+      <Stat label="Collected" value={formatMoney(totals.collected, currency)} tone="positive" />
+      <Stat label="Outstanding" value={formatMoney(totals.outstanding, currency)} tone={totals.outstanding > 0 ? "warn" : "default"} />
+      <Stat label="Overdue" value={formatMoney(totals.overdue, currency)} tone={totals.overdue > 0 ? "danger" : "default"} />
+    </section>
   );
 }
 

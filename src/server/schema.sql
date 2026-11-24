@@ -602,3 +602,14 @@ CREATE TABLE IF NOT EXISTS room_edits (
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (property_id, room_key)
 );
+
+-- ── Rent ticked off by hand (instead of a bank connection) ───────
+CREATE TABLE IF NOT EXISTS rent_ticks (
+  month TEXT NOT NULL,                         -- 'YYYY-MM'
+  key TEXT NOT NULL,                           -- 'home:<property_id>' or 'room:<property_id>:<room>'
+  amount REAL,                                 -- what was received, if different from the rent
+  paid_on TEXT,                                -- 'YYYY-MM-DD'
+  ticked_by TEXT,
+  ticked_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (month, key)
+);
