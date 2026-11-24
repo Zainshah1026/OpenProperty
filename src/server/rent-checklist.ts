@@ -68,6 +68,80 @@ export async function rentChecklist(month: string): Promise<RentItem[]> {
   return out.sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999") || a.home.localeCompare(b.home));
 }
 
+
+/** Tick a rent off as received (or untick it). */
+async function setRentTick(month: string, key: string, paid: boolean, by: string | null, amount?: number | null, paidOn?: string | null) {
+  if (!paid) {
+    await run("DELETE FROM rent_ticks WHERE month = ? AND key = ?", [month, key]);
+    return;
+  }
+  const on = paidOn && /^\d{4}-\d{2}-\d{2}$/.test(paidOn) ? paidOn : londonToday().date;
+  const amt = typeof amount === "number" && amount >= 0 ? amount : null;
+  await run(
+    `INSERT INTO rent_ticks (month, key, amount, paid_on, ticked_by) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(month, key) DO UPDATE SET amount = excluded.amount, paid_on = excluded.paid_on, ticked_by = excluded.ticked_by, ticked_at = datetime('now')`,
+    [month, key, amt, on, by],
+  );
+}
+
+async function ticksSince(today: string) {
+  let since = (await get<{ value: string }>("SELECT value FROM settings WHERE key = 'rent_ticks_since'"))?.value;
+  if (!since) {
+    since = today;
+    await run("INSERT INTO settings (key, value) VALUES ('rent_ticks_since', ?) ON CONFLICT(key) DO NOTHING", [since]);
+  }
+  return since;
+}
+
+const itemLabel = (it: RentItem) => `${it.ref ? `Ref ${it.ref} · ` : ""}${it.home}${it.who && it.who !== "Rent" ? ` (${it.who})` : ""}`;
+const askUrl = (month: string, key: string) => `/rent/ask?month=${encodeURIComponent(month)}&key=${encodeURIComponent(key)}`;
+
+/**
+ * On the day a rent is due (from JARVIS_RENT_ASK_HOUR, default 17, London
+ * time), one notification per rent asks whether it has come in, with
+ * "Yes, paid" and "Not yet" buttons. Yes ticks it off without opening the
+ * app; where a phone shows no buttons (iPhone), tapping opens a one-tap page.
+ * Off with JARVIS_RENT_ASK=off. Rent left unticked still gets the late alert.
+ */
+export async function rentPaidAsksOnce(env: Env) {
+  if (str(env.JARVIS_RENT_ASK).toLowerCase() === "off") return;
+  const now = londonToday();
+  const hour = Number(str(env.JARVIS_RENT_ASK_HOUR) || "17");
+  if (now.hour < (Number.isFinite(hour) ? hour : 17) || now.hour >= 21) return;
+  const since = await ticksSince(now.date);
+  const due = (await rentChecklist(now.month)).filter((it) => !it.paid && it.due_date === now.date && it.due_date >= since);
+  for (const it of due.slice(0, 20)) {
+    const k = `rent_ask:${it.key}@${it.due_date}`;
+    if (await get("SELECT 1 FROM settings WHERE key = ?", [k])) continue;
+    await run("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING", [k, now.date]);
+    await pushToAll(env, {
+      title: "Has this rent come in?",
+      body: `${itemLabel(it)}: ${gbp(it.amount)} due today`,
+      url: askUrl(now.month, it.key),
+      tag: `rent-ask-${it.key}-${it.due_date}`,
+      rentMonth: now.month,
+      rentKey: it.key,
+    }).catch((err) => console.error(`Rent ask: ${(err as Error).message}`));
+  }
+}
+
+const esc = (v: string) => v.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
+
+function askPage(title: string, inner: string) {
+  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>${esc(title)}</title><link rel="icon" href="/brand/favicon.svg"><meta name="theme-color" content="#1a1a1a">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 "Plus Jakarta Sans",system-ui,sans-serif;background:#fff8f5;color:#1a1a1a;min-height:100vh;display:grid;place-items:center;padding:20px}
+.card{width:100%;max-width:420px;background:#fff;border-radius:20px;padding:24px;box-shadow:0 0 0 1px #f0dfd9,0 16px 40px -20px rgba(120,40,60,.35)}
+.head{display:flex;align-items:center;gap:10px;font-weight:800;margin-bottom:18px}.head img{width:32px;height:32px;border-radius:9px}
+h1{font-size:24px;line-height:1.2;margin:0 0 6px;font-weight:800;letter-spacing:-.01em}p{margin:0 0 6px;color:#5e5960}.amt{font-size:32px;font-weight:800;color:#1a1a1a;margin:12px 0 4px}
+form{display:grid;gap:10px;margin-top:20px}button,a.btn{display:block;width:100%;min-height:56px;border:0;border-radius:14px;font:inherit;font-size:18px;font-weight:800;cursor:pointer;text-align:center;text-decoration:none;line-height:56px}
+.yes{background:#c8226f;color:#fff}.no{background:#fbede8;color:#1a1a1a}a.btn{background:#1a1a1a;color:#fff;margin-top:20px}.done{font-size:44px;line-height:1}
+@media (prefers-color-scheme:dark){body{background:#141214;color:#f3ecee}.card{background:#1c191c;box-shadow:0 0 0 1px #352d33}p{color:#b3a9ae}.amt{color:#f3ecee}.no{background:#252025;color:#f3ecee}a.btn{background:#f3ecee;color:#1a1a1a}}
+</style></head><body><main class="card"><div class="head"><img src="/brand/favicon.svg" alt="">Jarvis</div>${inner}</main></body></html>`;
+}
+
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000);
 const prevMonth = (month: string) => { const [y, m] = month.split("-").map(Number); const d = new Date(Date.UTC(y, m - 2, 1)); return d.toISOString().slice(0, 7); };
 
@@ -78,11 +152,7 @@ export async function rentLateAlertsOnce(env: Env) {
   if (now.hour < 9 || now.hour >= 21) return;
   const grace = Math.max(0, Number(str(env.JARVIS_RENT_GRACE_DAYS) || "3"));
   // Only alert on rent due from the day this feature went live, so old months don't flood in.
-  let since = (await get<{ value: string }>("SELECT value FROM settings WHERE key = 'rent_ticks_since'"))?.value;
-  if (!since) {
-    since = now.date;
-    await run("INSERT INTO settings (key, value) VALUES ('rent_ticks_since', ?) ON CONFLICT(key) DO NOTHING", [since]);
-  }
+  const since = await ticksSince(now.date);
   const items = [...(await rentChecklist(prevMonth(now.month))), ...(await rentChecklist(now.month))];
   const late: RentItem[] = [];
   for (const it of items) {
@@ -100,6 +170,35 @@ export async function rentLateAlertsOnce(env: Env) {
 }
 
 export function registerRentChecklistRoutes(app: AnyApp) {
+
+  // The page a rent notification opens: one tap to tick it off.
+  const findItem = async (month: string, key: string) =>
+    /^\d{4}-\d{2}$/.test(month) && /^(home|room):/.test(key) ? (await rentChecklist(month)).find((i) => i.key === key) ?? null : null;
+
+  app.get("/rent/ask", async (c) => {
+    const month = c.req.query("month") ?? "";
+    const key = c.req.query("key") ?? "";
+    const it = await findItem(month, key);
+    if (!it) return c.html(askPage("Rent", `<h1>Couldn't find that rent</h1><p>It may have been changed in the sheet.</p><a class="btn" href="/rent">Open the rent list</a>`), 404);
+    if (it.paid) return c.html(askPage("Rent", `<div class="done">✓</div><h1>Already ticked off</h1><p>${esc(itemLabel(it))}</p><p>${gbp(it.paid_amount ?? it.amount)} on ${esc(it.paid_on ?? "")}${it.ticked_by ? ` by ${esc(it.ticked_by)}` : ""}.</p><a class="btn" href="/rent">Open the rent list</a>`));
+    return c.html(askPage("Has this rent come in?", `<h1>Has this rent come in?</h1><p>${esc(itemLabel(it))}</p><div class="amt">${gbp(it.amount)}</div><p>Due ${esc(it.due_date ?? "")}</p>
+<form method="post" action="/rent/ask"><input type="hidden" name="month" value="${esc(month)}"><input type="hidden" name="key" value="${esc(key)}">
+<button class="yes" name="answer" value="paid">✓ Yes, paid</button><button class="no" name="answer" value="not-yet">Not yet</button></form>`));
+  });
+
+  app.post("/rent/ask", async (c) => {
+    const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
+    const month = String(form.month ?? "");
+    const key = String(form.key ?? "");
+    const it = await findItem(month, key);
+    if (!it) return c.html(askPage("Rent", `<h1>Couldn't find that rent</h1><a class="btn" href="/rent">Open the rent list</a>`), 404);
+    if (form.answer === "paid") {
+      await setRentTick(month, key, true, getUser(c)?.name ?? null);
+      return c.html(askPage("Ticked off", `<div class="done">✓</div><h1>Ticked off</h1><p>${esc(itemLabel(it))}: ${gbp(it.amount)} received today.</p><a class="btn" href="/rent">Open the rent list</a>`));
+    }
+    return c.html(askPage("Not yet", `<h1>Okay, left unticked</h1><p>${esc(itemLabel(it))}. If it still isn't ticked off in a few days, Jarvis will remind you.</p><a class="btn" href="/rent">Open the rent list</a>`));
+  });
+
   app.get("/api/rent-checklist", async (c) => {
     const month = c.req.query("month") ?? londonToday().month;
     if (!/^\d{4}-\d{2}$/.test(month)) return c.json({ error: "month must be YYYY-MM" }, 400);
@@ -110,17 +209,7 @@ export function registerRentChecklistRoutes(app: AnyApp) {
     const b = await c.req.json<{ month?: string; key?: string; paid?: boolean; amount?: number | null; paid_on?: string | null }>().catch(() => ({} as Record<string, never>));
     const { month, key } = b;
     if (!month || !/^\d{4}-\d{2}$/.test(month) || !key || !/^(home|room):/.test(key)) return c.json({ error: "month and key are needed" }, 400);
-    if (b.paid === false) {
-      await run("DELETE FROM rent_ticks WHERE month = ? AND key = ?", [month, key]);
-    } else {
-      const paidOn = b.paid_on && /^\d{4}-\d{2}-\d{2}$/.test(b.paid_on) ? b.paid_on : londonToday().date;
-      const amount = typeof b.amount === "number" && b.amount >= 0 ? b.amount : null;
-      await run(
-        `INSERT INTO rent_ticks (month, key, amount, paid_on, ticked_by) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(month, key) DO UPDATE SET amount = excluded.amount, paid_on = excluded.paid_on, ticked_by = excluded.ticked_by, ticked_at = datetime('now')`,
-        [month, key, amount, paidOn, getUser(c)?.name ?? null],
-      );
-    }
+    await setRentTick(month, key, b.paid !== false, getUser(c)?.name ?? null, b.amount, b.paid_on);
     const item = (await rentChecklist(month)).find((i) => i.key === key) ?? null;
     return c.json({ item });
   });

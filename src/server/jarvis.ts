@@ -139,7 +139,7 @@ export async function encryptPush(payload: Uint8Array, p256dh: string, authSecre
   return concat(salt, rs, new Uint8Array([asPublic.length]), asPublic, cipher);
 }
 
-export interface PushMessage { title: string; body: string; url?: string; tag?: string; approvalId?: number; urgent?: boolean }
+export interface PushMessage { title: string; body: string; url?: string; tag?: string; approvalId?: number; urgent?: boolean; rentMonth?: string; rentKey?: string }
 
 export async function pushToAll(env: Env, msg: PushMessage) {
   const subs = await query<{ id: number; endpoint: string; p256dh: string; auth: string }>("SELECT id, endpoint, p256dh, auth FROM push_subscriptions").catch(() => []);

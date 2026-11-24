@@ -27,16 +27,31 @@ self.addEventListener("push", (event) => {
     tag: msg.tag,
     icon: "/brand/apple-touch-icon.png",
     badge: "/brand/apple-touch-icon.png",
-    data: { url: msg.url || "/approvals", approvalId: msg.approvalId || null },
-    requireInteraction: !!msg.approvalId,
-    actions: msg.approvalId ? [{ action: "approve", title: "Approve" }, { action: "decline", title: "Decline" }] : [],
+    data: { url: msg.url || "/approvals", approvalId: msg.approvalId || null, rentMonth: msg.rentMonth || null, rentKey: msg.rentKey || null, body: msg.body || "" },
+    requireInteraction: !!(msg.approvalId || msg.rentKey),
+    actions: msg.approvalId
+      ? [{ action: "approve", title: "Approve" }, { action: "decline", title: "Decline" }]
+      : msg.rentKey
+        ? [{ action: "rent-paid", title: "✓ Yes, paid" }, { action: "rent-not-yet", title: "Not yet" }]
+        : [],
   };
   event.waitUntil(self.registration.showNotification(msg.title || "Jarvis", options));
 });
 
 self.addEventListener("notificationclick", (event) => {
-  const { url, approvalId } = event.notification.data || {};
+  const { url, approvalId, rentMonth, rentKey, body } = event.notification.data || {};
   event.notification.close();
+  // Rent: "Yes, paid" ticks it off without opening the app; "Not yet" just closes.
+  if (rentKey && event.action === "rent-not-yet") return;
+  if (rentKey && event.action === "rent-paid") {
+    event.waitUntil(
+      fetch("/api/rent-checklist", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: rentMonth, key: rentKey, paid: true }) })
+        .then((r) => { if (!r.ok) throw new Error(String(r.status)); })
+        .then(() => self.registration.showNotification("Jarvis", { body: `Ticked off ✓ ${(body || "").split(":")[0]}`, tag: `rent-done-${rentKey}` }))
+        .catch(() => self.clients.openWindow(url || "/rent")),
+    );
+    return;
+  }
   if (approvalId && (event.action === "approve" || event.action === "decline")) {
     event.waitUntil(
       fetch(`/api/approvals/${approvalId}/${event.action}`, { method: "POST", credentials: "same-origin" })
