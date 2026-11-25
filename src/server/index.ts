@@ -16,7 +16,7 @@ import { registerDocumentRoutes } from "./documents";
 import { registerExtras } from "./extras";
 import { registerLetters } from "./letters";
 import { registerMortgages } from "./mortgages";
-import { registerLettingsLeads } from "./lettings-leads";
+import { registerLettingsLeads, registerWebsiteForm } from "./lettings-leads";
 import { registerLeadEmail } from "./lead-email";
 import { getUser, registerAuth } from "./auth";
 
@@ -77,7 +77,7 @@ const app = new Hono<Env>();
 
 registerAuth(app, {
   headExtra: `<link rel="icon" type="image/svg+xml" href="/brand/favicon.svg"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1a1a1a"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="SPM"><meta name="apple-mobile-web-app-status-bar-style" content="default">`,
-  publicPaths: ["/api/health", "/manifest.webmanifest", "/sw.js", "/api/jarvis", "/api/jarvis/propose", "/api/jarvis/money-example", "/api/jarvis/missing", "/api/voice/approval"], // these check their own JARVIS_TOKEN / Twilio signature
+  publicPaths: ["/api/health", "/api/public/valuation", "/manifest.webmanifest", "/sw.js", "/api/jarvis", "/api/jarvis/propose", "/api/jarvis/money-example", "/api/jarvis/missing", "/api/voice/approval"], // these check their own JARVIS_TOKEN / Twilio signature
   allMailboxes: () => (mailProvider()?.accounts() ?? []).map((a) => a.toLowerCase()),
 });
 
@@ -1602,6 +1602,7 @@ registerLetters(app);
 registerMortgages(app);
 registerLeadEmail(app);
 registerLettingsLeads(app);
+registerWebsiteForm(app);
 
 // ── Health ─────────────────────────────────────────────────────────
 

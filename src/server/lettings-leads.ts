@@ -5,6 +5,7 @@
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { get, query, run } from "./db";
+import { pushToAll } from "./jarvis";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyApp = Hono<any>;
@@ -81,5 +82,65 @@ export function registerLettingsLeads(app: AnyApp) {
     // Still in the sheet? Remember the delete so the next sync doesn't bring it back.
     if (row.sheet_key) await run("INSERT OR IGNORE INTO sheet_deleted (sheet_key) VALUES (?)", [row.sheet_key]);
     return c.json({ ok: true });
+  });
+}
+
+// ── Website valuation form ───────────────────────────────────────────
+// The public website posts here (a plain HTML form, so no CORS). Each
+// enquiry becomes a lettings lead (source "Sphere website") and sends a
+// notification. A hidden "website" field catches bots; each address can
+// send a few an hour. Afterwards the visitor goes back to the page they
+// came from, with #thanks on the end.
+const recentPosts = new Map<string, number[]>();
+function tooManyPosts(ip: string) {
+  const now = Date.now();
+  const list = (recentPosts.get(ip) ?? []).filter((t) => now - t < 3_600_000);
+  if (list.length >= 5) return true;
+  list.push(now);
+  recentPosts.set(ip, list);
+  return false;
+}
+
+function backTo(referer: string | undefined) {
+  try {
+    const u = new URL(referer ?? "");
+    if (u.protocol === "https:" || u.protocol === "http:") return `${u.origin}${u.pathname}#thanks`;
+  } catch { /* no usable referer */ }
+  return null;
+}
+
+const thanksPage = (msg: string) => `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Thank you</title></head>
+<body style="margin:0;font:17px/1.6 system-ui,sans-serif;background:#fff8f5;color:#1a1a1a;display:grid;place-items:center;min-height:100vh;padding:20px"><main style="max-width:420px;background:#fff;border-radius:20px;padding:28px;box-shadow:0 0 0 1px #f0dfd9"><h1 style="margin:0 0 8px;font-size:24px">Thank you</h1><p style="margin:0">${msg}</p></main></body></html>`;
+
+export function registerWebsiteForm(app: AnyApp) {
+  app.post("/api/public/valuation", async (c) => {
+    const f = (await c.req.parseBody().catch(() => ({}))) as Record<string, unknown>;
+    const one = (k: string, max: number) => String(f[k] ?? "").trim().slice(0, max);
+    const back = backTo(c.req.header("referer"));
+    const done = (msg: string, status = 200) => (back && status === 200 ? c.redirect(back, 303) : c.html(thanksPage(msg), status as 200));
+    if (one("website", 200)) return done("We'll be in touch shortly."); // a bot filled the hidden field
+    const name = one("name", 160);
+    const phone = one("phone", 60);
+    if (!name || !phone) return c.html(thanksPage("Please go back and add your name and phone number."), 400);
+    const ip = (c.req.header("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+    if (tooManyPosts(ip)) return c.html(thanksPage("We've already had a few enquiries from you. Please call us instead."), 429);
+    const postcode = one("postcode", 12).toUpperCase();
+    const bedrooms = one("beds", 40);
+    const type = one("type", 60);
+    const email = one("email", 200);
+    const today = new Date().toISOString().slice(0, 10);
+    await run(
+      `INSERT INTO lettings_leads (name, phone, email, postcode, bedrooms, property_type, source, enquired_on, status, notes, origin)
+       VALUES (?, ?, ?, ?, ?, ?, 'Sphere website', ?, 'new', ?, 'app')`,
+      [name, phone, email || null, postcode || null, bedrooms || null, type || null, today, "Free valuation request from the website."],
+    );
+    await pushToAll(c.env as Record<string, unknown>, {
+      title: "New valuation request",
+      body: `${name}${postcode ? `, ${postcode}` : ""}${type ? ` · ${type}` : ""}${bedrooms ? ` · ${bedrooms}` : ""} · ${phone}`,
+      url: "/lettings-leads",
+      tag: `website-lead-${Date.now()}`,
+      urgent: true,
+    }).catch((err) => console.error(`Website lead push: ${(err as Error).message}`));
+    return done("We've got your details and will call you shortly.");
   });
 }
