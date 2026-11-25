@@ -378,6 +378,20 @@ async function fileEmail(mailbox: string, m: { uid: number; date: string | null;
   );
 }
 
+/**
+ * Inboxes that never send "reply needed" notifications: shared info@ inboxes
+ * by default, or the comma-separated list in JARVIS_IMPORTANT_SKIP (set it to
+ * "none" to notify for every inbox). Repairs found in them are still logged
+ * and still notify.
+ */
+function quietMailbox(env: Env, mailbox: string) {
+  const box = mailbox.toLowerCase();
+  const list = str(env.JARVIS_IMPORTANT_SKIP).toLowerCase();
+  if (list === "none") return false;
+  if (list) return list.split(/[\s,;]+/).filter(Boolean).includes(box);
+  return box.startsWith("info@");
+}
+
 let scanning = false;
 let filingRecent = false;
 let checkingRepairs = false;
@@ -415,7 +429,7 @@ export async function scanEmailOnce(env: Env) {
           const isRepair = r.is_job || (r.existing_repair_id && open.ids.has(Number(r.existing_repair_id)));
           // Important emails (not repairs, which have their own alert): one notification as they arrive.
           const fromUs = accounts.some((a) => a.toLowerCase() === (m.from_address ?? "").toLowerCase());
-          if (!isRepair && r.important && r.category !== "junk" && !fromUs && str(env.JARVIS_IMPORTANT_EMAILS).toLowerCase() !== "off") {
+          if (!isRepair && r.important && r.category !== "junk" && !fromUs && !quietMailbox(env, accounts[i]) && str(env.JARVIS_IMPORTANT_EMAILS).toLowerCase() !== "off") {
             const who = m.from || m.from_address;
             await pushToAll(env, {
               title: `Jarvis: reply needed${r.property_ref ? ` · Ref ${r.property_ref}` : ""}`,
