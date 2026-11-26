@@ -5,8 +5,9 @@ import { useApp } from "@/context";
 import { cn } from "@/lib/utils";
 import { CERTIFICATES, certNeeded, certState, complianceState, dealLabel } from "@/lib/portfolio";
 import { Button } from "@/components/ui/button";
-import type { Property } from "@/types";
-import { buildPortfolioPdf, type ReportColumn, type ReportInput } from "./portfolio-pdf";
+import type { Mortgage, Property } from "@/types";
+import { RATE_LABEL, REPAYMENT_LABEL, paymentNow } from "@/components/mortgages/mortgage-math";
+import { buildPortfolioPdf, type ReportColumn, type ReportInput, type ReportTable } from "./portfolio-pdf";
 
 /**
  * A portfolio overview to send to someone: branded, always up to date, and
@@ -27,14 +28,42 @@ const share = (p: Property) => (p.ownership_share && p.ownership_share > 0 ? p.o
 const CERT_WORD = { ok: "In date", due_soon: "Due soon", expired: "Expired", missing: "Missing" } as const;
 const COMPANY_KIND: Record<string, string> = { ltd: "Limited company", jv: "Joint venture", llp: "LLP", partnership: "Partnership", personal: "Owned personally", other: "Company" };
 
+const monthYear = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—");
+const rateText = (n: number | null) => (n != null ? `${n.toFixed(2).replace(/0$/, "")}%` : "—");
+
+/** One home's borrowing: its active mortgages from the Mortgages page, or the lender and balance recorded on the home. */
+interface Borrowing { lender: string | null; balance: number; payment: number; rate: number | null; dealEnd: string | null; type: string | null; loans: number }
+function borrowingFor(p: Property, loans: Mortgage[] | undefined): Borrowing {
+  const active = (loans ?? []).filter((m) => m.status === "active");
+  if (!active.length) {
+    return { lender: p.lender ?? null, balance: p.mortgage_balance ?? 0, payment: 0, rate: null, dealEnd: p.fixed_rate_end ?? null, type: null, loans: p.lender || p.mortgage_balance ? 1 : 0 };
+  }
+  const balance = active.reduce((a, m) => a + (m.balance ?? 0), 0);
+  const rated = active.filter((m) => m.interest_rate != null && m.balance);
+  const ratedBal = rated.reduce((a, m) => a + (m.balance ?? 0), 0);
+  const ends = active.map((m) => m.deal_end).filter((d): d is string => !!d).sort();
+  return {
+    lender: [...new Set(active.map((m) => m.lender))].join(" + "),
+    balance,
+    payment: active.reduce((a, m) => a + (paymentNow(m).amount ?? 0), 0),
+    rate: ratedBal ? rated.reduce((a, m) => a + (m.interest_rate ?? 0) * (m.balance ?? 0), 0) / ratedBal : active[0].interest_rate,
+    dealEnd: ends[0] ?? null,
+    type: [...new Set(active.map((m) => `${RATE_LABEL[m.rate_type] ?? m.rate_type}, ${(REPAYMENT_LABEL[m.repayment_type] ?? m.repayment_type).toLowerCase()}`))].join(" / "),
+    loans: active.length,
+  };
+}
+
 interface Company { id: number; name: string; kind: string; members: { name: string; share: number }[]; properties: { id: number }[] }
 
 const DEFAULTS = {
   homes: { owned: true, managed: true, freehold: true },
   company: "all",
-  figures: { occupancy: true, certs: true, rent: true, profit: false, value: false, equity: false, debt: false, yield: false },
-  sections: { holding: true, areas: true, companies: false, shareholders: false, list: true },
-  columns: { ref: false, address: false, type: true, beds: true, heldAs: true, status: true, rent: true, value: false, company: false, certs: false, epc: false },
+  figures: { occupancy: true, certs: true, rent: true, profit: false, value: false, equity: false, debt: false, yield: false, payments: false, avgRate: false, dealsEnding: false },
+  sections: { holding: true, areas: true, companies: false, shareholders: false, lenders: false, list: true },
+  columns: {
+    ref: false, address: false, type: true, beds: true, heldAs: true, status: true, rent: true, value: false, company: false, certs: false, epc: false,
+    lender: false, balance: false, ltv: false, rate: false, dealEnd: false, payment: false, loanType: false,
+  },
   preparedFor: "",
   note: "",
   contact: "info@spm.co.uk",
@@ -60,15 +89,23 @@ function loadOpts(): Opts {
 
 const LABELS = {
   homes: { owned: "Homes we own", managed: "Homes we rent & let", freehold: "Freehold buildings" },
-  figures: { occupancy: "% let", certs: "Certificates in date", rent: "Rent", profit: "Profit", value: "Value", equity: "Equity", debt: "Mortgages & LTV", yield: "Rental yield" },
-  sections: { holding: "How we hold them", areas: "Where they are", companies: "Companies & JVs", shareholders: "Shareholders' %", list: "List of homes" },
-  columns: { ref: "Ref", address: "Full address", type: "Type", beds: "Beds", heldAs: "Held as", status: "Status", rent: "Rent", value: "Value", company: "Company", certs: "Certificates", epc: "EPC rating" },
+  figures: {
+    occupancy: "% let", certs: "Certificates in date", rent: "Rent", profit: "Profit", value: "Value", equity: "Equity", debt: "Mortgages & LTV", yield: "Rental yield",
+    payments: "Mortgage payments", avgRate: "Average mortgage rate", dealsEnding: "Deals ending soon",
+  },
+  sections: { holding: "How we hold them", areas: "Where they are", companies: "Companies & JVs", shareholders: "Shareholders' %", lenders: "Mortgages by lender", list: "List of homes" },
+  columns: {
+    ref: "Ref", address: "Full address", type: "Type", beds: "Beds", heldAs: "Held as", status: "Status", rent: "Rent", value: "Value", company: "Company", certs: "Certificates", epc: "EPC rating",
+    lender: "Lender", balance: "Mortgage balance", ltv: "LTV", rate: "Interest rate", dealEnd: "Deal ends", payment: "Mortgage payment", loanType: "Loan type",
+  },
 } as const;
+const MORTGAGE_COLUMNS = ["lender", "balance", "ltv", "rate", "dealEnd", "payment", "loanType"];
 
 export function PortfolioReport() {
   const { properties } = useApp();
   const [opts, setOpts] = useState<Opts>(loadOpts);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [mortgages, setMortgages] = useState<Mortgage[]>([]);
   const [showOptions, setShowOptions] = useState(true);
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -78,6 +115,7 @@ export function PortfolioReport() {
   }, [opts]);
   useEffect(() => {
     api<{ companies: Company[] }>("GET", "/api/companies").then((r) => setCompanies(r.companies)).catch(() => setCompanies([]));
+    api<{ mortgages: Mortgage[] }>("GET", "/api/mortgages").then((r) => setMortgages(r.mortgages)).catch(() => setMortgages([]));
   }, []);
 
   const flip = <G extends "homes" | "figures" | "sections" | "columns">(group: G, key: keyof Opts[G]) =>
@@ -88,6 +126,11 @@ export function PortfolioReport() {
     for (const c of companies) for (const p of c.properties) m.set(p.id, c);
     return m;
   }, [companies]);
+  const loansOf = useMemo(() => {
+    const m = new Map<number, Mortgage[]>();
+    for (const x of mortgages) if (x.property_id != null) m.set(x.property_id, [...(m.get(x.property_id) ?? []), x]);
+    return m;
+  }, [mortgages]);
   const chosen = companies.find((c) => String(c.id) === opts.company) ?? null;
 
   const homes = useMemo(
@@ -116,6 +159,14 @@ export function PortfolioReport() {
     const yieldValue = yieldHomes.reduce((a, p) => a + (p.market_value ?? 0) * share(p), 0);
     const yieldRent = yieldHomes.reduce((a, p) => a + p.rent_in * share(p), 0);
     const beds = homes.reduce((a, p) => a + (p.room_count || p.bedrooms || 0), 0);
+    const borrow = new Map(homes.map((p) => [p.id, borrowingFor(p, loansOf.get(p.id))]));
+    const withLoans = homes.filter((p) => borrow.get(p.id)!.loans > 0);
+    const totalPayments = withLoans.reduce((a, p) => a + borrow.get(p.id)!.payment * share(p), 0);
+    const ratedLoans = withLoans.filter((p) => borrow.get(p.id)!.rate != null && borrow.get(p.id)!.balance > 0);
+    const ratedBal = ratedLoans.reduce((a, p) => a + borrow.get(p.id)!.balance, 0);
+    const avgRate = ratedBal ? ratedLoans.reduce((a, p) => a + borrow.get(p.id)!.rate! * borrow.get(p.id)!.balance, 0) / ratedBal : null;
+    const yearAhead = new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10);
+    const ending = withLoans.filter((p) => { const d = borrow.get(p.id)!.dealEnd; return !!d && d <= yearAhead; }).length;
     let certsNeeded = 0, certsOk = 0;
     for (const p of homes) for (const c of CERTIFICATES) {
       if (!certNeeded(p, c.key)) continue;
@@ -134,6 +185,9 @@ export function PortfolioReport() {
       ...(f.equity && value > 0 ? [{ big: pounds(value - debt), label: "equity (value less mortgages)", color: "#7a4de8" }] : []),
       ...(f.debt ? [{ big: pounds(allDebt), label: "mortgages outstanding", color: "#5e5960" }, ...(value > 0 ? [{ big: `${Math.round((debt / value) * 100)}%`, label: "loan to value", color: "#5e5960" }] : [])] : []),
       ...(f.yield && yieldValue > 0 ? [{ big: `${((yieldRent * 12 * 100) / yieldValue).toFixed(1)}%`, label: "gross rental yield", color: "#12a06a" }] : []),
+      ...(f.payments && totalPayments > 0 ? [{ big: pounds(totalPayments), label: "mortgage payments a month", color: "#5e5960" }] : []),
+      ...(f.avgRate && avgRate != null ? [{ big: rateText(avgRate), label: "average mortgage rate", color: "#5e5960" }] : []),
+      ...(f.dealsEnding ? [{ big: String(ending), label: "mortgage deals ending within 12 months", color: ending ? "#a4462f" : "#12a06a" }] : []),
     ];
 
     const byKindMap = new Map<string, { n: number; rent: number }>();
@@ -178,9 +232,42 @@ export function PortfolioReport() {
       { on: c.certs, col: { label: "Certificates", weight: 0.11 }, val: (p) => CERT_WORD[complianceState(p)] },
       { on: c.epc, col: { label: "EPC", weight: 0.06 }, val: (p) => p.epc_rating ?? "—" },
       { on: c.value, col: { label: "Value", weight: 0.12, align: "right" }, val: (p) => (p.market_value ? pounds(p.market_value * share(p)) : "—") },
+      { on: c.lender, col: { label: "Lender", weight: 0.13 }, val: (p) => borrow.get(p.id)!.lender ?? "—" },
+      { on: c.loanType, col: { label: "Loan type", weight: 0.14 }, val: (p) => borrow.get(p.id)!.type ?? "—" },
+      { on: c.rate, col: { label: "Rate", weight: 0.07, align: "right" }, val: (p) => rateText(borrow.get(p.id)!.rate) },
+      { on: c.dealEnd, col: { label: "Deal ends", weight: 0.09 }, val: (p) => monthYear(borrow.get(p.id)!.dealEnd) },
+      { on: c.balance, col: { label: "Mortgage", weight: 0.11, align: "right" }, val: (p) => (borrow.get(p.id)!.balance ? pounds(borrow.get(p.id)!.balance * share(p)) : "—") },
+      { on: c.ltv, col: { label: "LTV", weight: 0.06, align: "right" }, val: (p) => (p.market_value && borrow.get(p.id)!.balance ? `${Math.round((borrow.get(p.id)!.balance / p.market_value) * 100)}%` : "—") },
+      { on: c.payment, col: { label: "Mortgage / month", weight: 0.11, align: "right" }, val: (p) => (borrow.get(p.id)!.payment ? pounds(borrow.get(p.id)!.payment * share(p)) : "—") },
       { on: c.rent, col: { label: "Rent / month", weight: 0.12, align: "right", bold: true }, val: (p) => (p.rent_in ? pounds(p.rent_in) : "—") },
     ];
     const used = cols.filter((x) => x.on);
+
+    // Mortgages grouped by lender.
+    const byLender = new Map<string, { homes: number; balance: number; payment: number; rateSum: number; rateBal: number; next: string | null }>();
+    for (const p of withLoans) {
+      const b = borrow.get(p.id)!;
+      const key = b.lender || "Lender not recorded";
+      const g = byLender.get(key) ?? { homes: 0, balance: 0, payment: 0, rateSum: 0, rateBal: 0, next: null };
+      g.homes += 1;
+      g.balance += b.balance * share(p);
+      g.payment += b.payment * share(p);
+      if (b.rate != null && b.balance) { g.rateSum += b.rate * b.balance; g.rateBal += b.balance; }
+      if (b.dealEnd && (!g.next || b.dealEnd < g.next)) g.next = b.dealEnd;
+      byLender.set(key, g);
+    }
+    const lenderRows = [...byLender.entries()].sort((a, b) => b[1].balance - a[1].balance);
+    const lenderTable: ReportTable | null = opts.sections.lenders && lenderRows.length
+      ? {
+          title: `Mortgages by lender (${lenderRows.length})`,
+          columns: [
+            { label: "Lender", weight: 0.3 }, { label: "Homes", weight: 0.1, align: "right" }, { label: "Balance", weight: 0.17, align: "right", bold: true },
+            { label: "Average rate", weight: 0.13, align: "right" }, { label: "Payments / month", weight: 0.16, align: "right" }, { label: "Next deal ends", weight: 0.14 },
+          ],
+          rows: lenderRows.map(([l, g]) => [l, String(g.homes), pounds(g.balance), g.rateBal ? rateText(g.rateSum / g.rateBal) : "—", g.payment ? pounds(g.payment) : "—", monthYear(g.next)]),
+          totals: ["Total", String(withLoans.length), pounds(lenderRows.reduce((a, [, g]) => a + g.balance, 0)), avgRate != null ? rateText(avgRate) : "", totalPayments ? pounds(totalPayments) : "", ""],
+        }
+      : null;
 
     return {
       today,
@@ -196,11 +283,14 @@ export function PortfolioReport() {
       hmoNote: opts.sections.holding && hmos > 0 ? `Including ${hmos} HMO${hmos === 1 ? "" : "s"} (houses in multiple occupation).` : null,
       areas: opts.sections.areas ? [...byArea.entries()].sort((a, b) => b[1] - a[1]).map(([a, n]) => ({ area: a, n })) : null,
       companies: opts.sections.companies && companyCards.length ? companyCards : null,
-      table: opts.sections.list
-        ? { title: `The homes (${homes.length})`, columns: used.map((x) => x.col), rows: homes.map((p) => used.map((x) => x.val(p))), warnWords: ["Empty", "Expired", "Missing"] }
-        : null,
+      tables: [
+        ...(lenderTable ? [lenderTable] : []),
+        ...(opts.sections.list
+          ? [{ title: `The homes (${homes.length})`, columns: used.map((x) => x.col), rows: homes.map((p) => used.map((x) => x.val(p))), warnWords: ["Empty", "Expired", "Missing"] }]
+          : []),
+      ],
     };
-  }, [homes, opts, companies, companyOf, chosen, today]);
+  }, [homes, opts, companies, companyOf, chosen, today, loansOf]);
 
   function makePdf(): File {
     return new File([buildPortfolioPdf(report)], fileName, { type: "application/pdf" });
@@ -249,12 +339,13 @@ export function PortfolioReport() {
       {on ? "✓ " : ""}{label}
     </button>
   );
-  const group = <G extends "homes" | "figures" | "sections" | "columns">(g: G, title: string) => (
+  const group = <G extends "homes" | "figures" | "sections" | "columns">(g: G, title: string, only?: (k: string) => boolean) => (
     <div className="flex flex-col gap-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(LABELS[g]) as (keyof Opts[G] & keyof (typeof LABELS)[G])[])
           .filter((k) => !(g === "sections" && k === "shareholders" && !opts.sections.companies))
+          .filter((k) => !only || only(String(k)))
           .map((k) => chip(!!opts[g][k], String(LABELS[g][k]), () => flip(g, k), `${g}-${String(k)}`))}
       </div>
     </div>
@@ -289,7 +380,8 @@ export function PortfolioReport() {
             </div>
             {group("figures", "Headline figures")}
             {group("sections", "Sections")}
-            {opts.sections.list && group("columns", "Columns in the list of homes")}
+            {opts.sections.list && group("columns", "Columns in the list of homes", (k) => !MORTGAGE_COLUMNS.includes(k))}
+            {opts.sections.list && group("columns", "Mortgage columns in the list of homes", (k) => MORTGAGE_COLUMNS.includes(k))}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-sm font-medium">
                 Prepared for <span className="text-xs font-normal text-muted-foreground">e.g. a lender, broker or JV partner (optional)</span>
@@ -391,27 +483,32 @@ function Preview({ r }: { r: ReportInput }) {
           </section>
         )}
 
-        {r.table && r.table.rows.length > 0 && (
-          <section>
-            <h2 className="border-l-4 border-[#c8226f] pl-2 text-lg font-bold">{r.table.title}</h2>
+        {r.tables.filter((t) => t.rows.length > 0).map((t) => (
+          <section key={t.title}>
+            <h2 className="border-l-4 border-[#c8226f] pl-2 text-lg font-bold">{t.title}</h2>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="bg-[#1a1a1a] text-white">
-                  <tr>{r.table.columns.map((c) => <th key={c.label} className={cn("px-2 py-2 font-semibold", c.align === "right" && "text-right")}>{c.label}</th>)}</tr>
+                  <tr>{t.columns.map((c) => <th key={c.label} className={cn("px-2 py-2 font-semibold", c.align === "right" && "text-right")}>{c.label}</th>)}</tr>
                 </thead>
                 <tbody>
-                  {r.table.rows.map((row, i) => (
+                  {t.rows.map((row, i) => (
                     <tr key={i} className="break-inside-avoid border-b border-[#ecdfda] even:bg-[#faf7f5]">
                       {row.map((v, j) => (
-                        <td key={j} className={cn("px-2 py-1.5", r.table!.columns[j].align === "right" && "text-right tabular-nums", r.table!.columns[j].bold && "font-bold", r.table!.warnWords?.includes(v) && "text-[#a4462f]")}>{v}</td>
+                        <td key={j} className={cn("px-2 py-1.5", t.columns[j].align === "right" && "text-right tabular-nums", t.columns[j].bold && "font-bold", t.warnWords?.includes(v) && "text-[#a4462f]")}>{v}</td>
                       ))}
                     </tr>
                   ))}
+                  {t.totals && (
+                    <tr className="bg-[#fff4ef] font-bold">
+                      {t.totals.map((v, j) => <td key={j} className={cn("px-2 py-2", t.columns[j].align === "right" && "text-right tabular-nums")}>{v}</td>)}
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
-        )}
+        ))}
 
         <footer className="border-t border-[#ecdfda] pt-3 text-xs text-[#5e5960]">
           Prepared by Sphere Property Management on {r.today}{r.contact.trim() ? ` · ${r.contact.trim()}` : ""} · Monthly figures unless stated. Tenant details are not included.

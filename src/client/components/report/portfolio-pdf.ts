@@ -6,6 +6,7 @@ import { A4, PdfDoc } from "../../lib/pdf-writer";
 
 export interface ReportStat { big: string; label: string; color: string }
 export interface ReportColumn { label: string; weight: number; align?: "left" | "right"; bold?: boolean }
+export interface ReportTable { title: string; columns: ReportColumn[]; rows: string[][]; warnWords?: string[]; totals?: string[] }
 export interface ReportCompany { name: string; kind: string; lines: string[]; shareholders: string | null }
 export interface ReportInput {
   today: string;
@@ -19,7 +20,7 @@ export interface ReportInput {
   hmoNote: string | null;
   areas: { area: string; n: number }[] | null;
   companies: ReportCompany[] | null;
-  table: { title: string; columns: ReportColumn[]; rows: string[][]; warnWords?: string[] } | null;
+  tables: ReportTable[];
 }
 
 const M = 40; // page margin
@@ -166,9 +167,9 @@ export function buildPortfolioPdf(r: ReportInput): Uint8Array {
     y += 16;
   }
 
-  // The list of homes.
-  if (r.table && r.table.rows.length) {
-    const table = r.table;
+  // Tables: mortgages by lender, then the list of homes.
+  for (const table of r.tables) {
+    if (!table.rows.length) continue;
     const cols = table.columns;
     const total = cols.reduce((a, c) => a + c.weight, 0);
     const size = cols.length > 7 ? 8 : 9;
@@ -223,7 +224,19 @@ export function buildPortfolioPdf(r: ReportInput): Uint8Array {
       });
       y += 20;
     });
+    if (table.totals) {
+      if (y + 22 > A4.h - FOOT) { doc.addPage(); smallHeader(doc, r); y = 70; }
+      doc.rect(M, y, W, 22, { fill: TINT });
+      let x = M;
+      cols.forEach((c, j) => {
+        const val = table.totals![j] ?? "";
+        if (val) doc.text(c.align === "right" ? x + widths[j] - 6 : x + 6, y + 14.5, val, { size, bold: true, align: c.align, maxWidth: widths[j] - 10 });
+        x += widths[j];
+      });
+      y += 22;
+    }
     doc.line(M, y, A4.w - M, y, LINE);
+    y += 30;
   }
 
   // Footer on every page.
