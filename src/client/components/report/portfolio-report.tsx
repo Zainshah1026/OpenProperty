@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Printer, Share2 } from "lucide-react";
+import { Download, Printer, Send } from "lucide-react";
 import { useApp } from "@/context";
 import { cn } from "@/lib/utils";
 import { CERTIFICATES, certNeeded, certState, dealLabel } from "@/lib/portfolio";
 import { Button } from "@/components/ui/button";
 import type { Property } from "@/types";
+import { buildPortfolioPdf } from "./portfolio-pdf";
 
 /**
  * A portfolio overview to send to someone: branded, always up to date, and
@@ -16,6 +17,11 @@ const district = (zip: string | null) => (zip ? zip.trim().toUpperCase().split(/
 const area = (p: Property) => [p.city, district(p.zip)].filter(Boolean).join(" ") || "—";
 const statusOf = (p: Property) =>
   p.occupancy === "vacant" ? "Empty" : p.occupancy === "part_occupied" ? "Part let" : p.occupancy === "eviction" ? "Let" : "Let";
+const TYPE_LABEL: Record<string, string> = {
+  flat: "Flat", maisonette: "Maisonette", terraced: "Terraced", semi_detached: "Semi-detached", detached: "Detached",
+  bungalow: "Bungalow", commercial: "Commercial", other: "Other",
+};
+const typeOf = (p: Property) => (p.hmo ? "HMO" : TYPE_LABEL[String(p.type ?? "")] ?? String(p.type ?? "").replace(/_/g, " "));
 const kindOf = (p: Property) => (p.section === "managed" ? "Managed (rent to rent)" : p.section === "freehold" ? "Freehold" : "Owned");
 
 export function PortfolioReport() {
@@ -55,7 +61,73 @@ export function PortfolioReport() {
   }, [homes]);
 
   const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const canShare = typeof navigator !== "undefined" && "share" in navigator;
+  const fileName = `Sphere-portfolio-${new Date().toISOString().slice(0, 10)}.pdf`;
+  const [sending, setSending] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  function makePdf(): File {
+    const bytes = buildPortfolioPdf({
+      today,
+      stats: [
+        { big: String(stats.homes), label: stats.homes === 1 ? "home" : "homes", color: "#c8226f" },
+        { big: String(stats.beds), label: "bedrooms / rooms", color: "#7a4de8" },
+        { big: `${stats.occupancy}%`, label: "let right now", color: "#12a06a" },
+        { big: `${stats.certs}%`, label: "safety certificates in date", color: "#0f9fb0" },
+        ...(opts.rent ? [{ big: pounds(stats.rent), label: "rent a month", color: "#12a06a" }, { big: pounds(stats.rent * 12), label: "rent a year", color: "#12a06a" }] : []),
+        ...(opts.profit ? [{ big: pounds(stats.profit), label: "profit a month", color: "#c8226f" }] : []),
+        ...(opts.values && stats.value > 0 ? [{ big: pounds(stats.value), label: "value (our share)", color: "#7a4de8" }] : []),
+      ],
+      byKind: stats.byKind.map(([k, v]) => ({ label: k, n: v.n, detail: opts.rent ? `${pounds(v.rent)} a month` : "" })),
+      totalHomes: stats.homes,
+      hmoNote: stats.hmos > 0 ? `Including ${stats.hmos} HMO${stats.hmos === 1 ? "" : "s"} (houses in multiple occupation).` : null,
+      areas: stats.byArea.map(([area, n]) => ({ area, n })),
+      rows: opts.list
+        ? homes.map((p) => ({
+            where: opts.addresses ? [p.address || p.name, p.zip].filter(Boolean).join(", ") : area(p),
+            type: typeOf(p),
+            beds: String(p.room_count || p.bedrooms || "—"),
+            heldAs: p.section === "managed" ? "Managed" : dealLabel(p.deal_type),
+            status: statusOf(p),
+            rent: p.rent_in ? pounds(p.rent_in) : "—",
+          }))
+        : null,
+      showRent: opts.rent,
+      addresses: opts.addresses,
+    });
+    return new File([bytes], fileName, { type: "application/pdf" });
+  }
+
+  function download() {
+    const file = makePdf();
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    setNote(`Downloaded ${fileName}.`);
+  }
+
+  // On a phone: the share sheet with the PDF attached (WhatsApp, Mail, Messages…).
+  const canSendFile = typeof navigator !== "undefined" && "canShare" in navigator;
+  async function send() {
+    setSending(true);
+    setNote(null);
+    try {
+      const file = makePdf();
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Sphere Property Management portfolio", text: "Our property portfolio overview." });
+      } else {
+        download();
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") setNote("Couldn't open sharing here, so use Download PDF instead.");
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -74,22 +146,22 @@ export function PortfolioReport() {
               {opts[k] ? "✓ " : ""}{{ rent: "Rent figures", profit: "Profit", values: "Property values", addresses: "Full addresses", list: "List of homes" }[k]}
             </button>
           ))}
-          <Button onClick={() => window.print()}><Printer className="size-4" /> Save as PDF</Button>
-          {canShare && (
-            <Button variant="outline" onClick={() => navigator.share({ title: "Sphere Property Management portfolio", text: `Sphere Property Management portfolio: ${stats.homes} homes, ${stats.occupancy}% let.` }).catch(() => {})}>
-              <Share2 className="size-4" /> Share
-            </Button>
+          <Button variant="ghost" onClick={() => window.print()} aria-label="Print"><Printer className="size-4" /></Button>
+          <Button variant="secondary" onClick={download}><Download className="size-4" /> Download PDF</Button>
+          {canSendFile && (
+            <Button onClick={send} disabled={sending}><Send className="size-4" /> {sending ? "Opening…" : "Send PDF"}</Button>
           )}
         </div>
         <p className="mx-auto mt-1 max-w-4xl text-xs text-muted-foreground">
-          Tap <b>Save as PDF</b>, then choose "Save as PDF" (computer) or tap Share → Save to Files (iPhone), and send the PDF. Tenant names and arrears are never included.
+          Choose what to include, then <b>Download PDF</b> or <b>Send PDF</b> (on a phone it opens WhatsApp, Mail and the rest with the PDF attached). Tenant names and arrears are never included.
+          {note ? <span className="ml-1 font-semibold text-foreground">{note}</span> : null}
         </p>
       </div>
 
       {/* The report */}
       <article className="report mx-auto my-6 max-w-4xl bg-white p-8 text-[#1a1a1a] shadow-card md:p-12 print:my-0 print:max-w-none print:p-0 print:shadow-none">
-        <header className="flex items-center gap-4 border-b-4 border-[#2d5bff] pb-5">
-          <img src="/brand/chisti-logo.jpg" alt="" className="size-16 rounded-xl object-cover" />
+        <header className="flex items-center gap-4 border-b-4 border-[#e6378f] pb-5">
+          <img src="/brand/apple-touch-icon.png" alt="" className="size-16 rounded-xl object-cover" />
           <div className="min-w-0 flex-1">
             <p className="display text-3xl leading-tight">Sphere Property Management</p>
             <p className="text-base text-[#5e5960]">Property portfolio overview</p>
@@ -98,13 +170,13 @@ export function PortfolioReport() {
         </header>
 
         <section className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat big={String(stats.homes)} label={stats.homes === 1 ? "home" : "homes"} color="#2d5bff" />
+          <Stat big={String(stats.homes)} label={stats.homes === 1 ? "home" : "homes"} color="#c8226f" />
           <Stat big={String(stats.beds)} label="bedrooms / rooms" color="#7a4de8" />
           <Stat big={`${stats.occupancy}%`} label="let right now" color="#12a06a" />
           <Stat big={`${stats.certs}%`} label="safety certificates in date" color="#0f9fb0" />
           {opts.rent && <Stat big={pounds(stats.rent)} label="rent a month" color="#12a06a" />}
           {opts.rent && <Stat big={pounds(stats.rent * 12)} label="rent a year" color="#12a06a" />}
-          {opts.profit && <Stat big={pounds(stats.profit)} label="profit a month" color="#2d5bff" />}
+          {opts.profit && <Stat big={pounds(stats.profit)} label="profit a month" color="#c8226f" />}
           {opts.values && stats.value > 0 && <Stat big={pounds(stats.value)} label="value (our share)" color="#7a4de8" />}
         </section>
 
@@ -114,7 +186,7 @@ export function PortfolioReport() {
             <ul className="mt-3 space-y-2">
               {stats.byKind.map(([k, v]) => (
                 <li key={k} className="flex items-center gap-3">
-                  <span className="h-3 rounded-full bg-[#2d5bff]" style={{ width: `${Math.max(8, (v.n / stats.homes) * 100)}%`, maxWidth: "50%" }} />
+                  <span className="h-3 rounded-full bg-[#c8226f]" style={{ width: `${Math.max(8, (v.n / stats.homes) * 100)}%`, maxWidth: "50%" }} />
                   <span className="text-sm"><b>{v.n}</b> {k}{opts.rent ? ` · ${pounds(v.rent)} a month` : ""}</span>
                 </li>
               ))}
@@ -125,7 +197,7 @@ export function PortfolioReport() {
             <h2 className="display text-xl">Where they are</h2>
             <ul className="mt-3 flex flex-wrap gap-2">
               {stats.byArea.map(([a, n]) => (
-                <li key={a} className="rounded-full bg-[#e3e9ff] px-3 py-1 text-sm font-semibold text-[#1f3fc4]">{a} <span className="font-normal">× {n}</span></li>
+                <li key={a} className="rounded-full bg-[#fff4ef] px-3 py-1 text-sm font-semibold text-[#c8226f]">{a} <span className="font-normal">× {n}</span></li>
               ))}
             </ul>
           </div>
@@ -147,9 +219,9 @@ export function PortfolioReport() {
               </thead>
               <tbody>
                 {homes.map((p) => (
-                  <tr key={p.id} className="break-inside-avoid border-b border-[#dfe5f3]">
+                  <tr key={p.id} className="break-inside-avoid border-b border-[#ecdfda]">
                     <td className="py-2 pr-2">{opts.addresses ? [p.address || p.name, p.zip].filter(Boolean).join(", ") : area(p)}</td>
-                    <td className="py-2 pr-2 capitalize">{p.hmo ? "HMO" : String(p.type ?? "").replace(/_/g, " ")}</td>
+                    <td className="py-2 pr-2">{typeOf(p)}</td>
                     <td className="py-2 pr-2">{p.room_count || p.bedrooms || "—"}</td>
                     <td className="py-2 pr-2">{p.section === "managed" ? "Managed" : dealLabel(p.deal_type)}</td>
                     <td className="py-2 pr-2">{statusOf(p)}</td>
@@ -161,7 +233,7 @@ export function PortfolioReport() {
           </section>
         )}
 
-        <footer className="mt-10 border-t border-[#dfe5f3] pt-4 text-xs text-[#5e5960]">
+        <footer className="mt-10 border-t border-[#ecdfda] pt-4 text-xs text-[#5e5960]">
           Prepared by Sphere Property Management on {today}. Figures are monthly unless stated and come from our own records. Tenant details are not included.
         </footer>
       </article>
