@@ -39,6 +39,42 @@ interface Overview {
   totals: { companies: number; my_companies: number; my_monthly: number; my_equity: number };
 }
 
+const norm = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const PERSON_KEY = "companies-person";
+
+interface PersonStats { key: string; name: string; companies: number; monthly: number; equity: number; invested: number; homes: number }
+
+/** Each shareholder's totals across every company, matched by name (case and spacing ignored). */
+function statsByPerson(companies: Company[]): PersonStats[] {
+  const map = new Map<string, PersonStats>();
+  for (const c of companies) {
+    const shares = new Map<string, { name: string; share: number; invested: number }>();
+    for (const m of c.members) {
+      const k = norm(m.name);
+      if (!k) continue;
+      const cur = shares.get(k) ?? { name: m.name.trim(), share: 0, invested: 0 };
+      cur.share += m.share || 0;
+      cur.invested += m.invested || 0;
+      shares.set(k, cur);
+    }
+    for (const [k, v] of shares) {
+      const p = map.get(k) ?? { key: k, name: v.name, companies: 0, monthly: 0, equity: 0, invested: 0, homes: 0 };
+      // Prefer the capitalised spelling of a name.
+      if (/^[A-Z]/.test(v.name) && !/^[A-Z]/.test(p.name)) p.name = v.name;
+      p.companies += 1;
+      p.monthly += (c.monthly_net * v.share) / 100;
+      p.equity += ((c.equity ?? 0) * v.share) / 100;
+      p.invested += v.invested;
+      p.homes += c.properties.length;
+      map.set(k, p);
+    }
+  }
+  return [...map.values()]
+    .map((p) => ({ ...p, monthly: round2(p.monthly), equity: round2(p.equity), invested: round2(p.invested) }))
+    .sort((a, b) => b.companies - a.companies || b.equity - a.equity);
+}
+
 const pct = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`;
 
 export function CompaniesPage({ navigate }: { navigate: (to: string) => void }) {
@@ -51,12 +87,48 @@ export function CompaniesPage({ navigate }: { navigate: (to: string) => void }) 
   }, [setError]);
   useEffect(load, [load]);
 
-  const mine = useMemo(() => (data?.companies ?? []).filter((c) => c.my_share != null), [data]);
+  const people = useMemo(() => statsByPerson(data?.companies ?? []), [data]);
+  const [personKey, setPersonKey] = useState<string>(() => {
+    try { return localStorage.getItem(PERSON_KEY) ?? ""; } catch { return ""; }
+  });
+  // Default: Nabeel Shahid if he's a shareholder, otherwise whoever is in the most companies.
+  const person = people.find((p) => p.key === personKey) ?? people.find((p) => p.key === "nabeel shahid") ?? people[0] ?? null;
+  const choose = (k: string) => {
+    setPersonKey(k);
+    try { localStorage.setItem(PERSON_KEY, k); } catch { /* storage unavailable */ }
+  };
+  // Each company seen from the chosen person's side.
+  const companies = useMemo(
+    () =>
+      (data?.companies ?? []).map((c) => {
+        const ms = c.members.map((m) => ({ ...m, is_me: !!person && norm(m.name) === person.key }));
+        const theirs = ms.filter((m) => m.is_me);
+        const share = theirs.length ? round2(theirs.reduce((a, m) => a + (m.share || 0), 0)) : null;
+        return {
+          ...c,
+          members: ms,
+          my_share: share,
+          my_monthly: share != null ? round2((c.monthly_net * share) / 100) : null,
+          my_equity: share != null && c.equity != null ? round2((c.equity * share) / 100) : null,
+          my_invested: share != null ? round2(theirs.reduce((a, m) => a + (m.invested || 0), 0)) : null,
+        };
+      }),
+    [data, person],
+  );
+  const mine = useMemo(() => companies.filter((c) => c.my_share != null), [companies]);
+  const all = useMemo(
+    () => ({
+      monthly: round2(companies.reduce((a, c) => a + c.monthly_net, 0)),
+      equity: round2(companies.reduce((a, c) => a + (c.equity ?? 0), 0)),
+      homes: companies.reduce((a, c) => a + c.properties.length, 0),
+    }),
+    [companies],
+  );
 
   return (
     <PageShell
       title="Companies & JVs"
-      meta={data ? `${data.totals.companies} compan${data.totals.companies === 1 ? "y" : "ies"} · you're in ${data.totals.my_companies}` : "Loading…"}
+      meta={data ? `${data.totals.companies} compan${data.totals.companies === 1 ? "y" : "ies"} · ${all.homes} homes · ${formatMoney(all.monthly)} a month profit · ${formatMoney(all.equity)} equity` : "Loading…"}
       actions={<Button onClick={() => setEditing({ company: null })}><Plus /> Add company or JV</Button>}
     >
       {data && data.suggestions.length > 0 && (
@@ -72,10 +144,20 @@ export function CompaniesPage({ navigate }: { navigate: (to: string) => void }) 
         </div>
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat icon={<PieChart className="size-4" />} label="Companies you own a share of" value={String(data?.totals.my_companies ?? "–")} sub={data?.me ? `Signed in as ${data.me.name}` : ""} />
-        <Stat icon={<Wallet className="size-4" />} label="Your share of monthly profit" value={data ? formatMoney(data.totals.my_monthly) : "–"} sub="Rent in less costs, from each company's homes" />
-        <Stat icon={<Building className="size-4" />} label="Your share of equity" value={data ? formatMoney(data.totals.my_equity) : "–"} sub="Value less mortgages, where a value is recorded" />
+      {people.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="co-person" className="text-sm font-medium">Show shares for</label>
+          <select id="co-person" className="h-9 rounded-lg border border-input bg-card px-2.5 text-sm" value={person?.key ?? ""} onChange={(e) => choose(e.target.value)}>
+            {people.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat icon={<PieChart className="size-4" />} label={`Companies ${person ? person.name.split(" ")[0] : "you"} holds shares in`} value={person ? String(person.companies) : "–"} sub={person ? `${person.homes} homes between them` : ""} />
+        <Stat icon={<Wallet className="size-4" />} label="Share of monthly profit" value={person ? formatMoney(person.monthly) : "–"} sub={person ? `${formatMoney(person.monthly * 12)} a year · rent in less costs` : ""} />
+        <Stat icon={<Building className="size-4" />} label="Share of equity" value={person ? formatMoney(person.equity) : "–"} sub="Value less mortgages, where a value is recorded" />
+        <Stat icon={<Handshake className="size-4" />} label="Money put in" value={person ? formatMoney(person.invested) : "–"} sub={person && person.invested ? `${formatMoney(person.equity - person.invested)} equity above that` : "Add it on each shareholder"} />
       </section>
 
       {data && data.companies.length === 0 && (
@@ -87,21 +169,56 @@ export function CompaniesPage({ navigate }: { navigate: (to: string) => void }) 
         </Card>
       )}
 
-      {mine.length > 0 && <h2 className="section-label">Yours</h2>}
+      {mine.length > 0 && <h2 className="section-label">{person?.name}'s companies</h2>}
       <div className="grid gap-4 lg:grid-cols-2">
         {mine.map((c) => <CompanyCard key={c.id} c={c} onEdit={() => setEditing({ company: c })} navigate={navigate} />)}
       </div>
 
-      {data && data.companies.length > mine.length && <h2 className="section-label">{mine.length ? "Others" : "All companies"}</h2>}
+      {data && companies.length > mine.length && <h2 className="section-label">{mine.length ? `Not ${person?.name ?? "yours"}` : "All companies"}</h2>}
       <div className="grid gap-4 lg:grid-cols-2">
-        {(data?.companies ?? []).filter((c) => c.my_share == null).map((c) => <CompanyCard key={c.id} c={c} onEdit={() => setEditing({ company: c })} navigate={navigate} />)}
+        {companies.filter((c) => c.my_share == null).map((c) => <CompanyCard key={c.id} c={c} onEdit={() => setEditing({ company: c })} navigate={navigate} />)}
       </div>
+
+      {people.length > 1 && (
+        <section className="space-y-3">
+          <h2 className="section-label">Every shareholder</h2>
+          <Card className="overflow-x-auto p-0">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="text-left text-muted-foreground">
+                <tr className="border-b border-border">
+                  <th scope="col" className="px-4 py-3 font-medium">Shareholder</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Companies</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Homes</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Profit a month</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Equity</th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">Put in</th>
+                </tr>
+              </thead>
+              <tbody>
+                {people.map((p) => (
+                  <tr key={p.key} className={cn("border-b border-border last:border-0", p.key === person?.key && "bg-brand-tint")}>
+                    <th scope="row" className="px-4 py-3 text-left font-medium">
+                      <button type="button" className="text-left hover:underline" onClick={() => choose(p.key)}>{p.name}</button>
+                    </th>
+                    <td className="data px-4 py-3 text-right">{p.companies}</td>
+                    <td className="data px-4 py-3 text-right">{p.homes}</td>
+                    <td className="data px-4 py-3 text-right">{formatMoney(p.monthly)}</td>
+                    <td className="data px-4 py-3 text-right">{formatMoney(p.equity)}</td>
+                    <td className="data px-4 py-3 text-right">{p.invested ? formatMoney(p.invested) : "–"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+          <p className="text-xs text-muted-foreground">Names are matched across companies ignoring capitals and spaces, so "Nabeel shahid" and "Nabeel Shahid" count as one person. "Homes" counts every home in companies they hold shares in.</p>
+        </section>
+      )}
 
       {data && (
         <CompanyDialog
           state={editing}
           people={data.people}
-          me={data.me}
+          me={person ? { id: 0, name: person.name } : data.me}
           companies={data.companies}
           onClose={(changed) => { setEditing(null); if (changed) load(); }}
         />
@@ -128,7 +245,7 @@ function CompanyCard({ c, onEdit, navigate }: { c: Company; onEdit: () => void; 
 
       {c.my_share != null ? (
         <div className="rounded-xl bg-brand-tint px-4 py-3">
-          <p className="text-sm text-brand-text">Your share</p>
+          <p className="text-sm text-brand-text">{c.members.find((m) => m.is_me)?.name ?? "Your"}'s share</p>
           <p className="display data text-[2rem] font-medium leading-tight">{pct(c.my_share)}</p>
           <p className="text-sm text-muted-foreground">
             {formatMoney(c.my_monthly ?? 0)} a month{c.my_equity != null ? ` · ${formatMoney(c.my_equity)} equity` : ""}
@@ -136,7 +253,7 @@ function CompanyCard({ c, onEdit, navigate }: { c: Company; onEdit: () => void; 
           </p>
         </div>
       ) : (
-        <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">You don't hold shares in this one.</p>
+        <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">No shares held by the person selected above.</p>
       )}
 
       <div>
@@ -146,7 +263,7 @@ function CompanyCard({ c, onEdit, navigate }: { c: Company; onEdit: () => void; 
             {c.members.map((m, i) => (
               <li key={m.id ?? i} className="flex items-center gap-3 text-sm">
                 <span className="min-w-0 flex-1 truncate">
-                  <span className={cn("font-medium", m.is_me && "text-brand-text")}>{m.name}{m.is_me ? " (you)" : ""}</span>
+                  <span className={cn("font-medium", m.is_me && "text-brand-text")}>{m.name}</span>
                   {m.role ? <span className="text-muted-foreground"> · {m.role}</span> : null}
                 </span>
                 <span className="h-2 w-24 overflow-hidden rounded-full bg-muted" aria-hidden>
@@ -237,7 +354,7 @@ function CompanyDialog({
       notes: c?.notes ?? "",
       members: c?.members.length
         ? c.members.map((m) => ({ name: m.name, user_id: m.user_id != null ? String(m.user_id) : "", share: String(m.share), role: m.role ?? "", invested: m.invested != null ? String(m.invested) : "" }))
-        : me ? [{ name: me.name, user_id: String(me.id), share: "", role: "Director & shareholder", invested: "" }] : [],
+        : me ? [{ name: me.name, user_id: me.id ? String(me.id) : "", share: "100", role: "Director & shareholder", invested: "" }] : [],
       property_ids: c?.properties.map((p) => p.id) ?? state.preset?.property_ids ?? [],
     });
     setMsg(null);
