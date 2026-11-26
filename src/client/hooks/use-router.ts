@@ -17,6 +17,7 @@ export type Route =
   | { name: "letters" }
   | { name: "letter"; id: number }
   | { name: "mortgages" }
+  | { name: "companies" }
   | { name: "map" }
   | { name: "lettings-leads" }
   | { name: "approvals" }
@@ -45,6 +46,7 @@ function parse(full: string): Route {
   if (path === "/settings") return { name: "settings" };
   if (path === "/letters") return { name: "letters" };
   if (path === "/mortgages") return { name: "mortgages" };
+  if (path === "/companies") return { name: "companies" };
   if (path === "/map") return { name: "map" };
   if (path === "/lettings-leads") return { name: "lettings-leads" };
   if (path === "/approvals") return { name: "approvals" };

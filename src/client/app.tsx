@@ -23,6 +23,7 @@ import { LettersPage } from "./components/letters/letters-page";
 import { CommandPalette } from "./components/command-palette";
 import { LetterPage } from "./components/letters/letter-page";
 import { MortgagesPage } from "./components/mortgages/mortgages-page";
+import { CompaniesPage } from "./components/companies/companies-page";
 import { LettingsLeadsPage } from "./components/sales/lettings-leads-page";
 import { MapPage } from "./components/map/map-page";
 import { ApprovalsPage } from "./components/approvals/approvals-page";
@@ -101,6 +102,7 @@ export function App() {
               {route.name === "letters" && <LettersPage navigate={navigate} />}
               {route.name === "letter" && <LetterPage key={route.id} id={route.id} navigate={navigate} />}
               {route.name === "mortgages" && <MortgagesPage navigate={navigate} />}
+              {route.name === "companies" && <CompaniesPage navigate={navigate} />}
               {route.name === "lettings-leads" && <LettingsLeadsPage />}
               {route.name === "map" && <MapPage navigate={navigate} />}
               {route.name === "approvals" && <ApprovalsPage />}

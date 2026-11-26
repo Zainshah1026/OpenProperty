@@ -613,3 +613,36 @@ CREATE TABLE IF NOT EXISTS rent_ticks (
   ticked_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (month, key)
 );
+
+-- ── Companies and joint ventures that own homes ──────────────────
+-- Who owns what share of each company, and which homes it holds. Kept apart
+-- from properties.owner (which the sheet sync rewrites) so nothing is lost.
+CREATE TABLE IF NOT EXISTS companies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'ltd',            -- 'ltd' | 'jv' | 'llp' | 'partnership' | 'personal' | 'other'
+  company_number TEXT,
+  incorporated_on TEXT,                        -- 'YYYY-MM-DD'
+  registered_address TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS company_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER NOT NULL,
+  name TEXT NOT NULL,                          -- person or company holding the shares
+  user_id INTEGER,                             -- set when this is someone who signs in to the app
+  share REAL NOT NULL DEFAULT 0,               -- percentage of the company, 0–100
+  role TEXT,                                   -- 'director' | 'shareholder' | 'partner' | 'investor'
+  invested REAL,                               -- money put in, £
+  sort INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_company_members_company ON company_members(company_id);
+
+CREATE TABLE IF NOT EXISTS company_properties (
+  property_id INTEGER PRIMARY KEY,             -- a home belongs to one company
+  company_id INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_company_properties_company ON company_properties(company_id);
